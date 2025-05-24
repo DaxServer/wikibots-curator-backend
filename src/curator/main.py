@@ -17,12 +17,12 @@ async def root():
     return {"message": "Welcome to the CuratorBot API"}
 
 
-def main():
+def start(reload: bool = True):
     """
     Entry point for the application when run as a script.
     """
-    uvicorn.run("curator.main:app", host="0.0.0.0", reload=True)
+    uvicorn.run("curator.main:app", host="0.0.0.0", reload=reload)
 
 
 if __name__ == "__main__":
-    main()
+    start(reload=False)
