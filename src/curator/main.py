@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 
 from curator.toolforge import router as toolforge_router
@@ -16,13 +17,12 @@ async def root():
     return {"message": "Welcome to the CuratorBot API"}
 
 
-def start():
+def main():
     """
     Entry point for the application when run as a script.
     """
-    import uvicorn
     uvicorn.run("curator.main:app", host="0.0.0.0", reload=True)
 
 
 if __name__ == "__main__":
-    start()
+    main()

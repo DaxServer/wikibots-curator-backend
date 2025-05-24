@@ -24,8 +24,7 @@ dev = [
 packages = [{include = "curator", from = "src"}]
 
 [tool.poetry.scripts]
-fastapi = "src.curator.cli:main"
-web = "curator.main:start"
+web = "curator.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"

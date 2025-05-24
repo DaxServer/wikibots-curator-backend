@@ -1,1 +1,1 @@
-web: python -m curator.main:start
+web: python -m curator.main
