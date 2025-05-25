@@ -1,5 +1,5 @@
-import os
 import functools
+import os
 from typing import Dict, Any, Callable, TypeVar, Optional
 
 import requests
@@ -158,7 +158,7 @@ def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
         Dict[str, Any]: The created job data
     """
     url = f"{TOOLFORGE_API_URL}/jobs/v1/tool/{tool_name}/jobs/"
-    return make_toolforge_request('post', url, job_config.model_dump())
+    return make_toolforge_request('post', url, job_config.model_dump(exclude_unset=True))
 
 
 def delete_job(tool_name: str, job_id: str) -> Dict[str, Any]:
