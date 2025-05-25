@@ -38,8 +38,9 @@ def test_post_tool_job(mock_post_job):
 
     # Test job configuration
     job_config = {
-        "command": "echo 'Hello, World!'",
-        "image": "debian:latest"
+        "name": "test-job",
+        "cmd": "echo 'Hello, World!'",
+        "imagename": "debian:latest"
     }
 
     # Test the endpoint
@@ -53,8 +54,18 @@ def test_post_tool_job(mock_post_job):
     assert response.status_code == 200
     assert response.json() == mock_response
 
-    # Verify that post_job was called with the correct arguments
-    mock_post_job.assert_called_once_with("test-tool", job_config)
+    # Verify that post_job was called once
+    mock_post_job.assert_called_once()
+
+    # Verify that post_job was called with the correct tool name
+    args, _ = mock_post_job.call_args
+    assert args[0] == "test-tool"
+
+    # Verify that post_job was called with a JobConfig object with the correct values
+    job_config_obj = args[1]
+    assert job_config_obj.name == job_config["name"]
+    assert job_config_obj.cmd == job_config["cmd"]
+    assert job_config_obj.imagename == job_config["imagename"]
 
 
 @patch("curator.toolforge.delete_job")
@@ -85,7 +96,7 @@ def test_missing_api_key():
     assert response.status_code == 403
 
     # Test POST endpoint without API key
-    job_config = {"command": "echo 'Hello, World!'", "image": "debian:latest"}
+    job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
     response = client.post("/api/toolforge/jobs/v1/tool/test-tool/jobs/", json=job_config)
     assert response.status_code == 403
 
@@ -101,7 +112,7 @@ def test_invalid_api_key():
     assert response.status_code == 401
 
     # Test POST endpoint with invalid API key
-    job_config = {"command": "echo 'Hello, World!'", "image": "debian:latest"}
+    job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
     response = client.post(
         "/api/toolforge/jobs/v1/tool/test-tool/jobs/",
         json=job_config,
@@ -133,7 +144,7 @@ def test_missing_server_api_key():
         assert response.json()["detail"] == "API key not configured on server"
 
         # Test POST endpoint with valid client API key but missing server API key
-        job_config = {"command": "echo 'Hello, World!'", "image": "debian:latest"}
+        job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
         response = client.post(
             "/api/toolforge/jobs/v1/tool/test-tool/jobs/",
             json=job_config,
