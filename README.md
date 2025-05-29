@@ -19,14 +19,17 @@ Key features:
 
 This application is designed to work within the Wikimedia ecosystem, particularly for tools that need to interact with the Toolforge infrastructure programmatically.
 
-## Installation
+## Deployment
+
+
+
+## Development
 
 ### Prerequisites
 
 - Python 3.13 or higher
 - Poetry (for dependency management)
-- Node.js (v14 or later)
-- npm or yarn
+- bun
 
 ### Backend Setup
 
@@ -36,28 +39,24 @@ Install backend dependencies:
 poetry install
 ```
 
+### Running the Backend Server
+
+Start the FastAPI server:
+
+```bash
+X_API_KEY=abc123 poetry run web
+```
+
+The backend server will be available at http://localhost:8000.
+
 ### Frontend Setup
 
 Install frontend dependencies:
 
 ```bash
 cd frontend
-npm install
-# or
-yarn install
+bun install
 ```
-
-## Usage
-
-### Running the Backend Server
-
-Start the FastAPI server:
-
-```bash
-poetry run web
-```
-
-The backend server will be available at http://localhost:8000.
 
 ### Running the Frontend Development Server
 
@@ -65,27 +64,20 @@ Start the Vue.js development server:
 
 ```bash
 cd frontend
-npm run serve
-# or
-yarn serve
+VITE_API_KEY=abc123 bun run dev
 ```
 
-The frontend development server will be available at http://localhost:8080.
+The frontend development server will be available at http://localhost:5173.
 
-### Building the Frontend for Production
+### Testing build
 
 Build the frontend for production:
 
 ```bash
-cd frontend
-npm run build
-# or
-yarn build
+pack build -B tools-harbor.wmcloud.org/toolforge/heroku-builder:24_0.20.7  --buildpack heroku/python curator-web
 ```
 
 This will build the frontend and output the files to the `src/curator/static` directory, where they can be served by the FastAPI backend.
-
-## Development
 
 ### Running Tests
 
