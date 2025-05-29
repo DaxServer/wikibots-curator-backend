@@ -8,6 +8,9 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BotActions: typeof import('./src/components/BotActions.vue')['default']
     BotsTable: typeof import('./src/components/BotsTable.vue')['default']
+    Button: typeof import('primevue/button')['default']
+    Tag: typeof import('primevue/tag')['default']
   }
 }

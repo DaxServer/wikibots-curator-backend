@@ -5,11 +5,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from curator.toolforge import router as toolforge_router
+from curator.harbor import router as harbor_router
 
 app = FastAPI()
 
-# Include the toolforge router
+# Include the routers
 app.include_router(toolforge_router)
+app.include_router(harbor_router)
 
 # Get the project root directory (two levels up from this file)
 current_dir = os.path.dirname(os.path.abspath(__file__))

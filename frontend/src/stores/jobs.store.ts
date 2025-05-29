@@ -44,15 +44,15 @@ export const useJobsStore = defineStore('jobs', () => {
 
   return {
     // State
-    loading: computed(() => loading.value),
-    error: computed(() => error.value),
-    jobs: computed(() => jobs.value),
-    starting: computed(() => starting.value),
-    deleting: computed(() => deleting.value),
+    loading,
+    error,
+    jobs,
+    starting,
+    deleting,
     
     // Getters
     hasJobs,
-    
+
     // Actions
     setLoading,
     setError,

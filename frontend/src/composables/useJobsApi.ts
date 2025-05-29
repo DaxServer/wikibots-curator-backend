@@ -1,7 +1,5 @@
-import { useJobsStore } from '@/stores/jobs.store';
-import type { 
-  JobRequest
-} from '@/types';
+import {useJobsStore} from '@/stores/jobs.store';
+import type {JobRequest} from '@/types';
 
 export const useJobsApi = () => {
   const jobsStore = useJobsStore();
@@ -13,9 +11,11 @@ export const useJobsApi = () => {
   const fetchJobs = async (): Promise<void> => {
     jobsStore.setLoading(true);
     jobsStore.setError('');
-    
+
     try {
-      const response = await fetch('/curator-api/api/toolforge/jobs/v1/tool/curator/jobs/');
+      const response = await fetch('/api/toolforge/jobs/v1/tool/curator/jobs/', {
+        signal: AbortSignal.timeout(60000)
+      });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -24,9 +24,7 @@ export const useJobsApi = () => {
       }
       
       const data = await response.json();
-      const jobs = data.jobs || [];
-
-      jobsStore.setJobs(jobs);
+      jobsStore.setJobs(data.jobs || []);
     } finally {
       jobsStore.setLoading(false);
     }
@@ -39,23 +37,23 @@ export const useJobsApi = () => {
    */
   const deleteJob = async (jobName: string): Promise<void> => {
     jobsStore.setDeleting(jobName, true);
-    
+    jobsStore.setError('');
+
     try {
       const response = await fetch(
-        `/curator-api/api/toolforge/jobs/v1/tool/curator/jobs/${encodeURIComponent(jobName)}`,
-        { method: 'DELETE' }
+        `/api/toolforge/jobs/v1/tool/curator/jobs/${encodeURIComponent(jobName)}`,
+        { 
+          method: 'DELETE',
+          signal: AbortSignal.timeout(60000)
+        }
       );
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = errorData.message || `Failed to delete job: ${response.statusText}`;
+        jobsStore.setError(errorMsg);
         throw new Error(errorMsg);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      jobsStore.setError('Failed to delete job. Please try again.');
-      console.error('Error in deleteJob:', errorMessage);
-      throw err;
     } finally {
       jobsStore.setDeleting(jobName, false);
     }
@@ -77,12 +75,13 @@ export const useJobsApi = () => {
     };
     
     try {
-      const response = await fetch('/curator-api/api/toolforge/jobs/v1/tool/curator/jobs/', {
+      const response = await fetch('/api/toolforge/jobs/v1/tool/curator/jobs/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(job),
+        signal: AbortSignal.timeout(60000),
       });
       
       if (!response.ok) {
@@ -90,11 +89,6 @@ export const useJobsApi = () => {
         const errorMsg = errorData.message || `Failed to start job: ${response.statusText}`;
         throw new Error(errorMsg);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      jobsStore.setError('Failed to start job. Please try again.');
-      console.error('Error in startJob:', errorMessage);
-      throw err;
     } finally {
       jobsStore.setStarting(job.name, false);
     }

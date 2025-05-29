@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 import type { PluginOption } from 'vite'
-import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import Components from 'unplugin-vue-components/vite'
@@ -32,23 +32,6 @@ export default defineConfig(({ mode }): import('vite').UserConfig => {
         });
     };
 
-    // Define proxy configuration with proper types
-    const proxy: Record<string, string | ProxyOptions> = {
-        // Toolforge API proxy
-        '/curator-api': {
-            target: 'https://curator.toolforge.org',
-            changeOrigin: true,
-            rewrite: (path: string) => path.replace(/^\/curator-api/, ''),
-            configure: configureProxy
-        },
-        // Harbor API proxy
-        '/harbor-api': {
-            target: 'https://tools-harbor.wmcloud.org',
-            changeOrigin: true,
-            rewrite: (path: string) => path.replace(/^\/harbor-api/, '/api/v2.0')
-        }
-    };
-
     return {
         plugins: [
             vue(),
@@ -66,7 +49,17 @@ export default defineConfig(({ mode }): import('vite').UserConfig => {
             },
         },
         server: {
-            proxy
+            proxy: {
+                '/api/harbor': {
+                    target: 'http://localhost:8000',
+                    changeOrigin: true,
+                },
+                '/api': {
+                    target: 'https://curator.toolforge.org',
+                    changeOrigin: true,
+                    configure: configureProxy
+                },
+            }
         }
     };
 });

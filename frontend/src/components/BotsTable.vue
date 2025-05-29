@@ -2,6 +2,9 @@
 // Vue
 import { computed, onMounted, ref } from 'vue';
 
+// Components
+import BotActions from './BotActions.vue';
+
 // PrimeVue Components
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
@@ -23,15 +26,14 @@ const jobsStore = useJobsStore();
 const harborStore = useHarborStore();
 const botsStore = useBotsStore();
 
-const { fetchBots } = useBotsApi();
+const { fetchBots, fetchJobs, startPolling } = useBotsApi();
 const { startJob, deleteJob } = useJobsApi();
 
 // Local state
 const isRefreshing = ref(false);
-const lastRefreshed = ref<Date | null>(null);
 
 // Computed properties
-const isLoading = computed(() => botsStore.loading || jobsStore.loading || harborStore.loading || isRefreshing.value);
+const isLoading = computed(() => harborStore.loading || jobsStore.loading || isRefreshing.value);
 const error = computed(() => {
   if (botsStore.error) return botsStore.error;
   if (jobsStore.error) return jobsStore.error;
@@ -39,13 +41,33 @@ const error = computed(() => {
   return '';
 });
 
-// Handle refreshing bots data
-const refreshBots = async () => {
+/**
+ * Handles refreshing bots data and/or performing job actions
+ * @param actionOrEvent - Either an async function to execute before refreshing or a MouseEvent
+ */
+const refreshBots = async (actionOrEvent?: (() => Promise<void>) | MouseEvent) => {
+  // Handle the case where the function is called from a click event
+  const action = typeof actionOrEvent === 'function' ? actionOrEvent : undefined;
+
   try {
     isRefreshing.value = true;
-    await fetchBots();
-    lastRefreshed.value = new Date();
+    
+    // Execute the provided action if any
+    if (action) {
+      await action();
+      // After a job action, we need to refresh jobs to get the latest status
+      await fetchJobs();
+    } else {
+      // If no action provided, just refresh the bots data
+      await fetchBots();
+    }
+
+    // Start polling if there are pending jobs
+    if (botsStore.hasPendingJobs) {
+      startPolling();
+    }
   } finally {
+    botsStore.setLastRefreshed();
     isRefreshing.value = false;
   }
 };
@@ -54,6 +76,10 @@ const refreshBots = async () => {
 onMounted(() => {
   refreshBots();
 });
+
+// Wrapper functions for job actions
+const handleStartJob = (jobType: string) => refreshBots(() => startJob(jobType));
+const handleDeleteJob = (jobType: string) => refreshBots(() => deleteJob(jobType));
 </script>
 
 <template>
@@ -62,7 +88,7 @@ onMounted(() => {
       <h2 class="m-0">Bots</h2>
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-600">
-          Last updated: {{ lastRefreshed?.toLocaleTimeString() ?? 'Never' }}
+          Last updated: {{ botsStore.lastRefreshed?.toLocaleTimeString() ?? 'Never' }}
         </span>
         <Button
           icon="pi pi-refresh"
@@ -98,19 +124,15 @@ onMounted(() => {
       <Column header="Status">
         <template #body="{ data }">
           <Tag
-            v-if="data?.statusLong && data?.statusSeverity"
-            :value="data.statusLong"
-            :severity="data.statusSeverity"
-            :class="{'p-tag-rounded': true}"
+            :value="data.status.text"
+            :severity="data.status.severity"
           />
-          <span v-else class="text-gray-400 italic">Unknown</span>
         </template>
       </Column>
 
       <Column field="jobName" header="Job">
         <template #body="{ data }">
           <span v-if="data?.jobName" class="font-mono text-sm">{{ data.jobName }}</span>
-          <span v-else class="text-gray-400 italic">-</span>
         </template>
       </Column>
 
@@ -120,28 +142,13 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="Actions" :exportable="false">
+      <Column header="Actions">
         <template #body="{ data }">
-          <div class="flex gap-2">
-            <Button
-              v-if="!data.isRunning"
-              type="button"
-              class="p-button-sm p-button-info"
-              @click="startJob(data.type)"
-            >
-              <i class="pi pi-play mr-2"></i>
-              <span>Start</span>
-            </Button>
-            <Button
-              v-else
-              type="button"
-              class="p-button-sm p-button-danger"
-              @click="deleteJob(data.type)"
-            >
-              <i class="pi pi-stop mr-2"></i>
-              <span>Stop</span>
-            </Button>
-          </div>
+          <BotActions
+            :bot="data"
+            :on-start="handleStartJob"
+            :on-stop="handleDeleteJob"
+          />
         </template>
       </Column>
     </DataTable>

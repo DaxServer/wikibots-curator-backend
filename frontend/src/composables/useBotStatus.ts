@@ -1,30 +1,38 @@
-import type { Bot, BotWithStatus, Job, StatusSeverity } from '@/types';
-
-type StatusConfig = {
-  [key: string]: {
-    long: string;
-    severity: StatusSeverity;
-  };
-};
+import type { Bot, Job, BotStatus, StatusConfig } from '@/types';
 
 const STATUS_CONFIG: StatusConfig = {
-  running: { long: 'Running', severity: 'success' as StatusSeverity },
-  active: { long: 'Active', severity: 'success' as StatusSeverity },
-  stopped: { long: 'Not Running', severity: 'danger' as StatusSeverity },
-  'not running': { long: 'Not Running', severity: 'danger' as StatusSeverity },
-  error: { long: 'Error', severity: 'danger' as StatusSeverity },
-  failed: { long: 'Failed', severity: 'danger' as StatusSeverity },
-  unknown: { long: 'Unknown', severity: 'info' as StatusSeverity },
+  running: { text: 'Running', severity: 'success', isRunning: true },
+  stopped: { text: 'Not Running', severity: 'danger', isRunning: false },
+  pending: { text: 'Starting...', severity: 'info', isRunning: false },
+  error: { text: 'Error', severity: 'danger', isRunning: false },
+  failed: { text: 'Failed', severity: 'danger', isRunning: false },
+  unknown: { text: 'Unknown', severity: 'danger', isRunning: false },
 };
 
 export const useBotStatus = () => {
+
   /**
-   * Determines the severity of a bot's status for UI display
-   * @param status - The status of the bot
-   * @returns A severity level for UI display
+   * Creates a status object based on the job status
    */
-  const getStatusSeverity = (status: string): StatusSeverity => {
-    return STATUS_CONFIG[status.toLowerCase()]?.severity || STATUS_CONFIG.unknown.severity;
+  const createStatusFromJob = (statusLong: string): BotStatus => {
+    const statusLower = statusLong.toLowerCase();
+    let state: BotStatus['state'];
+    
+    if (statusLower.includes("pod in 'pending' phase")) {
+      state = 'pending';
+    } else if (statusLower.includes("pod in 'running' phase")) {
+      state = 'running';
+    } else if (statusLower.includes('error') || statusLower.includes('failed')) {
+      state = 'error';
+    } else {
+      state = 'stopped';
+    }
+
+    return {
+      state,
+      ...STATUS_CONFIG[state],
+      isPending: state === 'pending',
+    };
   };
 
   /**
@@ -36,44 +44,36 @@ export const useBotStatus = () => {
   const updateBotsWithJobStatus = (bots: Bot[], jobs: Job[]): Bot[] => {
     return bots.map(bot => {
       const matchingJob = jobs.find(job => 
-        (job.cmd?.includes(bot.type) || job.name === bot.type) &&
-        job.status_long
+        (job.cmd?.includes(bot.type) || job.name === bot.type)
       );
 
-      const isRunning = matchingJob?.status_long.toLowerCase().includes("state 'running'") ?? false;
-      
-      return {
-        ...bot,
-        isRunning,
-        status: isRunning ? 'running' : 'stopped',
-        jobName: matchingJob?.name || ''
-      };
-    });
-  };
-
-  /**
-   * Maps bots to include status information
-   * @param bots - The array of bots to process
-   * @returns Array of bots with enriched status data
-   */
-  const botsWithStatus = (bots: Bot[]): BotWithStatus[] => {
-    return bots.map(bot => {
-      const statusLower = bot.status.toLowerCase();
-      const statusInfo = STATUS_CONFIG[statusLower] || STATUS_CONFIG.unknown;
+      if (!matchingJob) {
+        return {
+          ...bot,
+          status: {
+            ...bot.status,
+            ...STATUS_CONFIG.stopped,
+            state: 'stopped',
+            isPending: false,
+          },
+          jobName: ''
+        };
+      }
 
       return {
         ...bot,
-        status: bot.status,
-        statusLong: statusInfo.long,
-        statusSeverity: statusInfo.severity
+        status: {
+          ...bot.status,
+          ...createStatusFromJob(matchingJob.status_long)
+        },
+        jobName: matchingJob.name || ''
       };
     });
   };
 
   return {
-    getStatusSeverity,
     updateBotsWithJobStatus,
-    botsWithStatus
+    statusConfig: STATUS_CONFIG
   };
 };
 

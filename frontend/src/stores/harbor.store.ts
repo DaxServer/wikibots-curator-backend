@@ -1,8 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type {
-  Process
-} from '@/types';
+import type { Process } from '@/types';
 
 export const useHarborStore = defineStore('harbor', () => {
   // State

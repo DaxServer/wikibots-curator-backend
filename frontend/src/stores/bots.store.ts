@@ -1,50 +1,45 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Bot, Job } from '@/types';
-import useBotStatus from '@/composables/useBotStatus';
+import type { Bot } from '@/types';
+import { useHarborStore } from './harbor.store';
+import { useJobsStore } from './jobs.store';
 
 export const useBotsStore = defineStore('bots', () => {
+  // Child stores
+  const harborStore = useHarborStore();
+  const jobsStore = useJobsStore();
+  
   // State
-  const loading = ref(false);
   const error = ref('');
   const bots = ref<Bot[]>([]);
+  const lastRefreshed = ref<Date | null>(null);
 
-  // Composable
-  const { updateBotsWithJobStatus: updateBotsWithJobStatusUtil, botsWithStatus: botsWithStatusUtil } = useBotStatus();
-  
   // Actions
-  const setLoading = (isLoading: boolean) => {
-    loading.value = isLoading;
-  };
-
   const setError = (errorMessage: string) => {
     error.value = errorMessage;
   };
 
   const setBots = (newBots: Bot[]) => {
-    bots.value = newBots.map(bot => ({
-      ...bot,
-      isRunning: bot.status === 'running'
-    }));
+    bots.value = newBots;
   };
 
-  const updateBotsWithJobStatus = (jobs: Job[]) => {
-    bots.value = updateBotsWithJobStatusUtil(bots.value, jobs);
+  const setLastRefreshed = () => {
+    lastRefreshed.value = new Date();
   };
 
   return {
     // State
-    loading: computed(() => loading.value),
-    error: computed(() => error.value),
+    error: computed(() => error.value || harborStore.error || jobsStore.error),
     
     // Getters
-    bots: computed(() => botsWithStatusUtil(bots.value)),
+    bots,
+    lastRefreshed,
+    hasPendingJobs: computed(() => bots.value.some(bot => bot.status.isPending)),
 
     // Actions
-    setLoading,
     setError,
     setBots,
-    updateBotsWithJobStatus,
+    setLastRefreshed,
   };
 });
 
