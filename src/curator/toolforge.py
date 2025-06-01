@@ -2,7 +2,7 @@ import functools
 import os
 from typing import Dict, Any, Callable, TypeVar, Optional
 
-import requests
+import httpx
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
@@ -87,7 +87,7 @@ def handle_exceptions(func: Callable[..., T]) -> Callable[..., T]:
     return wrapper
 
 
-def make_toolforge_request(
+async def make_toolforge_request(
     method: str,
     url: str,
     json_data: Optional[Dict[str, Any]] = None
@@ -112,27 +112,29 @@ def make_toolforge_request(
         f"{home_dir}/.toolskube/client.key"
     )
 
-    # Make the request
-    if method.lower() == 'get':
-        response = requests.get(url, cert=cert, verify=False)
-    elif method.lower() == 'post':
-        response = requests.post(url, json=json_data, cert=cert, verify=False)
-    elif method.lower() == 'delete':
-        response = requests.delete(url, cert=cert, verify=False)
-    else:
-        raise ValueError(f"Unsupported HTTP method: {method}")
+    # Create client with SSL verification disabled and client certs
+    async with httpx.AsyncClient(verify=False, cert=cert) as client:
+        # Make the request
+        if method.lower() == 'get':
+            response = await client.get(url)
+        elif method.lower() == 'post':
+            response = await client.post(url, json=json_data)
+        elif method.lower() == 'delete':
+            response = await client.delete(url)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
 
-    # Raise an exception if the request failed
-    response.raise_for_status()
+        # Raise an exception if the request failed
+        response.raise_for_status()
 
-    # Return the JSON response if there is one, otherwise return an empty dict
-    try:
-        return response.json()
-    except ValueError:
-        return {}
+        # Return the JSON response if there is one, otherwise return an empty dict
+        try:
+            return response.json()
+        except ValueError:
+            return {}
 
 
-def get_jobs(tool_name: str) -> Dict[str, Any]:
+async def get_jobs(tool_name: str) -> Dict[str, Any]:
     """
     Fetch jobs for a specific tool.
 
@@ -143,10 +145,10 @@ def get_jobs(tool_name: str) -> Dict[str, Any]:
         Dict[str, Any]: The jobs data
     """
     url = f"{TOOLFORGE_API_URL}/jobs/v1/tool/{tool_name}/jobs/"
-    return make_toolforge_request('get', url)
+    return await make_toolforge_request('get', url)
 
 
-def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
+async def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
     """
     Create a new job for a specific tool.
 
@@ -158,10 +160,10 @@ def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
         Dict[str, Any]: The created job data
     """
     url = f"{TOOLFORGE_API_URL}/jobs/v1/tool/{tool_name}/jobs/"
-    return make_toolforge_request('post', url, job_config.model_dump(exclude_unset=True))
+    return await make_toolforge_request('post', url, job_config.model_dump(exclude_unset=True))
 
 
-def delete_job(tool_name: str, job_id: str) -> Dict[str, Any]:
+async def delete_job(tool_name: str, job_id: str) -> Dict[str, Any]:
     """
     Delete a job by its ID.
 
@@ -173,7 +175,7 @@ def delete_job(tool_name: str, job_id: str) -> Dict[str, Any]:
         Dict[str, Any]: The response data
     """
     url = f"{TOOLFORGE_API_URL}/jobs/v1/tool/{tool_name}/jobs/{job_id}"
-    return make_toolforge_request('delete', url)
+    return await make_toolforge_request('delete', url)
 
 
 @router.get("/jobs/v1/tool/{tool_name}/jobs/")
@@ -189,7 +191,7 @@ async def get_tool_jobs(tool_name: str, api_key: str = Depends(verify_api_key)):
     Returns:
         Dict[str, Any]: The jobs data
     """
-    return get_jobs(tool_name)
+    return await get_jobs(tool_name)
 
 
 @router.post("/jobs/v1/tool/{tool_name}/jobs/")
@@ -210,7 +212,7 @@ async def post_tool_job(
     Returns:
         Dict[str, Any]: The created job data
     """
-    return post_job(tool_name, job_config)
+    return await post_job(tool_name, job_config)
 
 
 @router.delete("/jobs/v1/tool/{tool_name}/jobs/{job_id}")
@@ -231,4 +233,4 @@ async def delete_tool_job(
     Returns:
         Dict[str, Any]: The response data
     """
-    return delete_job(tool_name, job_id)
+    return await delete_job(tool_name, job_id)

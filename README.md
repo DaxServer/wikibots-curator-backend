@@ -1,47 +1,54 @@
-# Curator Backend
+# Curator Application
 
-A FastAPI-based backend service for the Curator application.
+A full-stack application for managing and monitoring Wikimedia Toolforge jobs.
 
 ## Overview
 
-The Curator Backend is a FastAPI-based service that provides a secure interface to the Wikimedia Toolforge API. It serves as the backend component for the Curator application, enabling users to manage and monitor jobs running on Wikimedia Toolforge.
+The Curator Application consists of:
 
-Key features:
-- Secure API access with API key authentication
-- Endpoints for retrieving job information for specific tools
-- Integration with the Toolforge API (https://api.svc.tools.eqiad1.wikimedia.cloud)
-- Simple and intuitive REST API design
+1. **Backend**: A FastAPI-based service that provides a secure interface to the Wikimedia Toolforge API
+2. **Frontend**: A Vue.js application with TypeScript and PrimeVue for displaying and managing Toolforge jobs
 
-This service is designed to work within the Wikimedia ecosystem, particularly for tools that need to interact with the Toolforge infrastructure programmatically.
+This application is designed to work within the Wikimedia ecosystem, particularly for tools that need to interact with the Toolforge infrastructure programmatically.
 
-## Installation
+## Deployment
+
+ToDo
+
+## Development
+
+This project is the Backend application.
 
 ### Prerequisites
 
 - Python 3.13 or higher
 - Poetry (for dependency management)
 
-### Setup
+### Installation
 
-Install dependencies:
+Install backend dependencies:
 
 ```bash
 poetry install
 ```
-
-## Usage
 
 ### Running the Server
 
 Start the FastAPI server:
 
 ```bash
-poetry run web
+X_API_KEY=abc123 poetry run web
 ```
 
-The server will be available at http://localhost:8000.
+The backend server will be available at http://localhost:8000.
 
-## Development
+### Testing build
+
+Build the frontend for production:
+
+```bash
+pack build -B tools-harbor.wmcloud.org/toolforge/heroku-builder:24_0.20.7 curator-web
+```
 
 ### Running Tests
 
