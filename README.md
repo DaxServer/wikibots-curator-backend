@@ -17,6 +17,8 @@ ToDo
 
 ## Development
 
+This project is the Backend application.
+
 ### Prerequisites
 
 - Python 3.13 or higher
