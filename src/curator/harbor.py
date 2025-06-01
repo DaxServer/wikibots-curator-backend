@@ -86,9 +86,9 @@ async def get_harbor_processes():
         raise HTTPException(
             status_code=e.response.status_code,
             detail=f"Failed to fetch from Harbor: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while processing Harbor data: {str(e)}"
-        )
+        ) from e
