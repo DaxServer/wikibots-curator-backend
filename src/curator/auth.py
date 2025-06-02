@@ -50,7 +50,7 @@ async def auth(request: Request):
         # Clear the request token as it's no longer needed
         request.session.pop('request_token', None)
 
-        return RedirectResponse(url=router.url_path_for('whoami'))
+        return RedirectResponse(url='/')
     except ValueError as e:
         return HTMLResponse(f'Invalid OAuth response: {str(e)}', status_code=400)
     except Exception as e:
@@ -68,5 +68,8 @@ async def logout(request: Request):
 async def whoami(request: Request):
     user = request.session.get('user')
     if user:
-        return user
+        return JSONResponse({
+            "username": user.get('username'),
+            "authorized": os.getenv('X_USERNAME') == user.get('username'),
+        })
     return JSONResponse({'message': 'Not authenticated'}, status_code=401)
