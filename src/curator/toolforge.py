@@ -3,13 +3,16 @@ import os
 from typing import Dict, Any, Callable, TypeVar, Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends, status
-from fastapi.security import APIKeyHeader
+from fastapi import APIRouter, HTTPException, Depends, Request, status
 from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
 TOOLFORGE_API_URL = os.getenv('TOOL_TOOLFORGE_API_URL', "https://api.svc.tools.eqiad1.wikimedia.cloud:30003")
+X_USERNAME = os.getenv('X_USERNAME')
+
+# Create a router for toolforge endpoints
+router = APIRouter(prefix="/api/toolforge", tags=["toolforge"])
 
 
 class JobConfig(BaseModel):
@@ -34,38 +37,19 @@ class JobConfig(BaseModel):
     timeout: Optional[int] = Field(None, description="Maximum amount of seconds the job will be allowed to run before it is failed")
 
 
-# Create a router for toolforge endpoints
-router = APIRouter(prefix="/api/toolforge", tags=["toolforge"])
-
-# API key authentication
-X_API_KEY = APIKeyHeader(name="X-API-KEY")
-
-
-async def verify_api_key(x_api_key: str = Depends(X_API_KEY)):
+async def verify_user(request: Request):
     """
-    Verify that the API key in the X-API-KEY header matches the one in the environment variable.
 
-    Args:
-        x_api_key (str): The API key from the X-API-KEY header.
-
-    Returns:
-        str: The API key if it's valid.
-
-    Raises:
-        HTTPException: If the API key is invalid.
     """
-    api_key = os.environ.get("X_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="API key not configured on server"
-        )
-    if x_api_key != api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key"
-        )
-    return x_api_key
+    user = request.session.get('user')
+
+    if user and user.get('username') == X_USERNAME:
+        return user.get('username')
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized"
+    )
 
 
 def handle_exceptions(func: Callable[..., T]) -> Callable[..., T]:
@@ -134,7 +118,9 @@ async def make_toolforge_request(
             return {}
 
 
-async def get_jobs(tool_name: str) -> Dict[str, Any]:
+@router.get("/jobs/v1/tool/{tool_name}/jobs/")
+@handle_exceptions
+async def get_tool_jobs(tool_name: str):
     """
     Fetch jobs for a specific tool.
 
@@ -148,13 +134,20 @@ async def get_jobs(tool_name: str) -> Dict[str, Any]:
     return await make_toolforge_request('get', url)
 
 
-async def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
+@router.post("/jobs/v1/tool/{tool_name}/jobs/")
+@handle_exceptions
+async def post_tool_job(
+        tool_name: str,
+        job_config: JobConfig,
+        user: str = Depends(verify_user)
+):
     """
     Create a new job for a specific tool.
 
     Args:
         tool_name (str): The name of the tool.
         job_config (JobConfig): The job configuration.
+        user (str): The username of the user.
 
     Returns:
         Dict[str, Any]: The created job data
@@ -163,74 +156,23 @@ async def post_job(tool_name: str, job_config: JobConfig) -> Dict[str, Any]:
     return await make_toolforge_request('post', url, job_config.model_dump(exclude_unset=True))
 
 
-async def delete_job(tool_name: str, job_id: str) -> Dict[str, Any]:
+@router.delete("/jobs/v1/tool/{tool_name}/jobs/{job_id}")
+@handle_exceptions
+async def delete_tool_job(
+        tool_name: str,
+        job_id: str,
+        user: str = Depends(verify_user)
+):
     """
     Delete a job by its ID.
 
     Args:
         tool_name (str): The name of the tool.
         job_id (str): The ID of the job to delete.
+        user (str): The username of the user.
 
     Returns:
         Dict[str, Any]: The response data
     """
     url = f"{TOOLFORGE_API_URL}/jobs/v1/tool/{tool_name}/jobs/{job_id}"
     return await make_toolforge_request('delete', url)
-
-
-@router.get("/jobs/v1/tool/{tool_name}/jobs/")
-@handle_exceptions
-async def get_tool_jobs(tool_name: str, api_key: str = Depends(verify_api_key)):
-    """
-    Fetch jobs for a specific tool.
-
-    Args:
-        tool_name (str): The name of the tool.
-        api_key (str): The API key from the X-API-KEY header.
-
-    Returns:
-        Dict[str, Any]: The jobs data
-    """
-    return await get_jobs(tool_name)
-
-
-@router.post("/jobs/v1/tool/{tool_name}/jobs/")
-@handle_exceptions
-async def post_tool_job(
-        tool_name: str,
-        job_config: JobConfig,
-        api_key: str = Depends(verify_api_key)
-):
-    """
-    Create a new job for a specific tool.
-
-    Args:
-        tool_name (str): The name of the tool.
-        job_config (JobConfig): The job configuration.
-        api_key (str): The API key from the X-API-KEY header.
-
-    Returns:
-        Dict[str, Any]: The created job data
-    """
-    return await post_job(tool_name, job_config)
-
-
-@router.delete("/jobs/v1/tool/{tool_name}/jobs/{job_id}")
-@handle_exceptions
-async def delete_tool_job(
-        tool_name: str,
-        job_id: str,
-        api_key: str = Depends(verify_api_key)
-):
-    """
-    Delete a job by its ID.
-
-    Args:
-        tool_name (str): The name of the tool.
-        job_id (str): The ID of the job to delete.
-        api_key (str): The API key from the X-API-KEY header.
-
-    Returns:
-        Dict[str, Any]: The response data
-    """
-    return await delete_job(tool_name, job_id)

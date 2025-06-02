@@ -1,14 +1,23 @@
-import uvicorn
-from fastapi import FastAPI
+import os
+import secrets
 
+from fastapi import FastAPI
+import uvicorn
+
+from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
 from curator.toolforge import router as toolforge_router
 
+from starlette.middleware.sessions import SessionMiddleware
+
+
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', secrets.token_hex(32)))
 
 # Include the routers
-app.include_router(toolforge_router)
+app.include_router(auth_router)
 app.include_router(harbor_router)
+app.include_router(toolforge_router)
 
 
 @app.get("/")
