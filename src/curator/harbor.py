@@ -3,7 +3,9 @@ from fastapi import APIRouter, HTTPException
 import httpx
 from pydantic import BaseModel
 
-router = APIRouter()
+HARBOR_API_URL = "https://tools-harbor.wmcloud.org/api/v2.0/projects/tool-curator/repositories/wikibots/artifacts"
+
+router = APIRouter(prefix='/api/harbor', tags=['harbor'])
 
 
 class ImageArtifactTag(BaseModel):
@@ -25,9 +27,6 @@ class BuildPackProcess(BaseModel):
 
 class BuildPackMetadata(BaseModel):
     processes: List[BuildPackProcess]
-
-
-HARBOR_API_URL = "https://tools-harbor.wmcloud.org/api/v2.0/projects/tool-curator/repositories/wikibots/artifacts"
 
 
 async def get_latest_artifact() -> ImageArtifact:
@@ -57,7 +56,7 @@ async def get_latest_artifact() -> ImageArtifact:
     return latest_artifact
 
 
-@router.get("/api/harbor/processes", response_model=List[BuildPackProcess])
+@router.get("/processes", response_model=List[BuildPackProcess])
 async def get_harbor_processes():
     """
     Fetches and returns the processes from the latest Harbor artifact
