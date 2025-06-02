@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from fastapi import FastAPI
 import uvicorn
@@ -11,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', 'super-secret'))
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', secrets.token_hex(32)))
 
 # Include the routers
 app.include_router(auth_router)
