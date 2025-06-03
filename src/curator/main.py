@@ -32,7 +32,7 @@ def start(reload: bool = True):
     """
     Entry point for the application when run as a script.
     """
-    uvicorn.run("curator.main:app", host="0.0.0.0", reload=reload)
+    uvicorn.run("curator.main:app", host="0.0.0.0", reload=reload, port=8001)
 
 
 if __name__ == "__main__":
