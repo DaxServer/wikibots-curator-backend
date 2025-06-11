@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "---> Bun Buildpack"
+
+# 1. Create the layer directory
+layers_dir="${CNB_LAYERS_DIR}/bun"
+mkdir -p "$layers_dir"
+
+# 2. Download bun
+BUN_VERSION="1.2.15"
+cached_bun_version=$(grep 'bun_version' "${layers_dir}.toml" 2>/dev/null | cut -d= -f2- | tr -d ' "' || true)
+echo "---> Cached bun version: ${cached_bun_version:-None}"
+if [[ "$BUN_VERSION" == "$cached_bun_version" ]]; then
+  echo "---> Using cached bun version: $BUN_VERSION"
+else
+  echo "---> Downloading bun version: $BUN_VERSION"
+  wget -O "$layers_dir/install.sh" https://bun.sh/install
+  chmod +x "$layers_dir/install.sh"
+  BUN_INSTALL="$layers_dir" "$layers_dir/install.sh" "bun-v${BUN_VERSION}"
+  rm "$layers_dir/install.sh"
+fi
+
+# 3. Install dependencies
+echo "---> Installing dependencies"
+export PATH="$layers_dir/bin:$PATH"
+bun install
+bun pm ls
+
+# 3. Make bun available
+cat > "${layers_dir}.toml" << EOL
+[types]
+launch = true
+cache = true
+
+[metadata]
+bun_version = "$BUN_VERSION"
+EOL
+
+# 4. Make the app runnable
+cat > "${CNB_LAYERS_DIR}/launch.toml" << EOL
+[[processes]]
+type = "web"
+command = ["bun", "index.ts"]
+default = true
+EOL

@@ -1,0 +1,15 @@
+api = "0.10"
+WithWindowsBuild = false
+WithLinuxBuild = false
+
+[buildpack]
+  id = "daxserver/buildpack-bun"
+  version = "0.1.0"
+
+[[targets]]
+  os = "darwin"
+  arch = "arm64"
+
+[[targets]]
+  os = "linux"
+  arch = "amd64"

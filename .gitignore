@@ -1,21 +1,55 @@
-__pycache__
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Production
+#build
+dist
+
+# Environment variables
+backend/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Logs
 logs
 *.log
-
-.DS_Store
-dist
-dist-ssr
-coverage
-*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Bun
+.bun-*
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+
+# Local development
+*.local
+
+# Misc
+.cache
+.vercel
+.next
+.nuxt

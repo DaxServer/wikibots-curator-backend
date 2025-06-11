@@ -1,0 +1,33 @@
+{
+  "name": "curator-backend",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "type-check": "bun -F'*' type-check",
+    "validate": "bun run lint && bun run type-check && bun run format --check",
+    "build": "bun -F'*' run build",
+    "start": "bun -F curator-backend start"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.1",
+    "@typescript-eslint/parser": "^8.33.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.5.0",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-prettier": "^5.4.1",
+    "eslint-plugin-vue": "^10.1.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "vue-eslint-parser": "^10.1.3"
+  }
+}

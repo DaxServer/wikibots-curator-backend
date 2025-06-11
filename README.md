@@ -41,6 +41,7 @@ toolforge webservice buildservice start --buildservice-image tool-curator/web:la
 ```
 
 For subsequent deployments, use:
+
 ```bash
 toolforge webservice restart
 ```

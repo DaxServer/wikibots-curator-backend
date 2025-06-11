@@ -1,6 +1,12 @@
-# The following are guidelines for writing code in Python.
+# DOs
 
-- Use type hints consistently
-- Optimize for readability over premature optimization
-- Write modular code
-- Follow PEP8 style guide for Python code
+- Always use context7 or web to update your context with docs.
+- Always use extremely minimal code changes to answer the question.
+- Always try to answer the question as simply as possible.
+- Always use the most appropriate context to answer the question.
+- Always focus on one thing at a time.
+
+# DONTs
+
+- Do NOT deviate from what you are told.
+- Do NOT add anything else that is not relevant to the task at hand.
