@@ -1,1 +1,1 @@
-web: python -m curator.main
+web: bun install

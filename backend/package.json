@@ -1,0 +1,24 @@
+{
+  "name": "curator-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "start": "bun dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.0.0-rc.5",
+    "hono-sessions": "^0.7.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@hono/zod-validator": "^0.7.0",
+    "@types/bun": "^1.2.15",
+    "@types/node": "^22.15.29",
+    "bun-types": "^1.2.15",
+    "typescript": "^5.8.3"
+  }
+}
