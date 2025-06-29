@@ -4,12 +4,17 @@ import secrets
 from fastapi import FastAPI
 import uvicorn
 
+from curator.frontend_utils import setup_frontend_assets
 from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
 from curator.toolforge import router as toolforge_router
 
 from starlette.middleware.sessions import SessionMiddleware
 
+
+# Setup frontend assets before FastAPI app initialization
+# Default target_dir is "frontend"
+setup_frontend_assets()
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', secrets.token_hex(32)))
