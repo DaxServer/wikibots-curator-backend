@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import os
 import secrets
+import sys
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -18,7 +19,18 @@ from starlette.middleware.sessions import SessionMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_frontend_assets()
+
+    # Mount static files after frontend assets are set up
+    assets_dir = os.path.join(frontend_dir, 'dist/assets')
+    if not os.path.exists(assets_dir):
+        print(f"Assets directory not found at {assets_dir}")
+        sys.exit(1)
+
+    app.mount('/assets', StaticFiles(directory=assets_dir))
+    app.add_api_route("/", lambda: FileResponse(os.path.join(frontend_dir, 'dist/index.html')), methods=["GET"])
+
     yield
+
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', secrets.token_hex(32)))
@@ -27,13 +39,6 @@ app.add_middleware(SessionMiddleware, secret_key=os.environ.get('SECRET_KEY', se
 app.include_router(auth_router)
 app.include_router(harbor_router)
 app.include_router(toolforge_router)
-
-app.mount('/assets', StaticFiles(directory=os.path.join(frontend_dir, 'dist/assets')), name='assets')
-
-
-@app.get("/")
-async def root():
-    return FileResponse(os.path.join(frontend_dir, 'dist/index.html'))
 
 
 def start(reload: bool = True):
