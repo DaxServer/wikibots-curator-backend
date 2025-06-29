@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 import os
 import secrets
+import sys
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -23,7 +24,7 @@ async def lifespan(app: FastAPI):
     assets_dir = os.path.join(frontend_dir, 'dist/assets')
     if not os.path.exists(assets_dir):
         print(f"Assets directory not found at {assets_dir}")
-        exit(1)
+        sys.exit(1)
 
     app.mount('/assets', StaticFiles(directory=assets_dir))
     app.add_api_route("/", lambda: FileResponse(os.path.join(frontend_dir, 'dist/index.html')), methods=["GET"])
