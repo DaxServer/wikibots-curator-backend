@@ -12,7 +12,9 @@ frontend_dir = os.path.join(os.path.dirname(__file__), '../..', 'frontend')
 def setup_frontend_assets():
     api_url = "https://api.github.com/repos/DaxServer/wikibots-curator-frontend/releases/latest"
     try:
-        response = requests.get(api_url, timeout=30)
+        response = requests.get(api_url, timeout=30, headers={
+            "Authorization": f"Bearer {os.environ['GITHUB_PERSONAL_ACCESS_TOKEN']}"
+        })
         response.raise_for_status()
         release_data = response.json()
     except requests.exceptions.RequestException as e:
