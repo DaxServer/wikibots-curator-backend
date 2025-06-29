@@ -107,34 +107,44 @@ def test_delete_tool_job_unauthorized(mock_verify_user_invalid):
     assert response.json()["detail"] == "Unauthorized"
     app.dependency_overrides = {}
 
-def test_post_tool_job_missing_x_username(mock_verify_user_valid):
-    """Test POST endpoint when X_USERNAME is not set on the server."""
-    original_x_username = os.environ.pop("X_USERNAME", None)
-    # Need to reload the app context for the change in X_USERNAME to be reflected in verify_user
-    # This is a bit of a hack for testing this specific scenario.
-    # A better approach might involve a fixture to manage app state if this pattern repeats.
-    from importlib import reload
+
+@patch("curator.toolforge.make_toolforge_request") # Patch to prevent actual HTTP call
+def test_post_tool_job_missing_x_username(mock_make_request, monkeypatch):
+    """Test POST endpoint returns 401 when X_USERNAME is not set on the server, using actual verify_user logic."""
+    # Store original X_USERNAME from module to restore later if necessary, though monkeypatch handles os.environ
     import curator.toolforge
-    reload(curator.toolforge) # Reload to pick up missing X_USERNAME
+    original_module_x_username = getattr(curator.toolforge, 'X_USERNAME', 'AttributeNotSet')
 
-    # Temporarily override verify_user within the app for this test
-    # to simulate the state where X_USERNAME was not available at import time for verify_user
-    # This means verify_user will behave as if X_USERNAME is None
-    app.dependency_overrides[curator.toolforge.verify_user] = lambda: mock_verify_user_valid
+    monkeypatch.delenv("X_USERNAME", raising=False)
 
+    # Reload the module to ensure it picks up the absence of X_USERNAME from os.environ
+    from importlib import reload
+    reload(curator.toolforge)
+    # Directly ensure X_USERNAME in the reloaded module is None
+    monkeypatch.setattr(curator.toolforge, 'X_USERNAME', None)
+
+
+    # IMPORTANT: No dependency_override for verify_user here.
+    # We want the actual verify_user to run with X_USERNAME being None.
+    # The client will have no session data for 'user' by default.
+    # So verify_user will see request.session.get('user') as None,
+    # causing the `if user_session_data and user_session_data.get('username') == X_USERNAME:`
+    # check to fail (None and ... is False), leading to HTTP 401.
 
     job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
     response = client.post("/api/toolforge/jobs/v1/tool/test-tool/jobs/", json=job_config)
 
-    # Even with a valid session, if X_USERNAME is not set, verify_user should deny.
-    # However, the current verify_user logic uses X_USERNAME at import time.
-    # If X_USERNAME is unset, verify_user will always raise 401 because user.get('username') == None
-    # will always be false if X_USERNAME was None at module load.
-    # This test as written will likely fail to show the intended behavior without further refactoring of verify_user
-    # or a more complex test setup. Given the current structure, we expect 401.
-    assert response.status_code == 401 # or 500 depending on how verify_user handles X_USERNAME being None
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Unauthorized"
 
-    if original_x_username:
-        os.environ["X_USERNAME"] = original_x_username
-    reload(curator.toolforge) # Reload again to restore original X_USERNAME context
-    app.dependency_overrides = {}
+    # Clean up: reload the module again to restore its original X_USERNAME state
+    # if it was based on an environment variable that monkeypatch will restore.
+    # If original_module_x_username was 'AttributeNotSet' or None, this might not be strictly needed
+    # but good for hygiene if other tests depend on the initial state of X_USERNAME.
+    # monkeypatch automatically undoes its changes to os.environ and module attributes
+    # after the test, so direct restoration might not be needed if module is re-imported/reloaded
+    # by other tests or test setup. For safety, we ensure a clean state for subsequent reloads.
+    if original_module_x_username != 'AttributeNotSet':
+        monkeypatch.setattr(curator.toolforge, 'X_USERNAME', original_module_x_username)
+    # No need to manually restore os.environ["X_USERNAME"], monkeypatch handles it.
+    # No need to clear app.dependency_overrides as none was set for this test.
