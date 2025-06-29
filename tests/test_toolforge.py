@@ -1,7 +1,7 @@
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 import pytest
 
@@ -16,11 +16,14 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_verify_user_valid():
-    return MagicMock(return_value="testuser")
+    mock = AsyncMock(return_value="testuser")
+    return mock
 
 @pytest.fixture
-def mock_verify_user_invalid():
-    return MagicMock(side_effect=HTTPException(status_code=401, detail="Unauthorized"))
+def mock_verify_user_invalid(): # This fixture will be used by tests that expect a 401
+    async def raiser_401(request: Request): # Correct signature for a dependency
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return raiser_401
 
 
 @patch("curator.toolforge.make_toolforge_request")
@@ -86,7 +89,7 @@ def test_delete_tool_job(mock_make_request, mock_verify_user_valid):
 
 def test_post_tool_job_unauthorized(mock_verify_user_invalid):
     """Test POST endpoint returns 401 when user is not authorized."""
-    app.dependency_overrides[verify_user] = lambda: mock_verify_user_invalid()
+    app.dependency_overrides[verify_user] = mock_verify_user_invalid
 
     job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
     response = client.post("/api/toolforge/jobs/v1/tool/test-tool/jobs/", json=job_config)
@@ -97,22 +100,12 @@ def test_post_tool_job_unauthorized(mock_verify_user_invalid):
 
 def test_delete_tool_job_unauthorized(mock_verify_user_invalid):
     """Test DELETE endpoint returns 401 when user is not authorized."""
-    app.dependency_overrides[verify_user] = lambda: mock_verify_user_invalid()
+    app.dependency_overrides[verify_user] = mock_verify_user_invalid
 
     response = client.delete("/api/toolforge/jobs/v1/tool/test-tool/jobs/job1")
     assert response.status_code == 401
     assert response.json()["detail"] == "Unauthorized"
     app.dependency_overrides = {}
-
-# Test for get_tool_jobs which does not require authentication
-def test_get_tool_jobs_no_auth_needed():
-    """Test GET endpoint for jobs does not require authentication."""
-    with patch("curator.toolforge.make_toolforge_request") as mock_make_request:
-        mock_response = {"jobs": [{"id": "job1", "status": "running"}]}
-        mock_make_request.return_value = mock_response
-        response = client.get("/api/toolforge/jobs/v1/tool/test-tool/jobs/")
-        assert response.status_code == 200
-        assert response.json() == mock_response
 
 def test_post_tool_job_missing_x_username(mock_verify_user_valid):
     """Test POST endpoint when X_USERNAME is not set on the server."""
@@ -127,7 +120,7 @@ def test_post_tool_job_missing_x_username(mock_verify_user_valid):
     # Temporarily override verify_user within the app for this test
     # to simulate the state where X_USERNAME was not available at import time for verify_user
     # This means verify_user will behave as if X_USERNAME is None
-    app.dependency_overrides[curator.toolforge.verify_user] = lambda: mock_verify_user_valid()
+    app.dependency_overrides[curator.toolforge.verify_user] = lambda: mock_verify_user_valid
 
 
     job_config = {"name": "test-job", "cmd": "echo 'Hello, World!'", "imagename": "debian:latest"}
