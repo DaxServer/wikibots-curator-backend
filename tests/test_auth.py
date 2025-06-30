@@ -22,7 +22,7 @@ def client(monkeypatch):
         with open(dist_dir / "index.html", "w") as f:
             f.write("<html><head><title>Mock Index</title></head><body>Mock Content</body></html>")
 
-    monkeypatch.setattr("curator.frontend_utils.setup_frontend_assets", mock_setup_frontend_assets_replacement)
+    monkeypatch.setattr("curator.main.setup_frontend_assets", mock_setup_frontend_assets_replacement)
 
     with TestClient(app) as c:
         yield c
