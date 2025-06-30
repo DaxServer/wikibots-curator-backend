@@ -5,36 +5,20 @@ from curator.main import app
 # Ensure a consistent secret key for predictable session encoding during tests
 TEST_SECRET_KEY = "testsecretkey"
 
-# Apply the test secret key to the app's session middleware
-for middleware in app.user_middleware:
-    if middleware.cls.__name__ == "SessionMiddleware":
-        middleware.options["secret_key"] = TEST_SECRET_KEY
-        break
+# The SessionMiddleware in main.py will pick up SECRET_KEY from os.environ.
+# Tests will use monkeypatch to set this environment variable.
+# No direct manipulation of app.user_middleware is needed here.
 
 
 @pytest.fixture
 def client():
     # Re-initialize client for each test to ensure clean sessions
     # and application state.
-    # Apply the test secret key to the app's session middleware
-    # This is important if the app instance is recreated or modified elsewhere
-    # or to ensure it's set before TestClient initializes.
-    original_secret_key = None
-    for i, mw in enumerate(app.user_middleware):
-        if mw.cls.__name__ == "SessionMiddleware":
-            original_secret_key = mw.options.get("secret_key")
-            app.user_middleware[i].options["secret_key"] = TEST_SECRET_KEY
-            break
-
+    # SessionMiddleware will use SECRET_KEY from env, set by monkeypatch in tests.
     with TestClient(app) as c:
         yield c
 
-    # Restore original secret key if it was changed
-    if original_secret_key is not None:
-        for i, mw in enumerate(app.user_middleware):
-            if mw.cls.__name__ == "SessionMiddleware":
-                app.user_middleware[i].options["secret_key"] = original_secret_key
-                break
+    # No restoration needed here as monkeypatch handles env var cleanup.
 
 
 def test_successful_registration_and_whoami(client, monkeypatch):
