@@ -11,7 +11,10 @@ TEST_SECRET_KEY = "testsecretkey"
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch): # Add monkeypatch as an argument
+    # Set environment variables that might be required by the app during startup/lifespan
+    monkeypatch.setenv("GITHUB_PERSONAL_ACCESS_TOKEN", "dummy_test_token_for_app_init")
+
     # Re-initialize client for each test to ensure clean sessions
     # and application state.
     # SessionMiddleware will use SECRET_KEY from env, set by monkeypatch in tests.
