@@ -143,7 +143,7 @@ def test_session_cookie_cleared_after_logout(client, monkeypatch):
     client.post("/auth/register", json={"api_key": "logout_cookie_key"})
     assert "session" in client.cookies
 
-    response = client.get("/auth/logout", allow_redirects=False)
+    response = client.get("/auth/logout", follow_redirects=False)
     assert response.status_code == 307
     assert "session" in response.cookies
 
