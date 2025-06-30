@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from src.curator.main import app
+from curator.main import app
 
 # Ensure a consistent secret key for predictable session encoding during tests
 TEST_SECRET_KEY = "testsecretkey"
