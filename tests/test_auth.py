@@ -34,7 +34,7 @@ def test_successful_registration_and_whoami(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "test_user")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={"api_key": "test_api_key_123"})
+    response = client.post("/auth/register", headers={"X-API-KEY": "test_api_key_123"})
     assert response.status_code == 200
     assert response.json() == {"message": "User registered successfully", "username": "test_user"}
 
@@ -49,7 +49,7 @@ def test_invalid_api_key(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "test_user_invalid_key")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={"api_key": "wrong_key"})
+    response = client.post("/auth/register", headers={"X-API-KEY": "wrong_key"})
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid API key"}
 
@@ -58,17 +58,19 @@ def test_invalid_api_key(client, monkeypatch):
     assert whoami_response.json() == {"message": "Not authenticated"}
 
 
-def test_missing_api_key_in_request_body(client, monkeypatch):
-    """Test registration attempt with missing api_key in the request body."""
+def test_missing_api_key_header(client, monkeypatch):
+    """Test registration attempt with missing X-API-KEY header."""
     monkeypatch.setenv("X_API_KEY", "any_key")
     monkeypatch.setenv("X_USERNAME", "any_user")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={})
-    assert response.status_code == 422  # Unprocessable Entity for Pydantic validation error
+    response = client.post("/auth/register") # No header
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Missing X-API-KEY header"}
 
-    response_missing_field = client.post("/auth/register", json={"other_field": "value"})
-    assert response_missing_field.status_code == 422
+    response_empty_header = client.post("/auth/register", headers={"X-API-KEY": ""})
+    assert response_empty_header.status_code == 401 # Empty string is not the "any_key"
+    assert response_empty_header.json() == {"detail": "Invalid API key"}
 
 
 def test_missing_x_api_key_env_variable(client, monkeypatch):
@@ -77,7 +79,7 @@ def test_missing_x_api_key_env_variable(client, monkeypatch):
     monkeypatch.delenv("X_API_KEY", raising=False)
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={"api_key": "any_key_ L8"})
+    response = client.post("/auth/register", headers={"X-API-KEY": "any_key_L8"})
     assert response.status_code == 500
     assert response.json() == {"detail": "Server configuration error: API key or username not set"}
 
@@ -88,7 +90,7 @@ def test_missing_x_username_env_variable(client, monkeypatch):
     monkeypatch.delenv("X_USERNAME", raising=False)
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={"api_key": "key_no_username_env"})
+    response = client.post("/auth/register", headers={"X-API-KEY": "key_no_username_env"})
     assert response.status_code == 500
     assert response.json() == {"detail": "Server configuration error: API key or username not set"}
 
@@ -108,7 +110,7 @@ def test_successful_registration_then_logout_then_whoami(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "test_user_logout")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    reg_response = client.post("/auth/register", json={"api_key": "test_api_key_logout"})
+    reg_response = client.post("/auth/register", headers={"X-API-KEY": "test_api_key_logout"})
     assert reg_response.status_code == 200
     assert reg_response.json()["username"] == "test_user_logout"
 
@@ -131,7 +133,7 @@ def test_session_cookie_set_after_registration(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "cookie_test_user")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", json={"api_key": "cookie_test_key"})
+    response = client.post("/auth/register", headers={"X-API-KEY": "cookie_test_key"})
     assert response.status_code == 200
     assert "session" in response.cookies
 
@@ -140,7 +142,7 @@ def test_session_cookie_cleared_after_logout(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "logout_cookie_user")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    client.post("/auth/register", json={"api_key": "logout_cookie_key"})
+    client.post("/auth/register", headers={"X-API-KEY": "logout_cookie_key"})
     assert "session" in client.cookies
 
     response = client.get("/auth/logout", follow_redirects=False)
