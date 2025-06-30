@@ -1,12 +1,9 @@
 from mwoauth import ConsumerToken, Handshaker, RequestToken
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Header
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import os
-from pydantic import BaseModel
+from typing import Optional
 
-
-class APIKeyRegistrationRequest(BaseModel):
-    api_key: str
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -81,7 +78,7 @@ async def whoami(request: Request):
 
 
 @router.post('/register')
-async def register_api_key(request: Request, registration_request: APIKeyRegistrationRequest):
+async def register_api_key(request: Request, x_api_key: Optional[str] = Header(None, alias="X-API-KEY")):
     env_api_key = os.environ.get('X_API_KEY')
     env_username = os.environ.get('X_USERNAME')
 
@@ -91,7 +88,13 @@ async def register_api_key(request: Request, registration_request: APIKeyRegistr
             content={"detail": "Server configuration error: API key or username not set"}
         )
 
-    if registration_request.api_key == env_api_key:
+    if x_api_key is None:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Missing X-API-KEY header"}
+        )
+
+    if x_api_key == env_api_key:
         request.session['user'] = {'username': env_username}
         return JSONResponse(
             status_code=200,
