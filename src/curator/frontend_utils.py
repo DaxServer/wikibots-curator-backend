@@ -6,15 +6,19 @@ import json
 from tempfile import NamedTemporaryFile
 
 
-frontend_dir = os.path.join(os.path.dirname(__file__), '../..', 'frontend')
+frontend_dir = os.path.join(os.path.dirname(__file__), "../..", "frontend")
 
 
 def setup_frontend_assets():
     api_url = "https://api.github.com/repos/DaxServer/wikibots-curator-frontend/releases/latest"
     try:
-        response = requests.get(api_url, timeout=30, headers={
-            "Authorization": f"Bearer {os.environ['GITHUB_PERSONAL_ACCESS_TOKEN']}"
-        })
+        response = requests.get(
+            api_url,
+            timeout=30,
+            headers={
+                "Authorization": f"Bearer {os.environ['GITHUB_PERSONAL_ACCESS_TOKEN']}"
+            },
+        )
         response.raise_for_status()
         release_data = response.json()
     except requests.exceptions.RequestException as e:
@@ -26,7 +30,7 @@ def setup_frontend_assets():
 
     asset_download_url = None
     for asset in release_data.get("assets", []):
-        if asset.get("name") == 'dist.tar.gz':
+        if asset.get("name") == "dist.tar.gz":
             asset_download_url = asset.get("browser_download_url")
             break
 
@@ -64,7 +68,9 @@ def setup_frontend_assets():
                 sys.exit(1)
 
             tmp_file.seek(0)  # Rewind again before extraction
-            with tarfile.open(fileobj=tmp_file, mode="r:gz") as tar:  # Use the file object directly
+            with tarfile.open(
+                fileobj=tmp_file, mode="r:gz"
+            ) as tar:  # Use the file object directly
                 tar.extractall(path=frontend_dir)
             print("Assets extracted successfully.")
 

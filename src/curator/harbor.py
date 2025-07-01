@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 HARBOR_API_URL = "https://tools-harbor.wmcloud.org/api/v2.0/projects/tool-curator/repositories/wikibots/artifacts"
 
-router = APIRouter(prefix='/api/harbor', tags=['harbor'])
+router = APIRouter(prefix="/api/harbor", tags=["harbor"])
 
 
 class ImageArtifactTag(BaseModel):
@@ -33,10 +33,7 @@ async def get_latest_artifact() -> ImageArtifact:
     """
     Fetches the latest artifact from Harbor
     """
-    params = {
-        'with_tag': 'true',
-        'with_label': 'true'
-    }
+    params = {"with_tag": "true", "with_label": "true"}
 
     async with httpx.AsyncClient() as client:
         response = await client.get(HARBOR_API_URL, params=params)
@@ -45,9 +42,12 @@ async def get_latest_artifact() -> ImageArtifact:
 
     # Find the latest artifact by tag
     latest_artifact = next(
-        (artifact for artifact in artifacts
-         if artifact.tags and any(tag.name == 'latest' for tag in artifact.tags)),
-        None
+        (
+            artifact
+            for artifact in artifacts
+            if artifact.tags and any(tag.name == "latest" for tag in artifact.tags)
+        ),
+        None,
     )
 
     if not latest_artifact:
@@ -66,16 +66,14 @@ async def get_harbor_processes():
 
         # Extract build metadata
         build_metadata_str = (
-            latest_artifact.extra_attrs
-            .get('config', {})
-            .get('Labels', {})
-            .get('io.buildpacks.build.metadata')
+            latest_artifact.extra_attrs.get("config", {})
+            .get("Labels", {})
+            .get("io.buildpacks.build.metadata")
         )
 
         if not build_metadata_str:
             raise HTTPException(
-                status_code=404,
-                detail="No build metadata found in the latest artifact"
+                status_code=404, detail="No build metadata found in the latest artifact"
             )
 
         build_metadata = BuildPackMetadata.parse_raw(build_metadata_str)
@@ -84,10 +82,10 @@ async def get_harbor_processes():
     except httpx.HTTPStatusError as e:
         raise HTTPException(
             status_code=e.response.status_code,
-            detail=f"Failed to fetch from Harbor: {str(e)}"
+            detail=f"Failed to fetch from Harbor: {str(e)}",
         ) from e
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while processing Harbor data: {str(e)}"
+            detail=f"An error occurred while processing Harbor data: {str(e)}",
         ) from e
