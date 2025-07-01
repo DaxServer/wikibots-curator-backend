@@ -20,9 +20,13 @@ def client(monkeypatch):
 
         os.makedirs(assets_dir, exist_ok=True)
         with open(dist_dir / "index.html", "w") as f:
-            f.write("<html><head><title>Mock Index</title></head><body>Mock Content</body></html>")
+            f.write(
+                "<html><head><title>Mock Index</title></head><body>Mock Content</body></html>"
+            )
 
-    monkeypatch.setattr("curator.main.setup_frontend_assets", mock_setup_frontend_assets_replacement)
+    monkeypatch.setattr(
+        "curator.main.setup_frontend_assets", mock_setup_frontend_assets_replacement
+    )
 
     with TestClient(app) as c:
         yield c
@@ -36,7 +40,10 @@ def test_successful_registration_and_whoami(client, monkeypatch):
 
     response = client.post("/auth/register", headers={"X-API-KEY": "test_api_key_123"})
     assert response.status_code == 200
-    assert response.json() == {"message": "User registered successfully", "username": "test_user"}
+    assert response.json() == {
+        "message": "User registered successfully",
+        "username": "test_user",
+    }
 
     whoami_response = client.get("/auth/whoami")
     assert whoami_response.status_code == 200
@@ -64,12 +71,12 @@ def test_missing_api_key_header(client, monkeypatch):
     monkeypatch.setenv("X_USERNAME", "any_user")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register") # No header
+    response = client.post("/auth/register")  # No header
     assert response.status_code == 400
     assert response.json() == {"detail": "Missing X-API-KEY header"}
 
     response_empty_header = client.post("/auth/register", headers={"X-API-KEY": ""})
-    assert response_empty_header.status_code == 401 # Empty string is not the "any_key"
+    assert response_empty_header.status_code == 401  # Empty string is not the "any_key"
     assert response_empty_header.json() == {"detail": "Invalid API key"}
 
 
@@ -81,7 +88,9 @@ def test_missing_x_api_key_env_variable(client, monkeypatch):
 
     response = client.post("/auth/register", headers={"X-API-KEY": "any_key_L8"})
     assert response.status_code == 500
-    assert response.json() == {"detail": "Server configuration error: API key or username not set"}
+    assert response.json() == {
+        "detail": "Server configuration error: API key or username not set"
+    }
 
 
 def test_missing_x_username_env_variable(client, monkeypatch):
@@ -90,9 +99,13 @@ def test_missing_x_username_env_variable(client, monkeypatch):
     monkeypatch.delenv("X_USERNAME", raising=False)
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    response = client.post("/auth/register", headers={"X-API-KEY": "key_no_username_env"})
+    response = client.post(
+        "/auth/register", headers={"X-API-KEY": "key_no_username_env"}
+    )
     assert response.status_code == 500
-    assert response.json() == {"detail": "Server configuration error: API key or username not set"}
+    assert response.json() == {
+        "detail": "Server configuration error: API key or username not set"
+    }
 
 
 def test_whoami_not_authenticated(client, monkeypatch):
@@ -104,13 +117,16 @@ def test_whoami_not_authenticated(client, monkeypatch):
     assert response.status_code == 401
     assert response.json() == {"message": "Not authenticated"}
 
+
 def test_successful_registration_then_logout_then_whoami(client, monkeypatch):
     """Test successful registration, then logout, then check /whoami."""
     monkeypatch.setenv("X_API_KEY", "test_api_key_logout")
     monkeypatch.setenv("X_USERNAME", "test_user_logout")
     monkeypatch.setenv("SECRET_KEY", TEST_SECRET_KEY)
 
-    reg_response = client.post("/auth/register", headers={"X-API-KEY": "test_api_key_logout"})
+    reg_response = client.post(
+        "/auth/register", headers={"X-API-KEY": "test_api_key_logout"}
+    )
     assert reg_response.status_code == 200
     assert reg_response.json()["username"] == "test_user_logout"
 
@@ -121,7 +137,6 @@ def test_successful_registration_then_logout_then_whoami(client, monkeypatch):
     logout_response = client.get("/auth/logout")
     assert logout_response.status_code == 200
     assert logout_response.url == "http://testserver/"
-
 
     whoami_not_auth_response = client.get("/auth/whoami")
     assert whoami_not_auth_response.status_code == 401
@@ -136,6 +151,7 @@ def test_session_cookie_set_after_registration(client, monkeypatch):
     response = client.post("/auth/register", headers={"X-API-KEY": "cookie_test_key"})
     assert response.status_code == 200
     assert "session" in response.cookies
+
 
 def test_session_cookie_cleared_after_logout(client, monkeypatch):
     monkeypatch.setenv("X_API_KEY", "logout_cookie_key")
@@ -152,7 +168,11 @@ def test_session_cookie_cleared_after_logout(client, monkeypatch):
 
     whoami_response = client.get("/auth/whoami")
     assert whoami_response.status_code == 401
-    assert "session" not in client.cookies or client.cookies.get("session") == "" or client.cookies.get("session") == "null"
+    assert (
+        "session" not in client.cookies
+        or client.cookies.get("session") == ""
+        or client.cookies.get("session") == "null"
+    )
 
 
 def test_root_path_exists(client):
