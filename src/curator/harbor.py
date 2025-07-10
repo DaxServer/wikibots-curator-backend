@@ -64,6 +64,8 @@ async def get_harbor_processes():
     try:
         latest_artifact = await get_latest_artifact()
 
+        assert latest_artifact.extra_attrs
+
         # Extract build metadata
         build_metadata_str = (
             latest_artifact.extra_attrs.get("config", {})
@@ -80,12 +82,16 @@ async def get_harbor_processes():
         return build_metadata.processes
 
     except httpx.HTTPStatusError as e:
+        message = f"Failed to fetch from Harbor: {str(e)}"
+        print(message)
         raise HTTPException(
             status_code=e.response.status_code,
-            detail=f"Failed to fetch from Harbor: {str(e)}",
+            detail=message,
         ) from e
     except Exception as e:
+        message = f"An error occurred while processing Harbor data: {str(e)}"
+        print(message)
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while processing Harbor data: {str(e)}",
+            detail=message,
         ) from e
