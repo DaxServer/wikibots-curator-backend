@@ -1,20 +1,27 @@
-from mwoauth import ConsumerToken, Handshaker, RequestToken
+from curator.app.config import OAUTH_KEY
+from curator.app.config import OAUTH_SECRET
+from curator.app.config import URLS
+from mwoauth import ConsumerToken, Handshaker, RequestToken, AccessToken
 from fastapi import APIRouter, Request, Header
+
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import os
 from typing import Optional
+
+from curator.app.config import USER_AGENT
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 consumer_token = ConsumerToken(
-    os.environ.get("OAUTH_CLIENT_ID"), os.environ.get("OAUTH_CLIENT_SECRET")
+    OAUTH_KEY,
+    OAUTH_SECRET,
 )
 
 handshaker = Handshaker(
-    "https://commons.wikimedia.org/w/index.php",
+    URLS["index_url"],
     consumer_token,
-    user_agent="Curator / Toolforge curator.toolforge.org / Wikimedia Commons User:DaxServer",
+    user_agent=USER_AGENT,
 )
 
 
@@ -48,7 +55,16 @@ async def auth(request: Request):
     try:
         access_token = handshaker.complete(request_token, response_qs)
         identity = handshaker.identify(access_token)
+
+        if not (identity["editcount"] >= 50 and "autoconfirmed" in identity["rights"]):
+            return HTMLResponse(
+                "You must be an autoconfirmed Commons user "
+                "with at least 50 edits to use this tool.",
+                status_code=403,
+            )
+
         request.session["user"] = dict(identity)
+        request.session["access_token"] = access_token
 
         # Clear the request token as it's no longer needed
         request.session.pop("request_token", None)
