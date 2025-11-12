@@ -1,4 +1,6 @@
 __pycache__
+.pytest_cache
+apicache
 
 # Logs
 logs
@@ -20,4 +22,5 @@ coverage
 *.sln
 *.sw?
 
-frontend/
+*.sqlite
+throttle.ctrl

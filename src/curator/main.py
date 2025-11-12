@@ -9,29 +9,37 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
+from sqlalchemy.ext.asyncio import AsyncEngine
+import asyncio
+from alembic.config import Config
+from alembic import command
 from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
+from curator.mapillary import router as mapillary_router
 from curator.toolforge import router as toolforge_router
+from curator.app.db import engine
+from curator.app.models import SQLModel
 
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_frontend_assets()
+    # setup_frontend_assets()
 
-    # Mount static files after frontend assets are set up
-    assets_dir = os.path.join(frontend_dir, "dist/assets")
-    if not os.path.exists(assets_dir):
-        print(f"Assets directory not found at {assets_dir}")
-        sys.exit(1)
+    # # Mount static files after frontend assets are set up
+    # assets_dir = os.path.join(frontend_dir, "dist/assets")
+    # if not os.path.exists(assets_dir):
+    #     print(f"Assets directory not found at {assets_dir}")
+    #     sys.exit(1)
 
-    app.mount("/assets", StaticFiles(directory=assets_dir))
-    app.add_api_route(
-        "/",
-        lambda: FileResponse(os.path.join(frontend_dir, "dist/index.html")),
-        methods=["GET"],
-    )
+    # app.mount("/assets", StaticFiles(directory=assets_dir))
+    # app.add_api_route(
+    #     "/",
+    #     lambda: FileResponse(os.path.join(frontend_dir, "dist/index.html")),
+    #     methods=["GET"],
+    # )
 
     yield
 
@@ -44,6 +52,7 @@ app.add_middleware(
 # Include the routers
 app.include_router(auth_router)
 app.include_router(harbor_router)
+app.include_router(mapillary_router)
 app.include_router(toolforge_router)
 
 

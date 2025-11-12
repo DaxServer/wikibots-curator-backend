@@ -78,7 +78,7 @@ async def get_harbor_processes():
                 status_code=404, detail="No build metadata found in the latest artifact"
             )
 
-        build_metadata = BuildPackMetadata.parse_raw(build_metadata_str)
+        build_metadata = BuildPackMetadata.model_validate_json(build_metadata_str)
         return build_metadata.processes
 
     except httpx.HTTPStatusError as e:
