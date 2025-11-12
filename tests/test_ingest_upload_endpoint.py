@@ -25,6 +25,7 @@ def test_ingest_upload_enqueues_with_integer_ids():
     upload_req.key = "img1"
     upload_req.filename = "T1"
     upload_req.wikitext = "W1"
+    upload_req.status = "queued"
 
     with patch("curator.mapillary.create_upload_request", return_value=[upload_req]):
         with patch("curator.mapillary.process_one.delay") as mock_delay:
@@ -42,6 +43,14 @@ def test_ingest_upload_enqueues_with_integer_ids():
             assert len(bg.tasks) == 1
             task = bg.tasks[0]
             assert task.func is mock_delay
-            assert task.args == (42, "token123")
+            assert task.args == (42, "seq1", "token123", "test_user")
 
-            assert result == {"status": "Uploads processed directly"}
+            assert result == [
+                {
+                    "id": 42,
+                    "status": "queued",
+                    "image_id": "img1",
+                    "sequence_id": "seq1",
+                    "batch_id": "batch-x",
+                }
+            ]

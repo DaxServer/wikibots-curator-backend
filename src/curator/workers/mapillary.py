@@ -36,8 +36,13 @@ def fetch_image_metadata(image_id: str, sequence_id: str) -> dict:
     return image_data
 
 
-
-def _upload_to_commons(item: UploadRequest, file_path: str, sdc_json: List[dict], access_token: AccessToken, username: str):
+def _upload_to_commons(
+    item: UploadRequest,
+    file_path: str,
+    sdc_json: List[dict],
+    access_token: AccessToken,
+    username: str,
+):
     return upload_file_chunked(
         filename=item.filename,
         file_path=file_path,
@@ -54,7 +59,9 @@ def _handle_post_upload_cleanup(session: Session, userid: int, batch_id: int):
 
 
 @celery_app.task(name="mapillary.process_one")
-def process_one(upload_id: int, sequence_id: str, access_token: AccessToken, username: str):
+def process_one(
+    upload_id: int, sequence_id: str, access_token: AccessToken, username: str
+):
     """Process a single queued upload; returns True if one was processed."""
     session = next(get_session())
 
@@ -70,10 +77,12 @@ def process_one(upload_id: int, sequence_id: str, access_token: AccessToken, use
         update_upload_status(session, upload_id=item.id, status="in_progress")
         image = fetch_image_metadata(item.key, sequence_id)
         sdc_json = build_mapillary_sdc(image)
-        image_url = image.get('thumb_original_url')
+        image_url = image.get("thumb_original_url")
         assert image_url, f"Image URL not found in metadata for image_id={item.key}"
 
-        upload_result = _upload_to_commons(item, image_url, sdc_json, access_token, username)
+        upload_result = _upload_to_commons(
+            item, image_url, sdc_json, access_token, username
+        )
 
         update_upload_status(
             session,

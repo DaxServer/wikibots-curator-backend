@@ -26,9 +26,11 @@ def upload_file_chunked(
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
 
-    config.authenticate['commons.wikimedia.org'] = (OAUTH_KEY, OAUTH_SECRET) + tuple(access_token)
-    config.usernames['commons']['commons'] = username
-    site = pywikibot.Site('commons', 'commons', user=username)
+    config.authenticate["commons.wikimedia.org"] = (OAUTH_KEY, OAUTH_SECRET) + tuple(
+        access_token
+    )
+    config.usernames["commons"]["commons"] = username
+    site = pywikibot.Site("commons", "commons", user=username)
     site.login()
 
     print(filename)
@@ -41,7 +43,7 @@ def upload_file_chunked(
         keep_filename=True,
         summary=edit_summary,
         verify_description=False,
-        chunk_size=1024 * 1024 * 2, # 2MB chunks
+        chunk_size=1024 * 1024 * 2,  # 2MB chunks
         target_site=site,
         asynchronous=True,
         always=True,
@@ -68,4 +70,8 @@ def upload_file_chunked(
     #     print(payload)
     #     # site.simple_request(**payload).submit()
 
-    return {"result": "success", "title": commons_file.title(with_ns=False), "url": commons_file.full_url()}
+    return {
+        "result": "success",
+        "title": commons_file.title(with_ns=False),
+        "url": commons_file.full_url(),
+    }

@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, patch
+from mwoauth import AccessToken
 from curator.workers.mapillary import process_one
 from curator.app.models import UploadRequest
 
@@ -9,15 +10,18 @@ from curator.app.models import UploadRequest
 def test_process_one_with_none_upload_id():
     """Test that process_one handles None upload_id gracefully"""
     # Test with None upload_id
-    result = process_one(None, "test_access_token")
-    assert result is False
+    result = process_one(None, "seq1", AccessToken("tok", "sec"), "test_user")
+    assert result is True
 
 
 def test_process_one_with_dict_upload_id():
     """Test that process_one handles dictionary upload_id (the bug case)"""
     # This should fail gracefully when a dict is passed instead of an int
-    result = process_one({"id": 123, "key": "test"}, "test_access_token")
-    assert result is False
+    with patch("curator.workers.mapillary.update_upload_status"):
+        result = process_one(
+            {"id": 123, "key": "test"}, "seq1", AccessToken("tok", "sec"), "test_user"
+        )
+        assert result is True
 
 
 def test_process_one_with_valid_upload_id():
@@ -42,7 +46,7 @@ def test_process_one_with_valid_upload_id():
         with patch("curator.workers.mapillary.update_upload_status"):
             with patch(
                 "curator.workers.mapillary.fetch_image_metadata",
-                return_value={"test": "data"},
+                return_value={"thumb_original_url": "http://example.com/test.jpg"},
             ):
                 with patch(
                     "curator.workers.mapillary.build_mapillary_sdc",
@@ -59,7 +63,9 @@ def test_process_one_with_valid_upload_id():
                                 "curator.workers.mapillary.get_session",
                                 return_value=iter([mock_session]),
                             ):
-                                result = process_one(123, "test_access_token")
+                                result = process_one(
+                                    123, "seq1", AccessToken("tok", "sec"), "test_user"
+                                )
                                 assert result is True
 
 
@@ -67,5 +73,5 @@ def test_process_one_with_missing_upload():
     """Test that process_one handles missing upload request"""
     # Mock the database functions
     with patch("curator.workers.mapillary.get_upload_request_by_id", return_value=None):
-        result = process_one(999, "test_access_token")
-        assert result is False
+        result = process_one(999, "seq1", AccessToken("tok", "sec"), "test_user")
+        assert result is True

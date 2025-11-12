@@ -21,7 +21,9 @@ class User(SQLModel, table=True):
 class Batch(SQLModel, table=True):
     __tablename__ = "batches"
 
-    batch_uid: str = Field(primary_key=True, max_length=255, default_factory=lambda: str(uuid.uuid4()))
+    batch_uid: str = Field(
+        primary_key=True, max_length=255, default_factory=lambda: str(uuid.uuid4())
+    )
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(

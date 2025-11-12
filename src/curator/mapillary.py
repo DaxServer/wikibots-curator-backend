@@ -61,7 +61,10 @@ async def get_images_in_sequence(sequence_id: str):
 
     return {
         "creator": next(iter(images.values())).get("creator", {}),
-        "images": {k: {k2: v2 for k2, v2 in v.items() if k2 != "creator"} for k, v in images.items()}
+        "images": {
+            k: {k2: v2 for k2, v2 in v.items() if k2 != "creator"}
+            for k, v in images.items()
+        },
     }
 
 
@@ -74,10 +77,13 @@ async def get_sequence_sdc(
     Fetches SDC (Structured Data on Commons) for specific images in a sequence.
     Returns a JSON object with image IDs as keys and their SDC data as values.
     """
+    expanded: List[str] = []
+    for v in images:
+        expanded.extend([x for x in v.split(",") if x])
     result = {}
     for image in fetch_sequence_data(sequence_id).values():
         image_id = image["id"]
-        if image_id in images:
+        if image_id in expanded:
             sdc_data = build_mapillary_sdc(image)
             result[image_id] = sdc_data
 
@@ -113,10 +119,18 @@ def ingest_upload(
     session.commit()
 
     for req in reqs:
-        background_tasks.add_task(process_one.delay, req.id, sequence_id, access_token, username)
+        background_tasks.add_task(
+            process_one.delay, req.id, sequence_id, access_token, username
+        )
 
     return [
-        {"id": r.id, "status": r.status, "image_id": r.key, "sequence_id": sequence_id, "batch_id": r.batch_id}
+        {
+            "id": r.id,
+            "status": r.status,
+            "image_id": r.key,
+            "sequence_id": sequence_id,
+            "batch_id": r.batch_id,
+        }
         for r in reqs
     ]
 

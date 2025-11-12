@@ -54,6 +54,6 @@ def test_get_upload_request_by_id_with_wrong_type():
 
     # Verify the result is None (input validation should prevent session.get call)
     assert result is None
-    
+
     # Verify session.get was NOT called due to input validation
     mock_session.get.assert_not_called()
