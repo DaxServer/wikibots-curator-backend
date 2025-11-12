@@ -9,19 +9,17 @@ from curator.app.models import UploadRequest
 
 def test_process_one_with_none_upload_id():
     """Test that process_one handles None upload_id gracefully"""
-    # Test with None upload_id
     result = process_one(None, "seq1", AccessToken("tok", "sec"), "test_user")
-    assert result is True
+    assert result is False
 
 
 def test_process_one_with_dict_upload_id():
     """Test that process_one handles dictionary upload_id (the bug case)"""
     # This should fail gracefully when a dict is passed instead of an int
-    with patch("curator.workers.mapillary.update_upload_status"):
-        result = process_one(
-            {"id": 123, "key": "test"}, "seq1", AccessToken("tok", "sec"), "test_user"
-        )
-        assert result is True
+    result = process_one(
+        {"id": 123, "key": "test"}, "seq1", AccessToken("tok", "sec"), "test_user"
+    )
+    assert result is False
 
 
 def test_process_one_with_valid_upload_id():
@@ -74,4 +72,4 @@ def test_process_one_with_missing_upload():
     # Mock the database functions
     with patch("curator.workers.mapillary.get_upload_request_by_id", return_value=None):
         result = process_one(999, "seq1", AccessToken("tok", "sec"), "test_user")
-        assert result is True
+        assert result is False
