@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from curator.app.db import get_session
 from curator.app.dal import (
     create_upload_request,
+    get_upload_request,
 )
 from mwoauth import AccessToken
 
@@ -135,22 +136,29 @@ def ingest_upload(
     ]
 
 
-# @router.get("/uploads/{batch_id}")
-# async def get_upload(
-#     request: Request,
-#     batch_id: str,
-#     session: Session = Depends(get_db_session),
-# ):
-#     username = request.session.get("user", {}).get("username")
-#     userid = request.session.get("user", {}).get("userid")
-#     if not username or not userid:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-#         )
+@router.get("/uploads/{batch_id}")
+async def get_uploads_by_batch(
+    request: Request,
+    batch_id: str,
+    session: Session = Depends(get_session),
+):
+    username: str | None = request.session.get("user", {}).get("username")
+    userid: str | None = request.session.get("user", {}).get("sub")
+    if not username or not userid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
 
-#     items = get_upload_request(session, userid=userid, batch_id=batch_id)
+    items = get_upload_request(session, userid=userid, batch_id=batch_id)
 
-#     return [
-#         {"id": r.id, "status": r.status, "key": r.key, "batch_id": r.batch_id}
-#         for r in items
-#     ]
+    return [
+        {
+            "id": r.id,
+            "status": r.status,
+            "image_id": r.key,
+            "batch_id": r.batch_id,
+            "result": r.result,
+            "error": r.error,
+        }
+        for r in items
+    ]
