@@ -1,13 +1,14 @@
-from curator.app.config import FERNET_KEY
+import os
 import json
 from typing import Any
 from cryptography.fernet import Fernet
 
 
 def _get_fernet() -> Fernet:
-    if not FERNET_KEY:
+    key = os.environ.get("TOKEN_ENCRYPTION_KEY")
+    if not key:
         raise RuntimeError("TOKEN_ENCRYPTION_KEY is not set")
-    return Fernet(FERNET_KEY.encode() if isinstance(FERNET_KEY, str) else FERNET_KEY)
+    return Fernet(key.encode() if isinstance(key, str) else key)
 
 
 def encrypt_access_token(token: Any) -> str:
