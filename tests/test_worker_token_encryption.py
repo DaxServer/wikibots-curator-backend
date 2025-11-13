@@ -67,4 +67,4 @@ def test_worker_process_one_decrypts_token(monkeypatch):
 
     ok = worker.process_one(1, "seq", encrypted, "User")
     assert ok is True
-    assert captured["token"] == ["t", "s"]
+    assert tuple(captured["token"]) == ("t", "s")

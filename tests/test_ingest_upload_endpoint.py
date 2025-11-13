@@ -50,7 +50,10 @@ def test_ingest_upload_enqueues_with_integer_ids():
             assert task.args[0] == 42
             assert task.args[1] == "seq1"
             assert isinstance(task.args[2], str)
-            assert decrypt_access_token(task.args[2]) == ["token123", "secret123"]
+            assert tuple(decrypt_access_token(task.args[2])) == (
+                "token123",
+                "secret123",
+            )
             assert task.args[3] == "test_user"
 
             assert result == [

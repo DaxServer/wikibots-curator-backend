@@ -8,4 +8,4 @@ def test_encrypt_decrypt_roundtrip():
     token = ("access_token", "access_secret")
     enc = encrypt_access_token(token)
     dec = decrypt_access_token(enc)
-    assert dec == list(token)
+    assert tuple(dec) == token
