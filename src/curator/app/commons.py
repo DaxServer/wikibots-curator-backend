@@ -35,20 +35,20 @@ def upload_file_chunked(
     print(file_name)
     print(file_url)
 
-    temp_file = NamedTemporaryFile()
-    temp_file.write(download_file(file_url))
+    with NamedTemporaryFile() as temp_file:
+        temp_file.write(download_file(file_url))
 
-    file_hash = compute_file_hash(temp_file.name)
-    print(file_hash)
+        file_hash = compute_file_hash(temp_file.name)
+        print(file_hash)
 
-    duplicates_list = find_duplicates(site, file_hash)
-    if len(duplicates_list) > 0:
-        raise ValueError(
-            f"File {file_name} already exists on Commons at {duplicates_list}"
-        )
+        duplicates_list = find_duplicates(site, file_hash)
+        if len(duplicates_list) > 0:
+            raise ValueError(
+                f"File {file_name} already exists on Commons at {duplicates_list}"
+            )
 
-    commons_file = build_file_page(site, file_name)
-    uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
+        commons_file = build_file_page(site, file_name)
+        uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
 
     ensure_uploaded(commons_file, uploaded, file_name)
 
@@ -74,7 +74,7 @@ def get_commons_site(access_token: AccessToken, username: str):
 
 
 def download_file(file_url: str) -> bytes:
-    resp = httpx.get(file_url)
+    resp = httpx.get(file_url, timeout=60)
     resp.raise_for_status()
 
     return resp.content

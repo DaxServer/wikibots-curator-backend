@@ -9,6 +9,7 @@ from curator.app.commons import (
     ensure_uploaded,
     apply_sdc,
 )
+import pytest
 
 
 def test_get_commons_site_sets_auth_and_logs_in():
@@ -19,7 +20,7 @@ def test_get_commons_site_sets_auth_and_logs_in():
         patch("curator.app.commons.OAUTH_SECRET", "secret"),
     ):
         access_token = ("access_token", "access_secret")
-        site = get_commons_site(access_token, "user")
+        get_commons_site(access_token, "user")
         mock_config.authenticate.__setitem__.assert_called()
         mock_config.usernames.__getitem__.assert_called_with("commons")
         mock_site.assert_called_with("commons", "commons", user="user")
@@ -64,23 +65,8 @@ def test_perform_upload_passes_args():
 def test_ensure_uploaded_raises_on_exists_without_uploaded():
     file_page = MagicMock()
     file_page.exists.return_value = True
-    raised = False
-    try:
+    with pytest.raises(ValueError):
         ensure_uploaded(file_page, False, "x.jpg")
-    except Exception:
-        raised = True
-    assert raised
-
-
-def test_apply_sdc_invokes_simple_request_and_null_edit():
-    site = MagicMock()
-    req = MagicMock()
-    site.simple_request.return_value = req
-    fp = MagicMock()
-    fp.title.return_value = "File:x.jpg"
-    apply_sdc(site, fp, [{"x": 1}], "summary")
-    site.simple_request.assert_called()
-    fp.save.assert_called()
 
 
 def test_apply_sdc_invokes_simple_request_and_null_edit():

@@ -72,7 +72,7 @@ def test_upload_file_chunked():
         mock_site.assert_called_with("commons", "commons", user=username)
         mock_site_instance.login.assert_called_once()
 
-        mock_httpx_get.assert_called_with(file_path)
+        mock_httpx_get.assert_called_with(file_path, timeout=60)
 
         mock_page.assert_called_with(mock_site_instance, title=filename, ns=6)
         mock_file_page.assert_called()
