@@ -1,8 +1,6 @@
 from curator.app.models import UploadRequest
-from typing import List
 
 from curator.app.sdc import build_mapillary_sdc
-from sqlalchemy.orm import Session
 from mwoauth import AccessToken
 
 from curator.app.dal import (
@@ -13,7 +11,6 @@ from curator.app.dal import (
 from curator.app.commons import upload_file_chunked
 from curator.app.mapillary_utils import fetch_sequence_data
 from curator.workers.celery import celery_app
-from curator.app.models import UploadItem
 from curator.app.db import get_session
 
 
@@ -36,28 +33,6 @@ def fetch_image_metadata(image_id: str, sequence_id: str) -> dict:
     return image_data
 
 
-def _upload_to_commons(
-    item: UploadRequest,
-    file_path: str,
-    sdc_json: List[dict],
-    access_token: AccessToken,
-    username: str,
-):
-    return upload_file_chunked(
-        filename=item.filename,
-        file_path=file_path,
-        wikitext=item.wikitext,
-        access_token=access_token,
-        username=username,
-        edit_summary=f"Uploaded via Curator from Mapillary image {item.key}",
-        sdc=sdc_json,
-    )
-
-
-def _handle_post_upload_cleanup(session: Session, userid: int, batch_id: int):
-    count_open_uploads_for_batch(session, userid=userid, batch_id=batch_id)
-
-
 @celery_app.task(name="mapillary.process_one")
 def process_one(
     upload_id: int, sequence_id: str, access_token: AccessToken, username: str
@@ -78,6 +53,7 @@ def process_one(
         item = get_upload_request_by_id(session, upload_id)
         if not item:
             raise AssertionError(f"Upload request not found for id={upload_id}")
+
         print(
             f"[mapillary-worker] process_one: processing upload_id={item.id} sequence_id={sequence_id} image_id={item.key}"
         )
@@ -91,8 +67,14 @@ def process_one(
                 f"Image URL not found in metadata for image_id={item.key}"
             )
 
-        upload_result = _upload_to_commons(
-            item, image_url, sdc_json, access_token, username
+        upload_result = upload_file_chunked(
+            filename=item.filename,
+            file_path=image_url,
+            wikitext=item.wikitext,
+            access_token=access_token,
+            username=username,
+            edit_summary=f"Uploaded via Curator from Mapillary image {item.key}",
+            sdc=sdc_json,
         )
 
         update_upload_status(
@@ -115,7 +97,9 @@ def process_one(
         )
     finally:
         if item:
-            _handle_post_upload_cleanup(session, item.userid, item.batch_id)
+            count_open_uploads_for_batch(
+                session, userid=item.userid, batch_id=item.batch_id
+            )
         session.close()
 
     return processed

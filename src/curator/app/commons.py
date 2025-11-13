@@ -30,6 +30,7 @@ def upload_file_chunked(
         access_token
     )
     config.usernames["commons"]["commons"] = username
+    config.put_throttle = 0
     site = pywikibot.Site("commons", "commons", user=username)
     site.login()
 
@@ -49,26 +50,33 @@ def upload_file_chunked(
         always=True,
         aborts=True,
     )
-    filename = bot.upload_file(file_path)
+    upload_filename = bot.upload_file(file_path)
     bot.exit()
 
-    commons_file = pywikibot.Page(site, filename, ns=6)
+    if not upload_filename:
+        existing_file = pywikibot.Page(site, title=filename, ns=6)
+        if existing_file.exists():
+            raise ValueError(f"File {filename} already exists on Commons")
+
+    commons_file = pywikibot.Page(site, title=filename, ns=6)
 
     if not commons_file.exists():
-        raise ValueError("Upload failed")
+        raise ValueError(f"File upload failed")
 
-    # if sdc:
-    #     payload = {
-    #         "action": "wbeditentity",
-    #         "site": "commonswiki",
-    #         "title": commons_file.title(),
-    #         "data": json.dumps({"claims": sdc}),
-    #         "token": site.get_tokens("csrf")["csrf"],
-    #         "summary": edit_summary,
-    #         "bot": False,
-    #     }
-    #     print(payload)
-    #     # site.simple_request(**payload).submit()
+    if sdc:
+        payload = {
+            "action": "wbeditentity",
+            "site": "commonswiki",
+            "title": commons_file.title(),
+            "data": json.dumps({"claims": sdc}),
+            "token": site.get_tokens("csrf")["csrf"],
+            "summary": edit_summary,
+            "bot": False,
+        }
+        print(payload)
+        site.simple_request(**payload).submit()
+
+        # ToDo: Null edit
 
     return {
         "result": "success",

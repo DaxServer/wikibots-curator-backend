@@ -77,8 +77,7 @@ def test_upload_file_chunked():
         mock_bot_instance.upload_file.assert_called_with(file_path)
         mock_bot_instance.exit.assert_called_once()
 
-        # Assert Page called
-        mock_page.assert_called_with(mock_site_instance, filename, ns=6)
+        mock_page.assert_called_with(mock_site_instance, title=filename, ns=6)
 
         # Assert result
         assert result == {
