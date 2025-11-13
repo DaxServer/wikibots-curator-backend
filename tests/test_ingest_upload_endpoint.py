@@ -1,15 +1,19 @@
 from unittest.mock import Mock, patch
 from fastapi import BackgroundTasks
+import os
+from cryptography.fernet import Fernet
 from curator.mapillary import ingest_upload
 from curator.app.models import UploadItem, UploadRequest
+from curator.app.crypto import decrypt_access_token
 
 
 def test_ingest_upload_enqueues_with_integer_ids():
+    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     # Prepare request session with required fields
     mock_request = Mock()
     mock_request.session = {
         "user": {"username": "test_user", "sub": "user123"},
-        "access_token": "token123",
+        "access_token": ("token123", "secret123"),
     }
 
     # Prepare payload
@@ -43,7 +47,14 @@ def test_ingest_upload_enqueues_with_integer_ids():
             assert len(bg.tasks) == 1
             task = bg.tasks[0]
             assert task.func is mock_delay
-            assert task.args == (42, "seq1", "token123", "test_user")
+            assert task.args[0] == 42
+            assert task.args[1] == "seq1"
+            assert isinstance(task.args[2], str)
+            assert tuple(decrypt_access_token(task.args[2])) == (
+                "token123",
+                "secret123",
+            )
+            assert task.args[3] == "test_user"
 
             assert result == [
                 {

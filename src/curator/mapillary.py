@@ -18,6 +18,7 @@ from curator.app.dal import (
     get_upload_request,
 )
 from mwoauth import AccessToken
+from curator.app.crypto import encrypt_access_token
 
 from curator.app.models import UploadItem
 from curator.app.sdc import build_mapillary_sdc
@@ -120,7 +121,11 @@ def ingest_upload(
 
     for req in reqs:
         background_tasks.add_task(
-            process_one.delay, req.id, sequence_id, access_token, username
+            process_one.delay,
+            req.id,
+            sequence_id,
+            encrypt_access_token(access_token),
+            username,
         )
 
     return [

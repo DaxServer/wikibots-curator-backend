@@ -100,7 +100,6 @@ def perform_upload(
         comment=edit_summary,
         ignore_warnings=False,
         chunk_size=1024 * 1024 * 2,
-        watch=True,
     )
 
 

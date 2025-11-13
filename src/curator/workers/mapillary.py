@@ -1,7 +1,7 @@
 from curator.app.models import UploadRequest
 
 from curator.app.sdc import build_mapillary_sdc
-from mwoauth import AccessToken
+from curator.app.crypto import decrypt_access_token
 
 from curator.app.dal import (
     count_open_uploads_for_batch,
@@ -35,7 +35,7 @@ def fetch_image_metadata(image_id: str, sequence_id: str) -> dict:
 
 @celery_app.task(name="mapillary.process_one")
 def process_one(
-    upload_id: int, sequence_id: str, access_token: AccessToken, username: str
+    upload_id: int, sequence_id: str, encrypted_access_token: str, username: str
 ):
     session = next(get_session())
 
@@ -67,6 +67,7 @@ def process_one(
                 f"Image URL not found in metadata for image_id={item.key}"
             )
 
+        access_token = decrypt_access_token(encrypted_access_token)
         upload_result = upload_file_chunked(
             file_name=item.filename,
             file_url=image_url,
