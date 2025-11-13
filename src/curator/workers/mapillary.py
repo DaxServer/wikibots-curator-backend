@@ -68,8 +68,8 @@ def process_one(
             )
 
         upload_result = upload_file_chunked(
-            filename=item.filename,
-            file_path=image_url,
+            file_name=item.filename,
+            file_url=image_url,
             wikitext=item.wikitext,
             access_token=access_token,
             username=username,

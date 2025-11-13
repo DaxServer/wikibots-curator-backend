@@ -1,6 +1,5 @@
 from curator.app.config import MAPILLARY_API_TOKEN
 from curator.workers.mapillary import process_one
-import uuid
 from typing import List
 from fastapi import (
     APIRouter,

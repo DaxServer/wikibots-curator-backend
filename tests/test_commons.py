@@ -18,8 +18,10 @@ def test_upload_file_chunked():
     with (
         patch("curator.app.commons.config") as mock_config,
         patch("pywikibot.Site") as mock_site,
-        patch("curator.app.commons.UploadRobot") as mock_upload_robot,
-        patch("pywikibot.Page") as mock_page,
+        patch("httpx.get") as mock_httpx_get,
+        patch("curator.app.commons.Page") as mock_page,
+        patch("curator.app.commons.FilePage") as mock_file_page,
+        patch("curator.app.commons.compute_file_hash") as mock_compute_hash,
         patch("curator.app.commons.OAUTH_KEY", "key"),
         patch("curator.app.commons.OAUTH_SECRET", "secret"),
     ):
@@ -27,14 +29,24 @@ def test_upload_file_chunked():
         mock_site_instance = mock_site.return_value
         mock_site_instance.login.return_value = None
 
-        mock_bot_instance = mock_upload_robot.return_value
-        mock_bot_instance.upload_file.return_value = filename
-        mock_bot_instance.exit.return_value = None
+        mock_site_instance.allimages.return_value = []
+        mock_httpx_get.return_value.content = b"abc"
+        mock_httpx_get.return_value.raise_for_status.return_value = None
 
         mock_page_instance = mock_page.return_value
         mock_page_instance.exists.return_value = True
         mock_page_instance.title.return_value = filename
         mock_page_instance.full_url.return_value = (
+            "https://commons.wikimedia.org/wiki/File:test.jpg"
+        )
+
+        mock_compute_hash.return_value = "deadbeef"
+
+        mock_file_page_instance = mock_file_page.return_value
+        mock_file_page_instance.upload.return_value = True
+        mock_file_page_instance.exists.return_value = True
+        mock_file_page_instance.title.return_value = filename
+        mock_file_page_instance.full_url.return_value = (
             "https://commons.wikimedia.org/wiki/File:test.jpg"
         )
 
@@ -60,24 +72,10 @@ def test_upload_file_chunked():
         mock_site.assert_called_with("commons", "commons", user=username)
         mock_site_instance.login.assert_called_once()
 
-        # Assert UploadRobot called correctly
-        mock_upload_robot.assert_called_once_with(
-            url=file_path,
-            description=wikitext,
-            use_filename=filename,
-            keep_filename=True,
-            verify_description=False,
-            chunk_size=1024 * 1024 * 2,
-            target_site=mock_site_instance,
-            summary=edit_summary,
-            asynchronous=True,
-            always=True,
-            aborts=True,
-        )
-        mock_bot_instance.upload_file.assert_called_with(file_path)
-        mock_bot_instance.exit.assert_called_once()
+        mock_httpx_get.assert_called_with(file_path)
 
         mock_page.assert_called_with(mock_site_instance, title=filename, ns=6)
+        mock_file_page.assert_called()
 
         # Assert result
         assert result == {
