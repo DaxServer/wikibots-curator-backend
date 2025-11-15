@@ -32,6 +32,13 @@ X_USERNAME
 CURATOR_OAUTH1_KEY
 CURATOR_OAUTH1_SECRET
 SECRET_KEY
+TOKEN_ENCRYPTION_KEY
+```
+
+`TOKEN_ENCRYPTION_KEY` is used to encrypt the access tokens using Fernet key, which is a 32 url-safe base64-encoded byte string. Generate a new key using:
+
+```bash
+openssl rand -base64 32
 ```
 
 ### Webservice
@@ -77,7 +84,7 @@ poetry install
 Start the FastAPI server:
 
 ```bash
-X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 poetry run web
+X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 TOKEN_ENCRYPTION_KEY=abc123 poetry run web
 ```
 
 The backend server will be available at http://localhost:8000. The OAuth1 application is at [OAuth applications - Wikimedia Meta-Wiki](https://meta.wikimedia.org/wiki/Special:OAuthListConsumers/view/007829f26d944fb553e89e0c0fd02f31).
