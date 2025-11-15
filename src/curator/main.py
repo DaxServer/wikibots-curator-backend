@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 import os
 import secrets
 import sys
@@ -9,37 +10,46 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
-from sqlalchemy.ext.asyncio import AsyncEngine
-import asyncio
 from alembic.config import Config
 from alembic import command
 from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
 from curator.mapillary import router as mapillary_router
 from curator.toolforge import router as toolforge_router
-from curator.app.db import engine
-from curator.app.models import SQLModel
+from curator.app.db import DB_URL
 
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # setup_frontend_assets()
+    user = os.environ.get("TOOL_TOOLSDB_USER")
+    password = os.environ.get("TOOL_TOOLSDB_PASSWORD")
+    if not user or not password:
+        yield
 
-    # # Mount static files after frontend assets are set up
-    # assets_dir = os.path.join(frontend_dir, "dist/assets")
-    # if not os.path.exists(assets_dir):
-    #     print(f"Assets directory not found at {assets_dir}")
-    #     sys.exit(1)
+    # Run database migrations
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    cfg = Config(os.path.join(root, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(root, "alembic"))
+    cfg.set_main_option("sqlalchemy.url", DB_URL)
+    await asyncio.to_thread(command.upgrade, cfg, "head")
 
-    # app.mount("/assets", StaticFiles(directory=assets_dir))
-    # app.add_api_route(
-    #     "/",
-    #     lambda: FileResponse(os.path.join(frontend_dir, "dist/index.html")),
-    #     methods=["GET"],
-    # )
+    # Download and set up frontend assets
+    setup_frontend_assets()
+
+    # Mount static files after frontend assets are set up
+    assets_dir = os.path.join(frontend_dir, "dist/assets")
+    if not os.path.exists(assets_dir):
+        print(f"Assets directory not found at {assets_dir}")
+        sys.exit(1)
+
+    app.mount("/assets", StaticFiles(directory=assets_dir))
+    app.add_api_route(
+        "/",
+        lambda: FileResponse(os.path.join(frontend_dir, "dist/index.html")),
+        methods=["GET"],
+    )
 
     yield
 

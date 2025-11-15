@@ -1,4 +1,5 @@
 from celery import Celery
+from curator.app.db import DB_URL
 
 celery_app = Celery(
     "curator",
@@ -6,8 +7,8 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
-    broker_url="redis://localhost:6379/0",
-    result_backend="redis://localhost:6379/0",
+    broker_url=f"sqla+{DB_URL}",
+    result_backend=f"db+{DB_URL}",
     result_extended=True,
     result_persistent=True,
     task_serializer="json",
