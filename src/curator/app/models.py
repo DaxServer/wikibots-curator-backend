@@ -47,6 +47,7 @@ class UploadRequest(SQLModel, table=True):
     sdc: Optional[str] = Field(default=None, max_length=2000)
     result: Optional[str] = Field(default=None, max_length=2000)
     error: Optional[str] = Field(default=None, max_length=2000)
+    success: Optional[str] = Field(default=None, max_length=2000)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(
         default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}

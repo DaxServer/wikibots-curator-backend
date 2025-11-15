@@ -148,15 +148,22 @@ def update_upload_status(
     status: str,
     result: Optional[str] = None,
     error: Optional[str] = None,
+    success: Optional[str] = None,
 ) -> None:
     """Update status (and optional error) of an UploadRequest by id."""
     print(
-        f"[dal] update_upload_status: upload_id={upload_id} status={status} result={result} error={error}"
+        f"[dal] update_upload_status: upload_id={upload_id} status={status} result={result} error={error} success={success}"
     )
     session.exec(
         update(UploadRequest)
         .where(UploadRequest.id == upload_id)
-        .values(status=status, result=result, error=error, updated_at=datetime.now())
+        .values(
+            status=status,
+            result=result,
+            error=error,
+            success=success,
+            updated_at=datetime.now(),
+        )
     )
     session.commit()
     print(f"[dal] update_upload_status: flushed for upload_id={upload_id}")

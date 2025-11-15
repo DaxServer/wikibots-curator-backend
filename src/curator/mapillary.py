@@ -1,4 +1,5 @@
 from curator.app.config import MAPILLARY_API_TOKEN
+import json
 from curator.workers.mapillary import process_one
 from typing import List
 from fastapi import (
@@ -162,7 +163,8 @@ async def get_uploads_by_batch(
             "image_id": r.key,
             "batch_id": r.batch_id,
             "result": r.result,
-            "error": r.error,
+            "error": (json.loads(r.error) if r.error else None),
+            "success": r.success,
         }
         for r in items
     ]

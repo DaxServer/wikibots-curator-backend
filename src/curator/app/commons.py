@@ -13,6 +13,12 @@ from mwoauth import AccessToken
 from pywikibot.tools import compute_file_hash
 
 
+class DuplicateUploadError(Exception):
+    def __init__(self, duplicates: List[dict], message: str):
+        super().__init__(message)
+        self.duplicates = duplicates
+
+
 def upload_file_chunked(
     file_name: str,
     file_url: str,
@@ -43,8 +49,8 @@ def upload_file_chunked(
 
         duplicates_list = find_duplicates(site, file_hash)
         if len(duplicates_list) > 0:
-            raise ValueError(
-                f"File {file_name} already exists on Commons at {duplicates_list}"
+            raise DuplicateUploadError(
+                duplicates_list, f"File {file_name} already exists on Commons"
             )
 
         commons_file = build_file_page(site, file_name)
