@@ -31,8 +31,7 @@ dev = [
 [project.scripts]
 alembic = "alembic.config:main"
 web = "curator.main:start"
-worker = "curator.workers.mapillary:start"
-celery = "curator.workers.celery:start"
+worker = "curator.workers.celery:start"
 
 [tool.poetry]
 packages = [{include = "curator", from = "src"}]
