@@ -2,8 +2,8 @@ import os
 from pywikibot import Site
 
 
-OAUTH_KEY = os.environ.get("MW_TEST_OAUTH1_KEY")
-OAUTH_SECRET = os.environ.get("MW_TEST_OAUTH1_SECRET")
+OAUTH_KEY = os.environ.get("CURATOR_OAUTH1_KEY")
+OAUTH_SECRET = os.environ.get("CURATOR_OAUTH1_SECRET")
 
 
 USER_AGENT = (
