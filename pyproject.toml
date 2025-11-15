@@ -17,9 +17,9 @@ dependencies = [
     "itsdangerous (>=2.2.0,<3.0.0)",
     "mwoauth (>=0.4.0,<1.0.0)",
     "pywikibot (>=10.5.0,<11.0.0)",
-    "redis (>=5.0.1,<6.0.0)",
     "sqlmodel (>=0.0.25,<0.0.26)",
     "cryptography (>=46.0.3,<47.0.0)",
+    "mysql-connector-python (>=9.5.0,<10.0.0)",
 ]
 
 [project.optional-dependencies]
