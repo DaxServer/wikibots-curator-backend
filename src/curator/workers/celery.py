@@ -26,3 +26,7 @@ celery_app.conf.update(
 
 def start():
     celery_app.worker_main(argv=["worker", "-P", "solo", "-l", "info"])
+
+
+if __name__ == "__main__":
+    start()
