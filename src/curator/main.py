@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     password = os.environ.get("TOOL_TOOLSDB_PASSWORD")
     if not user or not password:
         yield
+        return
 
     # Run database migrations
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
