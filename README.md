@@ -23,7 +23,7 @@ toolforge build start -i web https://github.com/DaxServer/wikibots-curator-backe
 
 `-L` flag uses the latest buildpacks and base image, required for Poetry.
 
-### Environment Variables
+### Environment variables
 
 Use `toolforge envvars` to set them up. The OAuth1 application is at [OAuth applications - Wikimedia Meta-Wiki](https://meta.wikimedia.org/wiki/Special:OAuthListConsumers/view/8e7c7bbe93a2623af57eb03f37448b3c).
 
@@ -32,7 +32,16 @@ X_USERNAME
 CURATOR_OAUTH1_KEY
 CURATOR_OAUTH1_SECRET
 SECRET_KEY
+TOKEN_ENCRYPTION_KEY
 ```
+
+`TOKEN_ENCRYPTION_KEY` is used to encrypt the access tokens using Fernet key, which is a 32 url-safe base64-encoded byte string. Generate a new key using:
+
+```bash
+openssl rand -base64 32
+```
+
+### Webservice
 
 When deploying for the first time, use:
 
@@ -43,6 +52,14 @@ toolforge webservice buildservice start --buildservice-image tool-curator/web:la
 For subsequent deployments, use:
 ```bash
 toolforge webservice restart
+```
+
+### Celery worker
+
+After building the `web` image, run the Celery worker:
+
+```bash
+toolforge jobs run --image tool-curator/web:latest --emails all --continuous --filelog --mount all --command "worker" worker
 ```
 
 ## Development
@@ -62,12 +79,12 @@ Install backend dependencies:
 poetry install
 ```
 
-### Running the Server
+### Running the server
 
 Start the FastAPI server:
 
 ```bash
-X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 poetry run web
+X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 TOKEN_ENCRYPTION_KEY=abc123 poetry run web
 ```
 
 The backend server will be available at http://localhost:8000. The OAuth1 application is at [OAuth applications - Wikimedia Meta-Wiki](https://meta.wikimedia.org/wiki/Special:OAuthListConsumers/view/007829f26d944fb553e89e0c0fd02f31).
