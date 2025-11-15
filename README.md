@@ -29,8 +29,8 @@ Use `toolforge envvars` to set them up. The OAuth1 application is at [OAuth appl
 
 ```bash
 X_USERNAME
-OAUTH_CLIENT_SECRET
-OAUTH_CLIENT_ID
+CURATOR_OAUTH1_KEY
+CURATOR_OAUTH1_SECRET
 SECRET_KEY
 ```
 
@@ -67,7 +67,7 @@ poetry install
 Start the FastAPI server:
 
 ```bash
-X_USERNAME=DaxServer OAUTH_CLIENT_ID=abc123 OAUTH_CLIENT_SECRET=abc123 poetry run web
+X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 poetry run web
 ```
 
 The backend server will be available at http://localhost:8000. The OAuth1 application is at [OAuth applications - Wikimedia Meta-Wiki](https://meta.wikimedia.org/wiki/Special:OAuthListConsumers/view/007829f26d944fb553e89e0c0fd02f31).
@@ -92,6 +92,14 @@ For verbose output:
 
 ```bash
 poetry run pytest -v
+```
+
+### Code Style
+
+This project uses [Black](https://black.readthedocs.io/en/stable/) for code formatting. Run Black before committing your changes:
+
+```bash
+poetry run black .
 ```
 
 ## License
