@@ -1,5 +1,4 @@
 import os
-from types import SimpleNamespace
 from cryptography.fernet import Fernet
 from curator.app.crypto import encrypt_access_token
 import curator.workers.mapillary as worker
@@ -31,7 +30,9 @@ def test_worker_process_one_decrypts_token(monkeypatch):
     def fake_get_upload_request_by_id(session, upload_id):
         return item
 
-    def fake_update_upload_status(session, upload_id, status, result=None, error=None):
+    def fake_update_upload_status(
+        session, upload_id, status, result=None, error=None, **kwargs
+    ):
         return None
 
     def fake_fetch_sequence_data(sequence_id):

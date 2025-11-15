@@ -8,10 +8,11 @@ from curator.app.dal import (
     get_upload_request_by_id,
     update_upload_status,
 )
-from curator.app.commons import upload_file_chunked
+from curator.app.commons import upload_file_chunked, DuplicateUploadError
 from curator.app.mapillary_utils import fetch_sequence_data
 from curator.workers.celery import celery_app
 from curator.app.db import get_session
+import json
 
 
 def fetch_image_metadata(image_id: str, sequence_id: str) -> dict:
@@ -82,19 +83,38 @@ def process_one(
             session,
             upload_id=item.id,
             status="completed",
-            result=str(upload_result),
+            success=upload_result.get("url"),
         )
         processed = True
 
-    except Exception as e:
+    except DuplicateUploadError as e:
         print(
             f"[mapillary-worker] process_one: error processing upload_id={upload_id}: {e}"
         )
+        structured_error = {
+            "type": "duplicate",
+            "message": str(e),
+            "links": e.duplicates,
+        }
         update_upload_status(
             session,
             upload_id=upload_id,
             status="failed",
-            error=str(e),
+            error=json.dumps(structured_error),
+        )
+    except Exception as e:
+        print(
+            f"[mapillary-worker] process_one: error processing upload_id={upload_id}: {e}"
+        )
+        structured_error = {
+            "type": "error",
+            "message": str(e),
+        }
+        update_upload_status(
+            session,
+            upload_id=upload_id,
+            status="failed",
+            error=json.dumps(structured_error),
         )
     finally:
         if item:

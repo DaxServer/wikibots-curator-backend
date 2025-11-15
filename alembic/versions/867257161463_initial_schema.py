@@ -7,6 +7,7 @@ Create Date: 2025-10-07 21:19:13.750858
 """
 
 from sqlmodel import SQLModel
+from alembic import op
 from typing import Sequence, Union
 
 from curator.app.db import engine
@@ -21,4 +22,5 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    SQLModel.metadata.create_all(engine)
+    bind = op.get_bind()
+    SQLModel.metadata.create_all(bind=bind)
