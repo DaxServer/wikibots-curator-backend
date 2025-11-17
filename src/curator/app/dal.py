@@ -1,3 +1,4 @@
+from curator.app.ingest.interfaces import Handler
 from typing import Optional, List
 
 from curator.app.models import UploadItem, UploadRequest, User, Batch
@@ -57,6 +58,7 @@ def create_upload_request(
     username: str,
     userid: str,
     payload: list[UploadItem],
+    handler: Handler,
 ) -> List[UploadRequest]:
     # Ensure normalized FK rows exist
     ensure_user(session=session, userid=userid, username=username)
@@ -68,7 +70,7 @@ def create_upload_request(
             userid=userid,
             batch_id=batch.batch_uid,
             key=item.id,
-            handler="mapillary",
+            handler=handler,
             status="queued",
             filename=item.title,
             wikitext=item.wikitext,

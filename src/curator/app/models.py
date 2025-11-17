@@ -6,6 +6,7 @@ from datetime import datetime
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     userid: str = Field(primary_key=True, max_length=255)
     username: str = Field(index=True, max_length=255)
@@ -20,6 +21,7 @@ class User(SQLModel, table=True):
 
 class Batch(SQLModel, table=True):
     __tablename__ = "batches"
+    __table_args__ = {"extend_existing": True}
 
     batch_uid: str = Field(
         primary_key=True, max_length=255, default_factory=lambda: str(uuid.uuid4())
@@ -35,6 +37,7 @@ class Batch(SQLModel, table=True):
 
 class UploadRequest(SQLModel, table=True):
     __tablename__ = "upload_requests"
+    __table_args__ = {"extend_existing": True}
 
     id: int = Field(default=None, primary_key=True)
     batch_id: str = Field(foreign_key="batches.batch_uid", index=True, max_length=255)
@@ -58,6 +61,6 @@ class UploadRequest(SQLModel, table=True):
 
 class UploadItem(SQLModel):
     id: str
-    sequence_id: str
+    input: str
     title: str
     wikitext: str

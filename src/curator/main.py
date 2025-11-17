@@ -14,8 +14,9 @@ from alembic.config import Config
 from alembic import command
 from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
-from curator.mapillary import router as mapillary_router
+from curator.collections import router as collections_router
 from curator.toolforge import router as toolforge_router
+from curator.ingest import router as ingest_router
 from curator.app.db import DB_URL
 
 from starlette.middleware.sessions import SessionMiddleware
@@ -63,8 +64,9 @@ app.add_middleware(
 # Include the routers
 app.include_router(auth_router)
 app.include_router(harbor_router)
-app.include_router(mapillary_router)
+app.include_router(collections_router)
 app.include_router(toolforge_router)
+app.include_router(ingest_router)
 
 
 def start(reload: bool = True):
