@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import Mock
 from curator.app.models import UploadRequest
 from curator.app.dal import get_upload_request_by_id

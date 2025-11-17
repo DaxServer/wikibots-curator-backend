@@ -1,22 +1,17 @@
 import os
 from cryptography.fernet import Fernet
+from types import SimpleNamespace
+from unittest.mock import patch
 from curator.app.crypto import encrypt_access_token
-import curator.workers.mapillary as worker
+import curator.workers.ingest as worker
 
 
-def test_worker_process_one_decrypts_token(monkeypatch):
+def test_worker_process_one_decrypts_token():
     os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-    access_token = ("t", "s")
-    encrypted = encrypt_access_token(access_token)
 
-    class FakeSession:
-        def close(self):
-            pass
+    encrypted = encrypt_access_token(("t", "s"))
 
-    def fake_get_session():
-        yield FakeSession()
-
-    item = worker.UploadRequest(
+    item = SimpleNamespace(
         id=1,
         batch_id="b",
         userid="u",
@@ -27,45 +22,38 @@ def test_worker_process_one_decrypts_token(monkeypatch):
         wikitext="",
     )
 
-    def fake_get_upload_request_by_id(session, upload_id):
-        return item
-
-    def fake_update_upload_status(
-        session, upload_id, status, result=None, error=None, **kwargs
-    ):
-        return None
-
-    def fake_fetch_sequence_data(sequence_id):
-        return {
-            "img1": {
-                "id": "img1",
-                "thumb_original_url": "https://example.com/file.jpg",
-            }
-        }
-
-    def fake_build_mapillary_sdc(image):
-        return []
+    def fake_session_iter():
+        yield SimpleNamespace(close=lambda: None)
 
     captured = {}
 
-    def fake_upload_file_chunked(
-        file_name, file_url, wikitext, access_token, username, edit_summary, sdc
+    with (
+        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch("curator.workers.ingest.update_upload_status"),
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=lambda file_name, file_url, wikitext, edit_summary, access_token, username, sdc: (
+                captured.setdefault("token", access_token),
+                {"result": "success", "title": file_name, "url": file_url},
+            )[
+                1
+            ],
+        ),
+        patch("curator.workers.ingest.count_open_uploads_for_batch", return_value=0),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            return_value=SimpleNamespace(
+                id="img1",
+                url_original="https://example.com/file.jpg",
+            ),
+        ),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.build_sdc",
+            return_value=[],
+        ),
     ):
-        captured["token"] = access_token
-        return {"result": "success", "title": file_name, "url": file_url}
 
-    monkeypatch.setattr(worker, "get_session", fake_get_session)
-    monkeypatch.setattr(
-        worker, "get_upload_request_by_id", fake_get_upload_request_by_id
-    )
-    monkeypatch.setattr(worker, "update_upload_status", fake_update_upload_status)
-    monkeypatch.setattr(worker, "fetch_sequence_data", fake_fetch_sequence_data)
-    monkeypatch.setattr(worker, "build_mapillary_sdc", fake_build_mapillary_sdc)
-    monkeypatch.setattr(worker, "upload_file_chunked", fake_upload_file_chunked)
-    monkeypatch.setattr(
-        worker, "count_open_uploads_for_batch", lambda *args, **kwargs: 0
-    )
-
-    ok = worker.process_one(1, "seq", encrypted, "User")
-    assert ok is True
-    assert tuple(captured["token"]) == ("t", "s")
+        ok = worker.process_one(1, "seq", encrypted, "User")
+        assert ok is True
+        assert tuple(captured["token"]) == ("t", "s")

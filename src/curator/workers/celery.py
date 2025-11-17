@@ -3,7 +3,9 @@ from curator.app.db import DB_URL
 
 celery_app = Celery(
     "curator",
-    include=["curator.workers.mapillary"],
+    include=[
+        "curator.workers.ingest",
+    ],
 )
 
 celery_app.conf.update(
