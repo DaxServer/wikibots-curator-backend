@@ -20,6 +20,7 @@ def test_worker_process_one_decrypts_token():
         handler="mapillary",
         filename="File.jpg",
         wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
     )
 
     def fake_session_iter():
@@ -33,12 +34,10 @@ def test_worker_process_one_decrypts_token():
         patch("curator.workers.ingest.update_upload_status"),
         patch(
             "curator.workers.ingest.upload_file_chunked",
-            side_effect=lambda file_name, file_url, wikitext, edit_summary, access_token, username, sdc: (
+            side_effect=lambda file_name, file_url, access_token, **kwargs: (
                 captured.setdefault("token", access_token),
                 {"result": "success", "title": file_name, "url": file_url},
-            )[
-                1
-            ],
+            )[1],
         ),
         patch("curator.workers.ingest.count_open_uploads_for_batch", return_value=0),
         patch(

@@ -75,6 +75,7 @@ def create_upload_request(
             filename=item.title,
             wikitext=item.wikitext,
             sdc=None,
+            labels=item.labels,
         )
         session.add(req)
         reqs.append(req)
