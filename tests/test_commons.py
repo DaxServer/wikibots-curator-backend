@@ -8,7 +8,13 @@ def test_upload_file_chunked():
     # Mock parameters
     filename = "test.jpg"
     file_path = "/tmp/test.jpg"
-    wikitext = "Test description"
+    wikitext = (
+        "== {{int:filedesc}} ==\n"
+        "{{Information\n"
+        " | description = {{en|1=Example label}}\n"
+        " | source      = {{Mapillary-source|key=abc}}\n"
+        "}}\n"
+    )
     edit_summary = "Test upload"
     username = "testuser"
 
@@ -50,6 +56,9 @@ def test_upload_file_chunked():
             "https://commons.wikimedia.org/wiki/File:test.jpg"
         )
 
+        # Spy on simple_request to capture payload
+        simple_request = mock_site_instance.simple_request
+
         result = upload_file_chunked(
             filename,
             file_path,
@@ -57,7 +66,8 @@ def test_upload_file_chunked():
             edit_summary,
             access_token=access_token,
             username=username,
-            sdc=None,
+            sdc=[{"mainsnak": {}}],
+            labels={"en": {"language": "en", "value": "Example label"}},
         )
 
         # Assert config was set
@@ -83,3 +93,13 @@ def test_upload_file_chunked():
             "title": filename,
             "url": "https://commons.wikimedia.org/wiki/File:test.jpg",
         }
+
+        # Assert labels were included in wbeditentity data
+        assert simple_request.called
+        kwargs = simple_request.call_args.kwargs
+        assert "data" in kwargs
+        payload = __import__("json").loads(kwargs["data"])
+        assert "labels" in payload
+        assert payload["labels"] == [
+            {"en": {"language": "en", "value": "Example label"}}
+        ]

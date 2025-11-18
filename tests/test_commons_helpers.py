@@ -78,3 +78,31 @@ def test_apply_sdc_invokes_simple_request_and_null_edit():
     apply_sdc(site, fp, [{"x": 1}], "summary")
     site.simple_request.assert_called()
     fp.save.assert_called()
+
+
+def test_apply_sdc_includes_labels_in_payload_when_provided():
+    site = MagicMock()
+    req = MagicMock()
+    site.simple_request.return_value = req
+    site.get_tokens.return_value = {"csrf": "token"}
+    fp = MagicMock()
+    fp.title.return_value = "File:x.jpg"
+    labels = {"en": {"language": "en", "value": "Example"}}
+    apply_sdc(site, fp, [{"x": 1}], "summary", labels)
+    called_kwargs = site.simple_request.call_args.kwargs
+    assert "data" in called_kwargs
+    assert "labels" in __import__("json").loads(called_kwargs["data"])
+
+
+def test_apply_sdc_includes_labels_in_payload():
+    site = MagicMock()
+    req = MagicMock()
+    site.simple_request.return_value = req
+    site.get_tokens.return_value = {"csrf": "token"}
+    fp = MagicMock()
+    fp.title.return_value = "File:x.jpg"
+    labels = {"en": {"language": "en", "value": "Example"}}
+    apply_sdc(site, fp, [{"x": 1}], "summary", labels)
+    called_kwargs = site.simple_request.call_args.kwargs
+    assert "data" in called_kwargs
+    assert "labels" in __import__("json").loads(called_kwargs["data"])

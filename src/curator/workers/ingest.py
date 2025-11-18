@@ -63,6 +63,7 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
             access_token=access_token,
             username=username,
             sdc=sdc_json,
+            labels=item.labels,
         )
 
         return _success(session, item, upload_result.get("url"))

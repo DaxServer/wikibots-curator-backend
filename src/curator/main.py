@@ -73,6 +73,45 @@ def start(reload: bool = True):
     """
     Entry point for the application when run as a script.
     """
+    level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    log_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "()": "uvicorn.logging.DefaultFormatter",
+                "fmt": "%(levelprefix)s %(message)s",
+                "use_colors": None,
+            },
+            "access": {
+                "()": "uvicorn.logging.AccessFormatter",
+                "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+            },
+        },
+        "handlers": {
+            "default": {
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+                "stream": "ext://sys.stderr",
+            },
+            "access": {
+                "class": "logging.StreamHandler",
+                "formatter": "access",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "loggers": {
+            "uvicorn": {"handlers": ["default"], "level": level, "propagate": False},
+            "uvicorn.error": {"level": level},
+            "uvicorn.access": {
+                "handlers": ["access"],
+                "level": level,
+                "propagate": False,
+            },
+            "curator": {"handlers": ["default"], "level": level, "propagate": True},
+        },
+    }
+
     uvicorn.run(
         "curator.main:app",
         host="0.0.0.0",
@@ -80,6 +119,8 @@ def start(reload: bool = True):
         port=8000,
         reload_dirs=["src/curator"],
         reload_excludes=["__pycache__"],
+        log_level=level.lower(),
+        log_config=log_config,
     )
 
 

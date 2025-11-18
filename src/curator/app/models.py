@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Column, JSON
 from datetime import datetime
 
 
@@ -48,6 +49,7 @@ class UploadRequest(SQLModel, table=True):
     filename: str = Field(index=True, max_length=255)
     wikitext: Optional[str] = Field(default=None, max_length=2000)
     sdc: Optional[str] = Field(default=None, max_length=2000)
+    labels: Optional[dict[str, str]] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, max_length=2000)
     error: Optional[str] = Field(default=None, max_length=2000)
     success: Optional[str] = Field(default=None, max_length=2000)
@@ -64,3 +66,4 @@ class UploadItem(SQLModel):
     input: str
     title: str
     wikitext: str
+    labels: Optional[dict[str, str]] = None
