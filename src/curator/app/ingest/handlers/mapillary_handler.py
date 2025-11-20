@@ -1,3 +1,4 @@
+from pywikibot import WbQuantity
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List
@@ -136,10 +137,36 @@ class MapillaryHandler(Handler):
         described_at_url_qualifier.setTarget(image.url)
         claim_source_of_file.addQualifier(described_at_url_qualifier)
 
+        copyright_claim = Claim(PWB_SITE_COMMONS, WikidataProperty.CopyrightStatus)
+        copyright_claim.setTarget(
+            ItemPage(PWB_SITE_WIKIDATA, WikidataEntity.Copyrighted)
+        )
+
+        copyright_license_claim = Claim(
+            PWB_SITE_COMMONS, WikidataProperty.CopyrightLicense
+        )
+        copyright_license_claim.setTarget(
+            ItemPage(PWB_SITE_WIKIDATA, WikidataEntity.CCBYSA40)
+        )
+
+        width_claim = Claim(PWB_SITE_COMMONS, WikidataProperty.Width)
+        width_claim.setTarget(
+            WbQuantity(image.width, ItemPage(PWB_SITE_WIKIDATA, WikidataEntity.Pixel))
+        )
+
+        height_claim = Claim(PWB_SITE_COMMONS, WikidataProperty.Height)
+        height_claim.setTarget(
+            WbQuantity(image.height, ItemPage(PWB_SITE_WIKIDATA, WikidataEntity.Pixel))
+        )
+
         return [
             claim_creator.toJSON(),
             claim_mapillary_id.toJSON(),
             claim_published_in.toJSON(),
             claim_inception.toJSON(),
             claim_source_of_file.toJSON(),
+            copyright_claim.toJSON(),
+            copyright_license_claim.toJSON(),
+            width_claim.toJSON(),
+            height_claim.toJSON(),
         ]

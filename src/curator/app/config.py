@@ -32,6 +32,7 @@ MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 
 
 class WikidataEntity:
+    CCBYSA40 = "Q18199165"
     Circa = "Q5727902"
     Copyrighted = "Q50423863"
     DedicatedToPublicDomainByCopyrightOwner = "Q88088423"
@@ -40,6 +41,7 @@ class WikidataEntity:
     iNaturalist = "Q16958215"
     Mapillary = "Q17985544"
     MapillaryDatabase = "Q26757498"
+    Pixel = "Q355198"
     PortableAntiquitiesSchemeDatabase = "Q111225724"
     PublicDomain = "Q19652"
     StatedByCopyrightHolderAtSourceWebsite = "Q61045577"
@@ -61,6 +63,7 @@ class WikidataProperty:
     DeterminationMethod = "P459"
     FlickrPhotoId = "P12120"
     FlickrUserId = "P3267"
+    Height = "P2048"
     INaturalistPhotoId = "P13419"
     INaturalistObservationId = "P5683"
     INaturalistTaxonId = "P3151"
@@ -77,6 +80,7 @@ class WikidataProperty:
     SourcingCircumstances = "P1480"
     Title = "P1476"
     Url = "P2699"
+    Width = "P2049"
     YouTubeChannelId = "P2397"
     YouTubeHandle = "P11245"
     YouTubeVideoId = "P1651"
