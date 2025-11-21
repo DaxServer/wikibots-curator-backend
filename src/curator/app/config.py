@@ -91,18 +91,7 @@ class WikidataProperty:
 PWB_SITE_COMMONS = Site("commons", "commons")
 PWB_SITE_WIKIDATA = Site("wikidata", "wikidata")
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_DB = int(os.getenv("REDIS_DB", 0))
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
-
-
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    db=REDIS_DB,
-    password=REDIS_PASSWORD,
-    decode_responses=True,
-)
-
 REDIS_PREFIX = "skI4ZdSn18vvLkMHnPk8AEyg/8VjDRT6sY2u+BXIdsk="
+redis_client = redis.Redis.from_url(
+    os.getenv("TOOL_REDIS_URI", "redis://localhost:6379"), db=10
+)
