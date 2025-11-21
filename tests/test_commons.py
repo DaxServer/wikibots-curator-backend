@@ -23,7 +23,7 @@ def test_upload_file_chunked():
     # Mock pywikibot config and Site
     with (
         patch("curator.app.commons.config") as mock_config,
-        patch("pywikibot.Site") as mock_site,
+        patch("curator.app.commons.pywikibot") as mock_pywikibot,
         patch("httpx.get") as mock_httpx_get,
         patch("curator.app.commons.Page") as mock_page,
         patch("curator.app.commons.FilePage") as mock_file_page,
@@ -31,7 +31,7 @@ def test_upload_file_chunked():
         patch("curator.app.commons.OAUTH_KEY", "key"),
         patch("curator.app.commons.OAUTH_SECRET", "secret"),
     ):
-
+        mock_site = mock_pywikibot.Site
         mock_site_instance = mock_site.return_value
         mock_site_instance.login.return_value = None
 

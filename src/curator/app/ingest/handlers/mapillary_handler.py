@@ -1,7 +1,9 @@
+from curator.app.wcqs import WcqsSession
 from pywikibot import WbQuantity
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, List
+from fastapi import Request
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
@@ -10,7 +12,7 @@ from curator.app.config import (
     WikidataEntity,
     WikidataProperty,
 )
-from curator.app.image_models import Creator, Image, Location, Dates
+from curator.app.image_models import Creator, Image, Location, Dates, ExistingPage
 from curator.app.ingest.interfaces import Handler
 import httpx
 from pywikibot import Claim, ItemPage, Timestamp, WbTime
@@ -87,6 +89,31 @@ class MapillaryHandler(Handler):
                 f"Image data not found in sequence for image_id={image_id}"
             )
         return image
+
+    def fetch_existing_pages(
+        self, image_ids: List[str], request: Request
+    ) -> Dict[str, List[ExistingPage]]:
+        """
+        Validate if the image_id exists in the sequence.
+        """
+        query = f"""
+            SELECT ?file ?id WHERE {{
+              VALUES ?id {{ { " ".join([f'"{i}"' for i in image_ids]) } }}
+              ?file wdt:{WikidataProperty.MapillaryPhotoID} ?id.
+            }}
+            """
+
+        results = WcqsSession(request).query(query)
+
+        existing_pages = {}
+        for r in results["results"]["bindings"]:
+            image_id = r["id"]["value"]
+            file_url = r["file"]["value"]
+            if image_id not in existing_pages:
+                existing_pages[image_id] = []
+            existing_pages[image_id].append(ExistingPage(url=file_url))
+
+        return existing_pages
 
     def build_sdc(self, image: Image) -> List[Dict]:
         """
