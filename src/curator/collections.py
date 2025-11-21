@@ -1,4 +1,3 @@
-from curator.app.ingest.handlers.flickr_handler import FlickrHandler
 from typing import List, Dict, Literal
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
