@@ -1,5 +1,5 @@
 from typing import List, Dict, Literal
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
@@ -21,6 +21,9 @@ class SdcRequest(ImagesRequest):
 async def post_collection_images(request: Request, payload: ImagesRequest):
     handler = MapillaryHandler()
     images = handler.fetch_collection(payload.input)
+
+    if not images:
+        raise HTTPException(status_code=404, detail="Collection not found")
 
     first = next(iter(images.values()))
     creator = first.creator.model_dump()
