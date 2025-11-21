@@ -1,5 +1,6 @@
+from curator.app.ingest.handlers.flickr_handler import FlickrHandler
 from typing import List, Dict, Literal
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
@@ -18,12 +19,18 @@ class SdcRequest(ImagesRequest):
 
 
 @router.post("/images")
-async def post_collection_images(payload: ImagesRequest):
+async def post_collection_images(request: Request, payload: ImagesRequest):
     handler = MapillaryHandler()
     images = handler.fetch_collection(payload.input)
 
     first = next(iter(images.values()))
     creator = first.creator.model_dump()
+
+    existing_pages = handler.fetch_existing_pages(
+        [i.id for i in images.values()], request
+    )
+    for image_id, pages in existing_pages.items():
+        images[image_id].existing = pages
 
     return {"images": images, "creator": creator}
 

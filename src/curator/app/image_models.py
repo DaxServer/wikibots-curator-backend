@@ -21,6 +21,10 @@ class Dates(BaseModel):
     published: Optional[datetime] = None
 
 
+class ExistingPage(BaseModel):
+    url: str
+
+
 class Image(BaseModel):
     id: str
     title: str
@@ -39,3 +43,4 @@ class Image(BaseModel):
     is_pano: Optional[bool] = None
     license: Optional[str] = None
     tags: list[str] = []
+    existing: list[ExistingPage] = []

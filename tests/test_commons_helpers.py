@@ -15,7 +15,7 @@ import pytest
 def test_get_commons_site_sets_auth_and_logs_in():
     with (
         patch("curator.app.commons.config") as mock_config,
-        patch("pywikibot.Site") as mock_site,
+        patch("curator.app.commons.pywikibot") as mock_pywikibot,
         patch("curator.app.commons.OAUTH_KEY", "key"),
         patch("curator.app.commons.OAUTH_SECRET", "secret"),
     ):
@@ -23,8 +23,8 @@ def test_get_commons_site_sets_auth_and_logs_in():
         get_commons_site(access_token, "user")
         mock_config.authenticate.__setitem__.assert_called()
         mock_config.usernames.__getitem__.assert_called_with("commons")
-        mock_site.assert_called_with("commons", "commons", user="user")
-        mock_site.return_value.login.assert_called_once()
+        mock_pywikibot.Site.assert_called_with("commons", "commons", user="user")
+        mock_pywikibot.Site.return_value.login.assert_called_once()
 
 
 def test_download_file_returns_bytes():
