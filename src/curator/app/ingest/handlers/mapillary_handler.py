@@ -94,7 +94,10 @@ class MapillaryHandler(Handler):
         self, image_ids: List[str], request: Request
     ) -> Dict[str, List[ExistingPage]]:
         """
-        Validate if the image_id exists in the sequence.
+        Fetch existing Wikimedia Commons pages for the given Mapillary image IDs.
+
+        Queries WCQS to find files that have already been uploaded with these Mapillary IDs
+        to prevent duplicate uploads.
         """
         query = f"""
             SELECT ?file ?id WHERE {{

@@ -24,7 +24,6 @@ import json
 import requests
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 
 class WcqsSession:
@@ -143,13 +142,14 @@ class WcqsSession:
         # valid wcqsSession cookie.
         wcqsSession = cookie_dict.get(("commons-query.wikimedia.org", "wcqsSession"))
         if wcqsSession:
+            expires = wcqsSession["expirationDate"]
             self.session.cookies.set(
                 name="wcqsSession",
                 value=wcqsSession["value"],
                 domain=wcqsSession["domain"],
                 path=wcqsSession["path"],
                 secure=wcqsSession["secure"],
-                expires=int(wcqsSession["expirationDate"]),
+                expires=int(expires) if expires else None,
             )
 
     def _save_cookies(self):
