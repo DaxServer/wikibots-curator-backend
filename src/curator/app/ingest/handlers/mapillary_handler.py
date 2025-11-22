@@ -54,7 +54,7 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
     )
 
 
-@lru_cache()
+@lru_cache(maxsize=1024)
 def _fetch_sequence_data(sequence_id: str) -> dict:
     """
     Fetch sequence data from Mapillary API
