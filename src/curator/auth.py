@@ -80,6 +80,7 @@ async def auth(request: Request):
 async def logout(request: Request):
     request.session.pop("user", None)
     request.session.pop("request_token", None)
+    request.session.clear()
     return RedirectResponse(url="/")
 
 

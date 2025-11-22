@@ -1,14 +1,11 @@
-import os
 import json
 from cryptography.fernet import Fernet
 from mwoauth import AccessToken
+from curator.app.config import TOKEN_ENCRYPTION_KEY
 
 
 def _get_fernet() -> Fernet:
-    key = os.environ.get("TOKEN_ENCRYPTION_KEY")
-    if not key:
-        raise RuntimeError("TOKEN_ENCRYPTION_KEY is not set")
-    return Fernet(key.encode() if isinstance(key, str) else key)
+    return Fernet(TOKEN_ENCRYPTION_KEY)
 
 
 def encrypt_access_token(token: AccessToken) -> str:

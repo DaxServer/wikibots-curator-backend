@@ -44,10 +44,11 @@ async def post_collection_sdc(payload: SdcRequest):
         expanded.extend([x for x in v.split(",") if x])
 
     handler = MapillaryHandler()
+    images = handler.fetch_collection(payload.input)
 
     result: Dict[str, Dict] = {}
     for image_id in expanded:
-        image = handler.fetch_image_metadata(image_id, payload.input)
-        result[image_id] = handler.build_sdc(image)
+        if image_id in images:
+            result[image_id] = handler.build_sdc(images[image_id])
 
     return result

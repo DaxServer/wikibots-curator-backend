@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
 import os
-import secrets
 import sys
 
 from fastapi import FastAPI
@@ -19,7 +18,9 @@ from curator.toolforge import router as toolforge_router
 from curator.ingest import router as ingest_router
 from curator.app.db import DB_URL
 
-from starlette.middleware.sessions import SessionMiddleware
+from starsessions import SessionMiddleware, SessionAutoloadMiddleware
+from starsessions.stores.cookie import CookieStore
+from curator.app.config import TOKEN_ENCRYPTION_KEY
 
 
 @asynccontextmanager
@@ -57,8 +58,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(SessionAutoloadMiddleware)
 app.add_middleware(
-    SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", secrets.token_hex(32))
+    SessionMiddleware,
+    store=CookieStore(TOKEN_ENCRYPTION_KEY),
 )
 
 # Include the routers
