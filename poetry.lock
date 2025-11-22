@@ -2329,6 +2329,25 @@ anyio = ">=3.6.2,<5"
 full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
+name = "starsessions"
+version = "2.2.1"
+description = "Advanced sessions for Starlette and FastAPI frameworks"
+optional = false
+python-versions = "<4.0.0,>=3.8.0"
+groups = ["main"]
+files = [
+    {file = "starsessions-2.2.1-py3-none-any.whl", hash = "sha256:8097b33d70017b2d2331307f0ea923620b5bfb847118d2e5872805d0c1c16f83"},
+    {file = "starsessions-2.2.1.tar.gz", hash = "sha256:ce5e4448d9bf2c76222e56cd099ad92d22313e8a4def612e22b71a122cc11da0"},
+]
+
+[package.dependencies]
+itsdangerous = ">=2,<3"
+starlette = "*"
+
+[package.extras]
+redis = ["redis (>=4.2.0rc1)"]
+
+[[package]]
 name = "typer"
 version = "0.20.0"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
@@ -2725,4 +2744,4 @@ dev = ["pytest", "pytest-asyncio"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "cff33821bea68cc8779c6898008e249e6566f807e2ec48eb1cec85e117f60a3d"
+content-hash = "4429eb242062a0d7f556b71676fea0636a5be92c619b0fa8ea8af70a48fb9437"

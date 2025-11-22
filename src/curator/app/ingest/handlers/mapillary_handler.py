@@ -1,7 +1,8 @@
+from functools import lru_cache
+import logging
 from curator.app.wcqs import WcqsSession
 from pywikibot import WbQuantity
 from datetime import datetime
-from functools import lru_cache
 from typing import Any, Dict, List
 from fastapi import Request
 
@@ -16,6 +17,8 @@ from curator.app.image_models import Creator, Image, Location, Dates, ExistingPa
 from curator.app.ingest.interfaces import Handler
 import httpx
 from pywikibot import Claim, ItemPage, Timestamp, WbTime
+
+logger = logging.getLogger(__name__)
 
 
 def from_mapillary(image: Dict[str, Any]) -> Image:
@@ -51,11 +54,13 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
     )
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=1024)
 def _fetch_sequence_data(sequence_id: str) -> dict:
     """
     Fetch sequence data from Mapillary API
     """
+    logger.info(f"Fetching Mapillary sequence data for {sequence_id}")
+
     response = httpx.get(
         f"https://graph.mapillary.com/images",
         params={
@@ -78,17 +83,17 @@ class MapillaryHandler(Handler):
     name = "mapillary"
 
     def fetch_collection(self, input: str) -> Dict[str, Image]:
-        source = _fetch_sequence_data(input)
-        return {k: from_mapillary(v) for k, v in source.items()}
+        collection = _fetch_sequence_data(input)
+        return {k: from_mapillary(v) for k, v in collection.items()}
 
     def fetch_image_metadata(self, image_id: str, input: str) -> Image:
-        collection = self.fetch_collection(input)
+        collection = _fetch_sequence_data(input)
         image = collection.get(image_id)
         if not image:
             raise ValueError(
                 f"Image data not found in sequence for image_id={image_id}"
             )
-        return image
+        return from_mapillary(image)
 
     def fetch_existing_pages(
         self, image_ids: List[str], request: Request
