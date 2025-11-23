@@ -50,7 +50,10 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
 
         handler = MapillaryHandler()
         image = handler.fetch_image_metadata(item.key, input)
-        sdc_json = handler.build_sdc(image)
+        if item.sdc:
+            sdc_json = json.loads(item.sdc)
+        else:
+            sdc_json = handler.build_sdc(image)
         image_url = image.url_original
         access_token = decrypt_access_token(encrypted_access_token)
 

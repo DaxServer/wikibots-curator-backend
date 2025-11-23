@@ -1,5 +1,6 @@
 from curator.app.ingest.interfaces import Handler
 from typing import Optional, List
+import json
 
 from curator.app.models import UploadItem, UploadRequest, User, Batch
 from datetime import datetime
@@ -74,7 +75,7 @@ def create_upload_request(
             status="queued",
             filename=item.title,
             wikitext=item.wikitext,
-            sdc=None,
+            sdc=json.dumps(item.sdc) if item.sdc else None,
             labels=item.labels,
         )
         session.add(req)
