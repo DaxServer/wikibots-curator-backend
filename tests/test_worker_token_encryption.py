@@ -21,6 +21,7 @@ def test_worker_process_one_decrypts_token():
         filename="File.jpg",
         wikitext="",
         labels={"en": {"language": "en", "value": "Example"}},
+        sdc=None,
     )
 
     def fake_session_iter():

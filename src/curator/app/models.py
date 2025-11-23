@@ -67,3 +67,4 @@ class UploadItem(SQLModel):
     title: str
     wikitext: str
     labels: Optional[dict[str, str]] = None
+    sdc: Optional[list[dict]] = None
