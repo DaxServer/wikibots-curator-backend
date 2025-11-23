@@ -34,6 +34,24 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """
+    Exclude Celery and Kombu tables from Alembic autogeneration.
+    These tables are managed by Celery, not by our application models.
+    """
+    if type_ == "table":
+        # Exclude Celery and Kombu tables
+        excluded_tables = {
+            "celery_taskmeta",
+            "celery_tasksetmeta",
+            "kombu_queue",
+            "kombu_message",
+        }
+        if name in excluded_tables:
+            return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -52,6 +70,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -59,7 +78,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

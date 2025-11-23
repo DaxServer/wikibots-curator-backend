@@ -47,12 +47,12 @@ class UploadRequest(SQLModel, table=True):
     key: str = Field(index=True, max_length=255)
     handler: str = Field(index=True, max_length=255)
     filename: str = Field(index=True, max_length=255)
-    wikitext: Optional[str] = Field(default=None, max_length=2000)
-    sdc: Optional[str] = Field(default=None, max_length=2000)
+    wikitext: Optional[str] = Field(default=None)
+    sdc: Optional[str] = Field(default=None)
     labels: Optional[dict[str, str]] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, max_length=2000)
-    error: Optional[str] = Field(default=None, max_length=2000)
-    success: Optional[str] = Field(default=None, max_length=2000)
+    error: Optional[str] = Field(default=None)
+    success: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(
         default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
