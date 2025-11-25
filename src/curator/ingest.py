@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from mwoauth import AccessToken
 
 from curator.app.db import get_session
-from curator.app.dal import create_upload_request, get_upload_request
+from curator.app.dal import (
+    create_upload_request,
+    get_upload_request,
+    get_batches,
+    count_batches,
+    count_uploads_in_batch,
+)
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadItem
 from pydantic import BaseModel
@@ -71,31 +77,68 @@ def ingest_upload(
     ]
 
 
-@router.get("/uploads/{batch_id}")
-async def get_uploads_by_batch(
+@router.get("/batches")
+async def get_user_batches(
     request: Request,
-    batch_id: str,
+    page: int = 1,
+    limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    username: str | None = request.session.get("user", {}).get("username")
     userid: str | None = request.session.get("user", {}).get("sub")
-    if not username or not userid:
+    if not userid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
 
-    items = get_upload_request(session, userid=userid, batch_id=batch_id)
+    offset = (page - 1) * limit
+    batches = get_batches(session, userid=userid, offset=offset, limit=limit)
+    total = count_batches(session, userid=userid)
 
-    return [
-        {
-            "id": r.id,
-            "status": r.status,
-            "image_id": r.key,
-            "batch_id": r.batch_id,
-            "result": r.result,
-            "error": (json.loads(r.error) if r.error else None),
-            "success": r.success,
-            "handler": r.handler,
-        }
-        for r in items
-    ]
+    return {
+        "items": [
+            {
+                "batch_uid": b.batch_uid,
+                "created_at": b.created_at,
+            }
+            for b in batches
+        ],
+        "total": total,
+    }
+
+
+@router.get("/uploads/{batch_id}")
+async def get_uploads_by_batch(
+    request: Request,
+    batch_id: str,
+    page: int = 1,
+    limit: int = 100,
+    session: Session = Depends(get_session),
+):
+    userid: str | None = request.session.get("user", {}).get("sub")
+    if not userid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+
+    offset = (page - 1) * limit
+    items = get_upload_request(
+        session, userid=userid, batch_id=batch_id, offset=offset, limit=limit
+    )
+    total = count_uploads_in_batch(session, userid=userid, batch_id=batch_id)
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "status": r.status,
+                "image_id": r.key,
+                "batch_id": r.batch_id,
+                "result": r.result,
+                "error": (json.loads(r.error) if r.error else None),
+                "success": r.success,
+                "handler": r.handler,
+            }
+            for r in items
+        ],
+        "total": total,
+    }
