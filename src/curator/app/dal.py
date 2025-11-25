@@ -5,7 +5,7 @@ import json
 from curator.app.models import UploadItem, UploadRequest, User, Batch
 from datetime import datetime
 
-from sqlmodel import Session, select, update
+from sqlmodel import Session, select, update, func
 
 
 def ensure_user(session: Session, userid: str, username: str) -> User:
@@ -84,13 +84,42 @@ def create_upload_request(
     return reqs
 
 
-def get_upload_request(
-    session: Session, userid: str, batch_id: str
-) -> List[UploadRequest]:
-    result = session.exec(
-        select(UploadRequest).where(
+def count_batches(session: Session, userid: str) -> int:
+    return session.exec(
+        select(func.count(Batch.batch_uid)).where(Batch.userid == userid)
+    ).one()
+
+
+def get_batches(
+    session: Session, userid: str, offset: int = 0, limit: int = 100
+) -> List[Batch]:
+    """Fetch batches for a user, ordered by creation time descending."""
+    return session.exec(
+        select(Batch)
+        .where(Batch.userid == userid)
+        .order_by(Batch.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+
+def count_uploads_in_batch(session: Session, userid: str, batch_id: str) -> int:
+    return session.exec(
+        select(func.count(UploadRequest.id)).where(
             UploadRequest.userid == userid, UploadRequest.batch_id == batch_id
         )
+    ).one()
+
+
+def get_upload_request(
+    session: Session, userid: str, batch_id: str, offset: int = 0, limit: int = 100
+) -> List[UploadRequest]:
+    result = session.exec(
+        select(UploadRequest)
+        .where(UploadRequest.userid == userid, UploadRequest.batch_id == batch_id)
+        .order_by(UploadRequest.id.asc())
+        .offset(offset)
+        .limit(limit)
     )
 
     return list(result.all())
