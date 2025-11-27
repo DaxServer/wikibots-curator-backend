@@ -13,7 +13,7 @@ def test_worker_process_one_decrypts_token():
 
     item = SimpleNamespace(
         id=1,
-        batchid="b",
+        batchid=1,
         userid="u",
         status="queued",
         key="img1",

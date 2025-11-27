@@ -153,7 +153,7 @@ def test_get_user_batches_success(mock_request):
 
 def test_get_user_batches_pagination(mock_request):
     batch = Mock()
-    batch.id = "batch-1"
+    batch.id = 1
 
     mock_session = Mock()
 
@@ -197,7 +197,7 @@ def test_get_uploads_by_batch_success(mock_request_with_user):
     upload1.id = "req-1"
     upload1.status = "completed"
     upload1.key = "image1"
-    upload1.batch_id = "batch-1"
+    upload1.batch_id = 1
     upload1.result = {"some": "result"}
     upload1.error = None
     upload1.success = True
@@ -208,7 +208,7 @@ def test_get_uploads_by_batch_success(mock_request_with_user):
     upload2.id = "req-2"
     upload2.status = "failed"
     upload2.key = "image2"
-    upload2.batchid = 1
+    upload2.batch_id = 1
     upload2.result = None
     upload2.error = '{"msg": "something went wrong"}'
     upload2.success = False
@@ -261,7 +261,7 @@ def test_get_uploads_by_batch_pagination(mock_request_with_user):
     upload.id = "req-1"
     upload.status = "completed"
     upload.key = "image1"
-    upload.batch_id = "batch-1"
+    upload.batch_id = 1
     upload.result = None
     upload.error = None
     upload.success = True
@@ -278,7 +278,7 @@ def test_get_uploads_by_batch_pagination(mock_request_with_user):
         result = run_async(
             get_uploads_by_batch(
                 mock_request_with_user,
-                batch_id="batch-1",
+                batch_id=1,
                 page=3,
                 limit=25,
                 session=mock_session,
@@ -286,10 +286,10 @@ def test_get_uploads_by_batch_pagination(mock_request_with_user):
         )
 
     mock_get_uploads.assert_called_once_with(
-        mock_session, userid="user123", batch_id="batch-1", offset=50, limit=25
+        mock_session, userid="user123", batch_id=1, offset=50, limit=25
     )
     mock_count.assert_called_once_with(
-        mock_session, userid="user123", batch_id="batch-1"
+        mock_session, userid="user123", batch_id=1
     )
     assert result["total"] == 1
     assert len(result["items"]) == 1
