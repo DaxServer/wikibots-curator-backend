@@ -61,7 +61,7 @@ def upgrade() -> None:
     # 5. Modify 'batches' table: Make 'id' PK, 'batch_uid' Unique but not PK
     # We use recreate='always' to handle SQLite limitations and PK changes
     with op.batch_alter_table("batches") as batch_op:
-        op.execute("ALTER TABLE batches DROP PRIMARY KEY CASCADE")
+        op.execute("ALTER TABLE batches DROP PRIMARY KEY")
 
         # Make batch_uid non-nullable (it was PK)
         batch_op.alter_column(
