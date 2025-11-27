@@ -60,12 +60,21 @@ def upgrade() -> None:
 
     # 5. Modify 'batches' table: Make 'id' PK, 'batch_uid' Unique but not PK
     # We use recreate='always' to handle SQLite limitations and PK changes
+
+    # Drop existing foreign key constraint from upload_requests referencing batches.batch_uid
+    with op.batch_alter_table("upload_requests") as batch_op:
+        batch_op.drop_constraint(
+            "fk_upload_requests_batch_id_batches", type_="foreignkey"
+        )
+
     with op.batch_alter_table("batches") as batch_op:
+        op.execute("ALTER TABLE batches MODIFY batch_uid VARCHAR(255) NOT NULL")
         op.execute("ALTER TABLE batches DROP PRIMARY KEY")
 
-        # Make batch_uid non-nullable (it was PK)
         batch_op.alter_column(
-            "batch_uid", existing_type=sa.String(length=255), nullable=False
+            "id",
+            existing_type=sa.Integer(),
+            nullable=False,
         )
 
 
