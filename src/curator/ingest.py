@@ -99,6 +99,19 @@ async def get_user_batches(
             {
                 "batch_id": b.id,
                 "created_at": b.created_at,
+                "uploads": [
+                    {
+                        "id": r.id,
+                        "status": r.status,
+                        "image_id": r.key,
+                        "batch_id": r.batchid,
+                        "result": r.result,
+                        "error": (json.loads(r.error) if r.error else None),
+                        "success": r.success,
+                        "handler": r.handler,
+                    }
+                    for r in b.uploads
+                ],
             }
             for b in batches
         ],

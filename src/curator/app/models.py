@@ -32,6 +32,7 @@ class Batch(SQLModel, table=True):
     )
 
     user: Optional[User] = Relationship(back_populates="batches")
+    uploads: list["UploadRequest"] = Relationship(back_populates="batch")
 
 
 class UploadRequest(SQLModel, table=True):
@@ -57,6 +58,7 @@ class UploadRequest(SQLModel, table=True):
     )
 
     user: Optional[User] = Relationship(back_populates="uploads")
+    batch: Optional[Batch] = Relationship(back_populates="uploads")
 
 
 class UploadItem(SQLModel):

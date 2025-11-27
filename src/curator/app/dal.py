@@ -6,6 +6,7 @@ from curator.app.models import UploadItem, UploadRequest, User, Batch
 from datetime import datetime
 
 from sqlmodel import Session, select, update, func
+from sqlalchemy.orm import selectinload
 
 
 def ensure_user(session: Session, userid: str, username: str) -> User:
@@ -98,6 +99,7 @@ def get_batches(
     """Fetch batches for a user, ordered by creation time descending."""
     return session.exec(
         select(Batch)
+        .options(selectinload(Batch.uploads))
         .where(Batch.userid == userid)
         .order_by(Batch.created_at.desc())
         .offset(offset)
