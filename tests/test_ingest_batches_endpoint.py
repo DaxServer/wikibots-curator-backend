@@ -288,9 +288,7 @@ def test_get_uploads_by_batch_pagination(mock_request_with_user):
     mock_get_uploads.assert_called_once_with(
         mock_session, userid="user123", batch_id=1, offset=50, limit=25
     )
-    mock_count.assert_called_once_with(
-        mock_session, userid="user123", batch_id=1
-    )
+    mock_count.assert_called_once_with(mock_session, userid="user123", batch_id=1)
     assert result["total"] == 1
     assert len(result["items"]) == 1
 
