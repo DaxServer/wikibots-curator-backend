@@ -71,7 +71,7 @@ def ingest_upload(
             "status": r.status,
             "image_id": r.key,
             "input": raw_input,
-            "batch_id": r.batch_id,
+            "batch_id": r.batchid,
         }
         for r in reqs
     ]
@@ -97,7 +97,7 @@ async def get_user_batches(
     return {
         "items": [
             {
-                "batch_uid": b.batch_uid,
+                "batch_id": b.id,
                 "created_at": b.created_at,
             }
             for b in batches
@@ -109,7 +109,7 @@ async def get_user_batches(
 @router.get("/uploads/{batch_id}")
 async def get_uploads_by_batch(
     request: Request,
-    batch_id: str,
+    batch_id: int,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
@@ -132,7 +132,7 @@ async def get_uploads_by_batch(
                 "id": r.id,
                 "status": r.status,
                 "image_id": r.key,
-                "batch_id": r.batch_id,
+                "batch_id": r.batchid,
                 "result": r.result,
                 "error": (json.loads(r.error) if r.error else None),
                 "success": r.success,

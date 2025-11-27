@@ -24,3 +24,8 @@ def upgrade() -> None:
     """Upgrade schema."""
     bind = op.get_bind()
     SQLModel.metadata.create_all(bind=bind)
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    pass

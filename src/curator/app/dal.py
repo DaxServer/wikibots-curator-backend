@@ -29,6 +29,8 @@ def create_batch(session: Session, userid: str) -> Batch:
     """
     batch = Batch(userid=userid)
     session.add(batch)
+    session.commit()
+    session.refresh(batch)
 
     return batch
 
@@ -36,14 +38,14 @@ def create_batch(session: Session, userid: str) -> Batch:
 def count_open_uploads_for_batch(
     session: Session,
     userid: str,
-    batch_id: str,
+    batch_id: int,
 ) -> int:
     """Count uploads for a batch_id that are not yet completed or errored."""
     print(f"[dal] count_open_uploads_for_batch: userid={userid} batch_id={batch_id}")
     result = session.exec(
         select(UploadRequest).where(
             UploadRequest.userid == userid,
-            UploadRequest.batch_id == batch_id,
+            UploadRequest.batchid == batch_id,
             UploadRequest.status.in_(["queued", "in_progress"]),
         )
     )
@@ -70,6 +72,7 @@ def create_upload_request(
         req = UploadRequest(
             userid=userid,
             batch_id=batch.batch_uid,
+            batchid=batch.id,
             key=item.id,
             handler=handler,
             status="queued",
@@ -86,7 +89,7 @@ def create_upload_request(
 
 def count_batches(session: Session, userid: str) -> int:
     return session.exec(
-        select(func.count(Batch.batch_uid)).where(Batch.userid == userid)
+        select(func.count(Batch.id)).where(Batch.userid == userid)
     ).one()
 
 
@@ -103,20 +106,20 @@ def get_batches(
     ).all()
 
 
-def count_uploads_in_batch(session: Session, userid: str, batch_id: str) -> int:
+def count_uploads_in_batch(session: Session, userid: str, batch_id: int) -> int:
     return session.exec(
         select(func.count(UploadRequest.id)).where(
-            UploadRequest.userid == userid, UploadRequest.batch_id == batch_id
+            UploadRequest.userid == userid, UploadRequest.batchid == batch_id
         )
     ).one()
 
 
 def get_upload_request(
-    session: Session, userid: str, batch_id: str, offset: int = 0, limit: int = 100
+    session: Session, userid: str, batch_id: int, offset: int = 0, limit: int = 100
 ) -> List[UploadRequest]:
     result = session.exec(
         select(UploadRequest)
-        .where(UploadRequest.userid == userid, UploadRequest.batch_id == batch_id)
+        .where(UploadRequest.userid == userid, UploadRequest.batchid == batch_id)
         .order_by(UploadRequest.id.asc())
         .offset(offset)
         .limit(limit)

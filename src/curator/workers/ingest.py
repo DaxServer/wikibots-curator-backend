@@ -1,6 +1,7 @@
 import json
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
+from curator.app.models import UploadRequest
 from curator.workers.celery import celery_app
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
 from curator.app.db import get_session
@@ -11,21 +12,21 @@ from curator.app.dal import (
 )
 
 
-def _cleanup(session, item):
+def _cleanup(session, item: UploadRequest | None = None):
     if item:
-        count_open_uploads_for_batch(
-            session, userid=item.userid, batch_id=item.batch_id
-        )
+        count_open_uploads_for_batch(session, userid=item.userid, batch_id=item.batchid)
     session.close()
 
 
-def _success(session, item, url) -> bool:
+def _success(session, item: UploadRequest, url) -> bool:
     update_upload_status(session, upload_id=item.id, status="completed", success=url)
     _cleanup(session, item)
     return True
 
 
-def _fail(session, upload_id, item, structured_error: dict) -> bool:
+def _fail(
+    session, upload_id: int, item: UploadRequest | None, structured_error: dict
+) -> bool:
     update_upload_status(
         session,
         upload_id=upload_id,
@@ -43,7 +44,7 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
     try:
         item = get_upload_request_by_id(session, upload_id)
         if not item:
-            _cleanup(session, item)
+            _cleanup(session)
             return False
 
         update_upload_status(session, upload_id=item.id, status="in_progress")
