@@ -25,12 +25,6 @@ class Batch(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: int = Field(default=None, primary_key=True)
-    batch_uid: str = Field(
-        index=True,
-        unique=True,
-        max_length=255,
-        default_factory=lambda: str(uuid.uuid4()),
-    )
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(
@@ -45,7 +39,6 @@ class UploadRequest(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: int = Field(default=None, primary_key=True)
-    batch_id: str = Field(index=True, max_length=255)
     batchid: int = Field(default=None, foreign_key="batches.id")
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     status: str = Field(index=True, max_length=50)
