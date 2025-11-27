@@ -59,7 +59,12 @@ def upgrade() -> None:
     """
     )
 
-    op.create_index(table_name="batches", columns=["batch_uid"], unique=True)
+    op.create_index(
+        table_name="batches",
+        index_name="ix_batches_batch_uid",
+        columns=["batch_uid"],
+        unique=True,
+    )
 
     # 5. Modify 'batches' table: Make 'id' PK, 'batch_uid' Unique but not PK
     # We use recreate='always' to handle SQLite limitations and PK changes
