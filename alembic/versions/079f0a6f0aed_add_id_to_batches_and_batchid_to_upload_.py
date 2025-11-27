@@ -27,7 +27,9 @@ def upgrade() -> None:
 
     # 1. Add 'id' column to 'batches' (nullable initially)
     with op.batch_alter_table("batches") as batch_op:
-        batch_op.add_column(sa.Column("id", sa.Integer(), nullable=True), if_not_exists=True)
+        batch_op.add_column(
+            sa.Column("id", sa.Integer(), nullable=True), if_not_exists=True
+        )
 
     # 2. Populate 'batches.id'
     # We use a loop to ensure unique sequential IDs
@@ -44,7 +46,9 @@ def upgrade() -> None:
 
     # 3. Add 'batchid' column to 'upload_requests' (nullable initially)
     with op.batch_alter_table("upload_requests") as batch_op:
-        batch_op.add_column(sa.Column("batchid", sa.Integer(), nullable=True), if_not_exists=True)
+        batch_op.add_column(
+            sa.Column("batchid", sa.Integer(), nullable=True), if_not_exists=True
+        )
 
     # 4. Populate 'upload_requests.batchid'
     # We can use a direct UPDATE with subquery which works in SQLite and MariaDB
