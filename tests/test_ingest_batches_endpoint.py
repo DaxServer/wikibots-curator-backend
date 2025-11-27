@@ -256,7 +256,7 @@ def test_get_uploads_by_batch_success(mock_request_with_user):
     assert first["handler"] == "mapillary"
 
     second = result["items"][1]
-    assert second["error"] == {"msg": "something went wrong"}
+    assert second["error"] == '{"msg": "something went wrong"}'
 
 
 def test_get_uploads_by_batch_pagination(mock_request_with_user):
