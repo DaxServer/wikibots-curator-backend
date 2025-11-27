@@ -59,6 +59,8 @@ def upgrade() -> None:
     """
     )
 
+    op.create_index(table_name="batches", columns=["batch_uid"], unique=True)
+
     # 5. Modify 'batches' table: Make 'id' PK, 'batch_uid' Unique but not PK
     # We use recreate='always' to handle SQLite limitations and PK changes
 
@@ -77,15 +79,15 @@ def upgrade() -> None:
     if old_fk_name:
         batch_op.drop_constraint(old_fk_name, type_="foreignkey")
 
-    with op.batch_alter_table("batches") as batch_op:
-        op.execute("ALTER TABLE batches MODIFY batch_uid VARCHAR(255) NOT NULL")
-        op.execute("ALTER TABLE batches DROP PRIMARY KEY")
+    op.execute("ALTER TABLE batches MODIFY batch_uid VARCHAR(255) NOT NULL")
+    op.execute("ALTER TABLE batches DROP PRIMARY KEY")
 
-        batch_op.alter_column(
-            "id",
-            existing_type=sa.Integer(),
-            nullable=False,
-        )
+    op.alter_column(
+        "batches",
+        "id",
+        existing_type=sa.Integer(),
+        nullable=False,
+    )
 
 
 def downgrade() -> None:
