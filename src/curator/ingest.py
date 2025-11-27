@@ -1,5 +1,4 @@
 from typing import Literal
-import json
 
 from fastapi import APIRouter, Depends, Request, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -99,6 +98,19 @@ async def get_user_batches(
             {
                 "batch_id": b.id,
                 "created_at": b.created_at,
+                "uploads": [
+                    {
+                        "id": r.id,
+                        "status": r.status,
+                        "image_id": r.key,
+                        "batch_id": r.batchid,
+                        "result": r.result,
+                        "error": r.error,
+                        "success": r.success,
+                        "handler": r.handler,
+                    }
+                    for r in b.uploads
+                ],
             }
             for b in batches
         ],
@@ -134,7 +146,7 @@ async def get_uploads_by_batch(
                 "image_id": r.key,
                 "batch_id": r.batchid,
                 "result": r.result,
-                "error": (json.loads(r.error) if r.error else None),
+                "error": r.error,
                 "success": r.success,
                 "handler": r.handler,
             }

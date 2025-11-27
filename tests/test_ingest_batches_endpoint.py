@@ -126,9 +126,11 @@ def test_ingest_upload_unauthorized():
 def test_get_user_batches_success(mock_request):
     batch1 = Mock()
     batch1.id = 1
+    batch1.uploads = []
 
     batch2 = Mock()
     batch2.id = 2
+    batch2.uploads = []
 
     mock_batches = [batch1, batch2]
     mock_session = Mock()
@@ -154,6 +156,7 @@ def test_get_user_batches_success(mock_request):
 def test_get_user_batches_pagination(mock_request):
     batch = Mock()
     batch.id = 1
+    batch.uploads = []
 
     mock_session = Mock()
 
@@ -253,7 +256,7 @@ def test_get_uploads_by_batch_success(mock_request_with_user):
     assert first["handler"] == "mapillary"
 
     second = result["items"][1]
-    assert second["error"] == {"msg": "something went wrong"}
+    assert second["error"] == '{"msg": "something went wrong"}'
 
 
 def test_get_uploads_by_batch_pagination(mock_request_with_user):
