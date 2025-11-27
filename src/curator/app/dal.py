@@ -71,7 +71,6 @@ def create_upload_request(
     for item in payload:
         req = UploadRequest(
             userid=userid,
-            batch_id=batch.batch_uid,
             batchid=batch.id,
             key=item.id,
             handler=handler,
