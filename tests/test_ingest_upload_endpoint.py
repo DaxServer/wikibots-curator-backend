@@ -29,7 +29,7 @@ def test_ingest_upload_enqueues_with_integer_ids():
     upload_req = Mock(spec=UploadRequest)
     upload_req.id = 42
     upload_req.userid = "user123"
-    upload_req.batch_id = "batch-x"
+    upload_req.batchid = 1
     upload_req.key = "img1"
     upload_req.filename = "T1"
     upload_req.wikitext = "W1"
@@ -68,6 +68,6 @@ def test_ingest_upload_enqueues_with_integer_ids():
                 "status": "queued",
                 "image_id": "img1",
                 "input": "seq1",
-                "batch_id": "batch-x",
+                "batch_id": 1,
             }
         ]
