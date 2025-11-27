@@ -38,25 +38,9 @@ def upgrade() -> None:
         # Create Unique Index on 'batch_uid'
         batch_op.create_index("ix_batches_batch_uid", ["batch_uid"], unique=True)
 
-    # 6. Modify 'upload_requests' table: Drop old FK, Add new FK
-
-    # Find the old FK name to drop it
-    old_fk_name = None
-    bind = op.get_bind()
-    inspector = sa.inspect(bind)
-    fks = inspector.get_foreign_keys("upload_requests")
-    for fk in fks:
-        if (
-            fk["referred_table"] == "batches"
-            and "batch_id" in fk["constrained_columns"]
-        ):
-            old_fk_name = fk["name"]
-            break
+    # 6. Modify 'upload_requests' table: Add new FK
 
     with op.batch_alter_table("upload_requests") as batch_op:
-        if old_fk_name:
-            batch_op.drop_constraint(old_fk_name, type_="foreignkey")
-
         # Add new FK
         batch_op.create_foreign_key(
             "fk_upload_requests_batchid_batches", "batches", ["batchid"], ["id"]

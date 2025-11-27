@@ -23,6 +23,7 @@ def upgrade() -> None:
     """Upgrade schema."""
     bind = op.get_bind()
     session = sa.orm.Session(bind=bind)
+    inspector = sa.inspect(bind)
 
     # 1. Add 'id' column to 'batches' (nullable initially)
     with op.batch_alter_table("batches") as batch_op:
@@ -62,10 +63,19 @@ def upgrade() -> None:
     # We use recreate='always' to handle SQLite limitations and PK changes
 
     # Drop existing foreign key constraint from upload_requests referencing batches.batch_uid
-    with op.batch_alter_table("upload_requests") as batch_op:
-        batch_op.drop_constraint(
-            "fk_upload_requests_batch_id_batches", type_="foreignkey"
-        )
+    # Find the old FK name to drop it
+    old_fk_name = None
+    fks = inspector.get_foreign_keys("upload_requests")
+    for fk in fks:
+        if (
+            fk["referred_table"] == "batches"
+            and "batch_id" in fk["constrained_columns"]
+        ):
+            old_fk_name = fk["name"]
+            break
+
+    if old_fk_name:
+        batch_op.drop_constraint(old_fk_name, type_="foreignkey")
 
     with op.batch_alter_table("batches") as batch_op:
         op.execute("ALTER TABLE batches MODIFY batch_uid VARCHAR(255) NOT NULL")
