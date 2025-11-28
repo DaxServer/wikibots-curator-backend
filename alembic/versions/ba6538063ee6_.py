@@ -31,7 +31,7 @@ def upgrade() -> None:
                 column["name"],
                 existing_type=column["type"],
                 type_=sa.Text(),
-                existing_nullable=True,
+                existing_nullable=column["nullable"],
             )
 
 
