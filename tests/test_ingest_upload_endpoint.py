@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import Mock, patch
 from fastapi import BackgroundTasks
 import os
@@ -8,12 +9,13 @@ from curator.app.models import UploadItem, UploadRequest
 from curator.app.crypto import decrypt_access_token
 
 
-def test_ingest_upload_enqueues_with_integer_ids():
+@pytest.mark.asyncio
+async def test_ingest_upload_enqueues_with_integer_ids():
     os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
     # Prepare request session with required fields
-    mock_request = Mock()
-    mock_request.session = {
-        "user": {"username": "test_user", "sub": "user123"},
+    user = {
+        "username": "test_user",
+        "userid": "user123",
         "access_token": ("token123", "secret123"),
     }
 
@@ -43,7 +45,7 @@ def test_ingest_upload_enqueues_with_integer_ids():
         bg = BackgroundTasks()
 
         # Call endpoint function
-        result = ingest_upload(mock_request, payload, bg, mock_session)
+        result = await ingest_upload(payload, bg, user, mock_session)
 
         # Ensure commit was called to materialize IDs
         mock_session.commit.assert_called_once()

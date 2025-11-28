@@ -9,7 +9,6 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 import uvicorn
-import traceback
 
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
 from alembic.config import Config

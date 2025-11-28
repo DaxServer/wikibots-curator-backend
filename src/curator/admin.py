@@ -11,8 +11,6 @@ from curator.app.dal import (
     count_all_upload_requests,
 )
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
-
 
 def check_admin(request: Request):
     username = request.session.get("user", {}).get("username")
@@ -20,14 +18,17 @@ def check_admin(request: Request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
 
+router = APIRouter(
+    prefix="/api/admin", tags=["admin"], dependencies=[Depends(check_admin)]
+)
+
+
 @router.get("/batches")
 async def admin_get_batches(
-    request: Request,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    check_admin(request)
     offset = (page - 1) * limit
     items = get_batches(session, offset=offset, limit=limit)
     total = count_batches(session)
@@ -36,12 +37,10 @@ async def admin_get_batches(
 
 @router.get("/users")
 async def admin_get_users(
-    request: Request,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    check_admin(request)
     offset = (page - 1) * limit
     items = get_users(session, offset=offset, limit=limit)
     total = count_users(session)
@@ -50,12 +49,10 @@ async def admin_get_users(
 
 @router.get("/upload_requests")
 async def admin_get_upload_requests(
-    request: Request,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    check_admin(request)
     offset = (page - 1) * limit
     items = get_all_upload_requests(session, offset=offset, limit=limit)
     total = count_all_upload_requests(session)
