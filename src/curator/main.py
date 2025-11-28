@@ -1,12 +1,15 @@
+from fastapi import Request
 from contextlib import asynccontextmanager
 import asyncio
 import os
 import sys
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 import uvicorn
+import traceback
 
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
 from alembic.config import Config
@@ -64,6 +67,30 @@ app.add_middleware(
     SessionMiddleware,
     store=CookieStore(TOKEN_ENCRYPTION_KEY),
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+
+    if isinstance(exc, RequestValidationError):
+        return JSONResponse(
+            status_code=422,
+            content={"detail": exc.errors()},
+        )
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": str(exc),
+            # "stacktrace": traceback.format_exc().splitlines(),
+        },
+    )
+
 
 # Include the routers
 app.include_router(auth_router)
