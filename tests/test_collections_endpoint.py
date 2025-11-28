@@ -55,5 +55,5 @@ async def test_post_collection_images_not_found(mock_mapillary_handler, mock_req
     payload = ImagesRequest(handler="mapillary", input="invalid_collection_id")
     with pytest.raises(HTTPException) as exc:
         await post_collection_images(mock_request, payload)
-        assert exc.value.status_code == 404
-        assert exc.value.detail == "Collection not found"
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Collection not found"
