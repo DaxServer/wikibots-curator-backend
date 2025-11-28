@@ -38,9 +38,7 @@ def ingest_upload(
     access_token: AccessToken | None = request.session.get("access_token")
 
     if not username or not userid or not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     raw_input = payload.items[0].input
     handler = payload.handler
@@ -86,9 +84,7 @@ async def get_batches(
 ):
     current_user_sub: str | None = request.session.get("user", {}).get("sub")
     if not current_user_sub:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     offset = (page - 1) * limit
     batches = dal_get_batches(session, userid=userid, offset=offset, limit=limit)
@@ -130,9 +126,7 @@ async def get_uploads_by_batch(
 ):
     userid: str | None = request.session.get("user", {}).get("sub")
     if not userid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     offset = (page - 1) * limit
     items = get_upload_request(session, batch_id=batch_id, offset=offset, limit=limit)

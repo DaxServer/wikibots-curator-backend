@@ -17,9 +17,7 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def check_admin(request: Request):
     username = request.session.get("user", {}).get("username")
     if username != "DaxServer":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
 
 
 @router.get("/batches")

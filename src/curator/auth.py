@@ -2,7 +2,7 @@ from curator.app.config import OAUTH_KEY
 from curator.app.config import OAUTH_SECRET
 from curator.app.config import URLS
 from mwoauth import ConsumerToken, Handshaker, RequestToken
-from fastapi import APIRouter, Request, Header
+from fastapi import APIRouter, HTTPException, Request, Header, status
 
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import os
@@ -95,7 +95,7 @@ async def whoami(request: Request):
                 "authorized": os.getenv("X_USERNAME") == user.get("username"),
             }
         )
-    return JSONResponse({"message": "Not authenticated"}, status_code=401)
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 @router.post("/register")
@@ -106,26 +106,27 @@ async def register_api_key(
     env_username = os.environ.get("X_USERNAME")
 
     if not env_api_key or not env_username:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "detail": "Server configuration error: API key or username not set"
-            },
+        return HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error: API key or username not set",
         )
 
     if x_api_key is None:
-        return JSONResponse(
-            status_code=400, content={"detail": "Missing X-API-KEY header"}
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing X-API-KEY header",
         )
 
     if x_api_key == env_api_key:
         request.session["user"] = {"username": env_username}
         return JSONResponse(
-            status_code=200,
             content={
                 "message": "User registered successfully",
                 "username": env_username,
             },
         )
     else:
-        return JSONResponse(status_code=401, content={"detail": "Invalid API key"})
+        return HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+        )
