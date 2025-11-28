@@ -17,7 +17,9 @@ else:
         "DB_URL", "mysql+mysqlconnector://curator:curator@localhost/curator"
     )
 
-engine = create_engine(DB_URL, connect_args=CONNECT_ARGS)
+engine = create_engine(
+    DB_URL, connect_args=CONNECT_ARGS, pool_recycle=280, pool_pre_ping=True
+)
 
 
 def get_session():
