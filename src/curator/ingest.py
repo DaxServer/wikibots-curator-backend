@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Request, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from curator.app.db import get_session
 from curator.app.dal import (
     create_upload_request,
     get_upload_request,
-    get_batches,
+    get_batches as dal_get_batches,
     count_batches,
     count_uploads_in_batch,
 )
@@ -77,33 +77,34 @@ def ingest_upload(
 
 
 @router.get("/batches")
-async def get_user_batches(
+async def get_batches(
     request: Request,
+    userid: Optional[str] = None,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    userid: str | None = request.session.get("user", {}).get("sub")
-    if not userid:
+    current_user_sub: str | None = request.session.get("user", {}).get("sub")
+    if not current_user_sub:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
 
     offset = (page - 1) * limit
-    batches = get_batches(session, userid=userid, offset=offset, limit=limit)
+    batches = dal_get_batches(session, userid=userid, offset=offset, limit=limit)
     total = count_batches(session, userid=userid)
 
     return {
         "items": [
             {
-                "batch_id": b.id,
+                "id": b.id,
                 "created_at": b.created_at,
+                "username": b.user.username,
                 "uploads": [
                     {
                         "id": r.id,
                         "status": r.status,
                         "image_id": r.key,
-                        "batch_id": r.batchid,
                         "result": r.result,
                         "error": r.error,
                         "success": r.success,
