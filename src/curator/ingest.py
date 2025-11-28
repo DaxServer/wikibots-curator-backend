@@ -100,6 +100,7 @@ async def get_batches(
                 "id": b.id,
                 "created_at": b.created_at,
                 "username": b.user.username,
+                "userid": b.user.userid,
                 "uploads": [
                     {
                         "id": r.id,
@@ -134,10 +135,8 @@ async def get_uploads_by_batch(
         )
 
     offset = (page - 1) * limit
-    items = get_upload_request(
-        session, userid=userid, batch_id=batch_id, offset=offset, limit=limit
-    )
-    total = count_uploads_in_batch(session, userid=userid, batch_id=batch_id)
+    items = get_upload_request(session, batch_id=batch_id, offset=offset, limit=limit)
+    total = count_uploads_in_batch(session, batch_id=batch_id)
 
     return {
         "items": [
