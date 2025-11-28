@@ -1,8 +1,9 @@
+from curator.app.auth import check_login
+from curator.app.auth import LoggedInUser
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Request, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
-from mwoauth import AccessToken
 
 from curator.app.db import get_session
 from curator.app.dal import (
@@ -18,7 +19,9 @@ from pydantic import BaseModel
 from curator.workers.ingest import process_one as ingest_process_one
 
 
-router = APIRouter(prefix="/api/ingest", tags=["ingest"])
+router = APIRouter(
+    prefix="/api/ingest", tags=["ingest"], dependencies=[Depends(check_login)]
+)
 
 
 class UploadItemsPayload(BaseModel):
@@ -27,26 +30,19 @@ class UploadItemsPayload(BaseModel):
 
 
 @router.post("/upload")
-def ingest_upload(
-    request: Request,
+async def ingest_upload(
     payload: UploadItemsPayload,
     background_tasks: BackgroundTasks,
+    user: LoggedInUser,
     session: Session = Depends(get_session),
 ):
-    username: str | None = request.session.get("user", {}).get("username")
-    userid: str | None = request.session.get("user", {}).get("sub")
-    access_token: AccessToken | None = request.session.get("access_token")
-
-    if not username or not userid or not access_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-
     raw_input = payload.items[0].input
     handler = payload.handler
 
     reqs = create_upload_request(
         session=session,
-        username=username,
-        userid=userid,
+        username=user["username"],
+        userid=user["userid"],
         payload=payload.items,
         handler=handler,
     )
@@ -58,8 +54,8 @@ def ingest_upload(
             ingest_process_one.delay,
             req.id,
             raw_input,
-            encrypt_access_token(access_token),
-            username,
+            encrypt_access_token(user["access_token"]),
+            user["username"],
         )
 
     return [
@@ -76,16 +72,11 @@ def ingest_upload(
 
 @router.get("/batches")
 async def get_batches(
-    request: Request,
     userid: Optional[str] = None,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    current_user_sub: str | None = request.session.get("user", {}).get("sub")
-    if not current_user_sub:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-
     offset = (page - 1) * limit
     batches = dal_get_batches(session, userid=userid, offset=offset, limit=limit)
     total = count_batches(session, userid=userid)
@@ -118,16 +109,11 @@ async def get_batches(
 
 @router.get("/uploads/{batch_id}")
 async def get_uploads_by_batch(
-    request: Request,
     batch_id: int,
     page: int = 1,
     limit: int = 100,
     session: Session = Depends(get_session),
 ):
-    userid: str | None = request.session.get("user", {}).get("sub")
-    if not userid:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
-
     offset = (page - 1) * limit
     items = get_upload_request(session, batch_id=batch_id, offset=offset, limit=limit)
     total = count_uploads_in_batch(session, batch_id=batch_id)

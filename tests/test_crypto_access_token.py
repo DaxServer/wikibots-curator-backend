@@ -1,5 +1,3 @@
-import os
-from cryptography.fernet import Fernet
 from curator.app.crypto import encrypt_access_token, decrypt_access_token
 
 

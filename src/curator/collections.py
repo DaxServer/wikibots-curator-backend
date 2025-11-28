@@ -1,11 +1,14 @@
+from curator.app.auth import check_login
 from typing import List, Dict, Literal
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from pydantic import BaseModel
 
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
 
 
-router = APIRouter(prefix="/api/collections", tags=["collections"])
+router = APIRouter(
+    prefix="/api/collections", tags=["collections"], dependencies=[Depends(check_login)]
+)
 
 
 class ImagesRequest(BaseModel):

@@ -1,5 +1,4 @@
 import os
-import pytest
 from cryptography.fernet import Fernet
 
 

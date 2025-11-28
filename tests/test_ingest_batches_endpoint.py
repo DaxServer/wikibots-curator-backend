@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from fastapi import HTTPException
 
 from curator.ingest import (
     get_batches,
@@ -16,16 +15,6 @@ def mock_session_fixture():
     mock_session = Mock()
     yield mock_session
     mock_session.reset_mock()
-
-
-@pytest.fixture
-def mock_request():
-    req = Mock()
-    req.session = {
-        "user": {"username": "testuser", "sub": "user123"},
-        "access_token": "test_access_token",
-    }
-    return req
 
 
 @pytest.fixture
@@ -45,8 +34,8 @@ def mock_payload(mock_upload_item):
     return Mock(handler="mapillary", items=[mock_upload_item])
 
 
-def test_ingest_upload_success(
-    mock_request,
+@pytest.mark.asyncio
+async def test_ingest_upload_success(
     mock_payload,
     mock_upload_item,
 ):
@@ -61,6 +50,12 @@ def test_ingest_upload_success(
     mock_req.key = "test_key"
     mock_req.batchid = 1
 
+    user = {
+        "username": "testuser",
+        "userid": "user123",
+        "access_token": "test_access_token",
+    }
+
     with (
         patch(
             "curator.ingest.create_upload_request", return_value=[mock_req]
@@ -71,10 +66,10 @@ def test_ingest_upload_success(
         ) as mock_encrypt_access_token,
         patch("curator.ingest.ingest_process_one") as mock_ingest_process_one,
     ):
-        result = ingest_upload(
-            mock_request,
+        result = await ingest_upload(
             mock_payload,
             mock_background_tasks,
+            user,
             session=mock_session,
         )
 
@@ -109,21 +104,8 @@ def test_ingest_upload_success(
         ]
 
 
-def test_ingest_upload_unauthorized():
-    req = Mock()
-    req.session = {"user": {}}
-    payload = Mock()
-    background_tasks = Mock()
-    session = Mock()
-
-    with pytest.raises(HTTPException) as exc_info:
-        ingest_upload(req, payload, background_tasks, session=session)
-        assert exc_info.value.status_code == 401
-        assert exc_info.value.detail == "Unauthorized"
-
-
 @pytest.mark.asyncio
-async def test_get_batches_success(mock_request, mock_session_fixture):
+async def test_get_batches_success(mock_session_fixture):
     batch1 = Mock()
     batch1.id = 1
     batch1.uploads = []
@@ -145,7 +127,6 @@ async def test_get_batches_success(mock_request, mock_session_fixture):
         ) as mock_count_batches,
     ):
         result = await get_batches(
-            mock_request,
             userid="user123",
             page=1,
             limit=100,
@@ -164,7 +145,7 @@ async def test_get_batches_success(mock_request, mock_session_fixture):
 
 
 @pytest.mark.asyncio
-async def test_get_batches_all(mock_request, mock_session_fixture):
+async def test_get_batches_all(mock_session_fixture):
     batch1 = Mock()
     batch1.id = 1
     batch1.uploads = []
@@ -184,7 +165,7 @@ async def test_get_batches_all(mock_request, mock_session_fixture):
         patch("curator.ingest.count_batches", return_value=2) as mock_count_batches,
     ):
         result = await get_batches(
-            mock_request, userid=None, page=1, limit=100, session=mock_session_fixture
+            userid=None, page=1, limit=100, session=mock_session_fixture
         )
 
         mock_get_batches.assert_called_once_with(
@@ -198,7 +179,7 @@ async def test_get_batches_all(mock_request, mock_session_fixture):
 
 
 @pytest.mark.asyncio
-async def test_get_batches_pagination(mock_request, mock_session_fixture):
+async def test_get_batches_pagination(mock_session_fixture):
     batch = Mock()
     batch.id = 1
     batch.uploads = []
@@ -213,7 +194,6 @@ async def test_get_batches_pagination(mock_request, mock_session_fixture):
         patch("curator.ingest.count_batches", return_value=1) as mock_count_batches,
     ):
         result_page1 = await get_batches(
-            mock_request,
             userid="user123",
             page=1,
             limit=1,
@@ -234,7 +214,6 @@ async def test_get_batches_pagination(mock_request, mock_session_fixture):
         ) as mock_get_batches_page2,
     ):
         result_page2 = await get_batches(
-            mock_request,
             userid="user123",
             page=2,
             limit=1,
@@ -248,27 +227,7 @@ async def test_get_batches_pagination(mock_request, mock_session_fixture):
 
 
 @pytest.mark.asyncio
-async def test_get_user_batches_unauthorized():
-    req = Mock()
-    req.session = {"user": {}}
-    mock_session = Mock()
-    with pytest.raises(HTTPException) as exc_info:
-        await get_batches(
-            req, userid="user123", page=1, limit=100, session=mock_session
-        )
-        assert exc_info.value.status_code == 401
-        assert exc_info.value.detail == "Unauthorized"
-
-
-@pytest.fixture
-def mock_request_with_user():
-    req = Mock()
-    req.session = {"user": {"sub": "user123"}}
-    return req
-
-
-@pytest.mark.asyncio
-async def test_get_uploads_by_batch_success(mock_request_with_user):
+async def test_get_uploads_by_batch_success():
     upload1 = Mock()
     upload1.id = "req-1"
     upload1.status = "completed"
@@ -300,7 +259,6 @@ async def test_get_uploads_by_batch_success(mock_request_with_user):
         patch("curator.ingest.count_uploads_in_batch", return_value=2) as mock_count,
     ):
         result = await get_uploads_by_batch(
-            mock_request_with_user,
             batch_id=1,
             page=1,
             limit=100,
@@ -331,7 +289,7 @@ async def test_get_uploads_by_batch_success(mock_request_with_user):
 
 
 @pytest.mark.asyncio
-async def test_get_uploads_by_batch_pagination(mock_request_with_user):
+async def test_get_uploads_by_batch_pagination():
     upload = Mock()
     upload.id = "req-1"
     upload.status = "completed"
@@ -351,7 +309,6 @@ async def test_get_uploads_by_batch_pagination(mock_request_with_user):
         patch("curator.ingest.count_uploads_in_batch", return_value=1) as mock_count,
     ):
         result = await get_uploads_by_batch(
-            mock_request_with_user,
             batch_id=1,
             page=3,
             limit=25,
@@ -364,16 +321,3 @@ async def test_get_uploads_by_batch_pagination(mock_request_with_user):
         mock_count.assert_called_once_with(mock_session, batch_id=1)
         assert result["total"] == 1
         assert len(result["items"]) == 1
-
-
-@pytest.mark.asyncio
-async def test_get_uploads_by_batch_unauthorized():
-    req = Mock()
-    req.session = {"user": {}}
-    mock_session = Mock()
-    with pytest.raises(HTTPException) as exc_info:
-        await get_uploads_by_batch(
-            req, batch_id=1, page=1, limit=100, session=mock_session
-        )
-        assert exc_info.value.status_code == 401
-        assert exc_info.value.detail == "Unauthorized"
