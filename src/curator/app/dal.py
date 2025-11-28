@@ -110,20 +110,18 @@ def get_batches(
     return session.exec(query.offset(offset).limit(limit)).all()
 
 
-def count_uploads_in_batch(session: Session, userid: str, batch_id: int) -> int:
+def count_uploads_in_batch(session: Session, batch_id: int) -> int:
     return session.exec(
-        select(func.count(UploadRequest.id)).where(
-            UploadRequest.userid == userid, UploadRequest.batchid == batch_id
-        )
+        select(func.count(UploadRequest.id)).where(UploadRequest.batchid == batch_id)
     ).one()
 
 
 def get_upload_request(
-    session: Session, userid: str, batch_id: int, offset: int = 0, limit: int = 100
+    session: Session, batch_id: int, offset: int = 0, limit: int = 100
 ) -> List[UploadRequest]:
     result = session.exec(
         select(UploadRequest)
-        .where(UploadRequest.userid == userid, UploadRequest.batchid == batch_id)
+        .where(UploadRequest.batchid == batch_id)
         .order_by(UploadRequest.id.asc())
         .offset(offset)
         .limit(limit)
