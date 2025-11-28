@@ -39,7 +39,6 @@ worker = "curator.workers.celery:start"
 packages = [{include = "curator", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
-aiosqlite = "^0.21.0"
 black = "^25.9.0"
 pytest = "^8.3.5"
 pytest-mock = "^3.14.0"

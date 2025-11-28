@@ -4,7 +4,7 @@ import importlib
 
 
 def test_celery_uses_db_url():
-    os.environ["DB_URL"] = "sqlite:///./test-curator.sqlite"
+    os.environ["DB_URL"] = "mysql+mysqlconnector://curator:curator@localhost/curator"
 
     for m in ["curator.app.db", "curator.workers.celery"]:
         if m in sys.modules:
