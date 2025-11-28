@@ -23,5 +23,4 @@ coverage
 *.sln
 *.sw?
 
-*.sqlite
 throttle.ctrl

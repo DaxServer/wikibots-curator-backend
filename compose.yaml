@@ -1,0 +1,16 @@
+services:
+  mariadb:
+    image: mariadb:10.6.22
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: curator
+      MARIADB_USER: curator
+      MARIADB_PASSWORD: curator
+    ports:
+      - 3306:3306
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+volumes:
+  mariadb-data:

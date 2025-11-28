@@ -13,7 +13,9 @@ if TOOLSDB_USER and TOOLSDB_PASSWORD:
     )
     CONNECT_ARGS = {"ssl_disabled": True}
 else:
-    DB_URL = os.getenv("DB_URL", "sqlite:///./curator.sqlite")
+    DB_URL = os.getenv(
+        "DB_URL", "mysql+mysqlconnector://curator:curator@localhost/curator"
+    )
 
 engine = create_engine(DB_URL, connect_args=CONNECT_ARGS)
 
