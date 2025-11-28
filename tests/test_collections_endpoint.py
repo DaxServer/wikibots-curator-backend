@@ -1,11 +1,13 @@
 import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
-from curator.main import app
-from curator.collections import ImagesRequest
+from fastapi import HTTPException
+from curator.collections import ImagesRequest, post_collection_images
 from curator.app.image_models import Image, Creator, Dates, Location
 
-client = TestClient(app)
+
+@pytest.fixture
+def mock_request():
+    return MagicMock()
 
 
 @pytest.fixture
@@ -14,7 +16,8 @@ def mock_mapillary_handler():
         yield mock
 
 
-def test_post_collection_images_success(mock_mapillary_handler):
+@pytest.mark.asyncio
+async def test_post_collection_images_success(mock_mapillary_handler, mock_request):
     mock_handler_instance = mock_mapillary_handler.return_value
 
     creator = Creator(id="user1", username="testuser", profile_url="http://profile")
@@ -37,22 +40,20 @@ def test_post_collection_images_success(mock_mapillary_handler):
     mock_handler_instance.fetch_collection.return_value = {"123": image}
     mock_handler_instance.fetch_existing_pages.return_value = {}
 
-    payload = {"handler": "mapillary", "input": "valid_collection_id"}
-    response = client.post("/api/collections/images", json=payload)
-
-    assert response.status_code == 200
-    data = response.json()
+    payload = ImagesRequest(handler="mapillary", input="valid_collection_id")
+    data = await post_collection_images(mock_request, payload)
     assert "images" in data
     assert "creator" in data
-    assert data["images"]["123"]["id"] == "123"
+    assert data["images"]["123"].id == "123"
 
 
-def test_post_collection_images_not_found(mock_mapillary_handler):
+@pytest.mark.asyncio
+async def test_post_collection_images_not_found(mock_mapillary_handler, mock_request):
     mock_handler_instance = mock_mapillary_handler.return_value
     mock_handler_instance.fetch_collection.return_value = {}
 
-    payload = {"handler": "mapillary", "input": "invalid_collection_id"}
-    response = client.post("/api/collections/images", json=payload)
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Collection not found"
+    payload = ImagesRequest(handler="mapillary", input="invalid_collection_id")
+    with pytest.raises(HTTPException) as exc:
+        await post_collection_images(mock_request, payload)
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Collection not found"

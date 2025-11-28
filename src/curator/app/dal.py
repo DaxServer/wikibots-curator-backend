@@ -87,24 +87,27 @@ def create_upload_request(
     return reqs
 
 
-def count_batches(session: Session, userid: str) -> int:
-    return session.exec(
-        select(func.count(Batch.id)).where(Batch.userid == userid)
-    ).one()
+def count_batches(session: Session, userid: Optional[str] = None) -> int:
+    query = select(func.count(Batch.id))
+    if userid:
+        query = query.where(Batch.userid == userid)
+    return session.exec(query).one()
 
 
 def get_batches(
-    session: Session, userid: str, offset: int = 0, limit: int = 100
+    session: Session, userid: Optional[str] = None, offset: int = 0, limit: int = 100
 ) -> List[Batch]:
     """Fetch batches for a user, ordered by creation time descending."""
-    return session.exec(
+    query = (
         select(Batch)
-        .options(selectinload(Batch.uploads))
-        .where(Batch.userid == userid)
+        .options(selectinload(Batch.uploads), selectinload(Batch.user))
         .order_by(Batch.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    ).all()
+    )
+
+    if userid:
+        query = query.where(Batch.userid == userid)
+
+    return session.exec(query.offset(offset).limit(limit)).all()
 
 
 def count_uploads_in_batch(session: Session, userid: str, batch_id: int) -> int:

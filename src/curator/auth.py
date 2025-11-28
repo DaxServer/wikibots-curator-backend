@@ -1,7 +1,7 @@
 from curator.app.config import OAUTH_KEY
 from curator.app.config import OAUTH_SECRET
 from curator.app.config import URLS
-from mwoauth import ConsumerToken, Handshaker, RequestToken, AccessToken
+from mwoauth import ConsumerToken, Handshaker, RequestToken
 from fastapi import APIRouter, Request, Header
 
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -91,6 +91,7 @@ async def whoami(request: Request):
         return JSONResponse(
             {
                 "username": user.get("username"),
+                "userid": user.get("sub"),
                 "authorized": os.getenv("X_USERNAME") == user.get("username"),
             }
         )
