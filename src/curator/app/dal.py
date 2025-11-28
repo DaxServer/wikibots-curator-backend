@@ -9,6 +9,31 @@ from sqlmodel import Session, select, update, func
 from sqlalchemy.orm import selectinload
 
 
+def get_users(session: Session, offset: int = 0, limit: int = 100) -> List[User]:
+    """Fetch all users."""
+    return session.exec(select(User).offset(offset).limit(limit)).all()
+
+
+def count_users(session: Session) -> int:
+    return session.exec(select(func.count(User.userid))).one()
+
+
+def get_all_upload_requests(
+    session: Session, offset: int = 0, limit: int = 100
+) -> List[UploadRequest]:
+    """Fetch all upload requests."""
+    return session.exec(
+        select(UploadRequest)
+        .order_by(UploadRequest.id.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+
+def count_all_upload_requests(session: Session) -> int:
+    return session.exec(select(func.count(UploadRequest.id))).one()
+
+
 def ensure_user(session: Session, userid: str, username: str) -> User:
     """Ensure a `User` row exists for `userid`; set username.
 
