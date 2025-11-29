@@ -1,6 +1,7 @@
 import os
 import redis
 from pywikibot import Site
+from cryptography.fernet import Fernet
 
 
 OAUTH_KEY = os.environ.get("CURATOR_OAUTH1_KEY")
@@ -29,7 +30,9 @@ PROD_URLS = {
 
 URLS = PROD_URLS
 
-TOKEN_ENCRYPTION_KEY = os.environ.get("TOKEN_ENCRYPTION_KEY")
+TOKEN_ENCRYPTION_KEY = os.environ.get(
+    "TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode()
+)
 WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 
