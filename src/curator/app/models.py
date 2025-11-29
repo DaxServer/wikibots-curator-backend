@@ -1,7 +1,26 @@
-from typing import Optional
+from typing import Literal, Optional, TypedDict, Union
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, JSON, Text
 from datetime import datetime
+
+
+class ErrorLink(TypedDict):
+    title: str
+    url: str
+
+
+class DuplicateError(TypedDict):
+    type: Literal["duplicate"]
+    message: str
+    links: list[ErrorLink]
+
+
+class GenericError(TypedDict):
+    type: Literal["error"]
+    message: str
+
+
+StructuredError = Union[DuplicateError, GenericError]
 
 
 class User(SQLModel, table=True):
@@ -49,7 +68,7 @@ class UploadRequest(SQLModel, table=True):
     sdc: Optional[str] = Field(default=None, sa_column=Column(Text))
     labels: Optional[dict[str, str]] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
-    error: Optional[str] = Field(default=None, sa_column=Column(Text))
+    error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(

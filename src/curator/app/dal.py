@@ -2,7 +2,7 @@ from curator.app.ingest.interfaces import Handler
 from typing import Optional, List
 import json
 
-from curator.app.models import UploadItem, UploadRequest, User, Batch
+from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
 from datetime import datetime
 
 from sqlmodel import Session, select, update, func
@@ -210,7 +210,7 @@ def update_upload_status(
     upload_id: int,
     status: str,
     result: Optional[str] = None,
-    error: Optional[str] = None,
+    error: Optional[StructuredError] = None,
     success: Optional[str] = None,
 ) -> None:
     """Update status (and optional error) of an UploadRequest by id."""

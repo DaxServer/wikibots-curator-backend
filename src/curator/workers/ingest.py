@@ -1,3 +1,6 @@
+from curator.app.models import GenericError
+from curator.app.models import DuplicateError
+from curator.app.models import StructuredError
 import json
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
@@ -25,13 +28,16 @@ def _success(session, item: UploadRequest, url) -> bool:
 
 
 def _fail(
-    session, upload_id: int, item: UploadRequest | None, structured_error: dict
+    session,
+    upload_id: int,
+    item: UploadRequest | None,
+    structured_error: StructuredError,
 ) -> bool:
     update_upload_status(
         session,
         upload_id=upload_id,
         status="failed",
-        error=json.dumps(structured_error),
+        error=structured_error,
     )
     _cleanup(session, item)
     return False
@@ -72,12 +78,12 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
 
         return _success(session, item, upload_result.get("url"))
     except DuplicateUploadError as e:
-        structured_error = {
+        structured_error: DuplicateError = {
             "type": "duplicate",
             "message": str(e),
             "links": e.duplicates,
         }
         return _fail(session, upload_id, item, structured_error)
     except Exception as e:
-        structured_error = {"type": "error", "message": str(e)}
+        structured_error: GenericError = {"type": "error", "message": str(e)}
         return _fail(session, upload_id, item, structured_error)
