@@ -1,5 +1,5 @@
 from curator.app.auth import check_login
-from typing import List, Dict, Literal
+from typing import List, Literal
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 from pydantic import BaseModel
 
@@ -40,20 +40,3 @@ async def post_collection_images(request: Request, payload: ImagesRequest):
         images[image_id].existing = pages
 
     return {"images": images, "creator": creator}
-
-
-@router.post("/sdc")
-async def post_collection_sdc(payload: SdcRequest):
-    expanded: List[str] = []
-    for v in payload.images:
-        expanded.extend([x for x in v.split(",") if x])
-
-    handler = MapillaryHandler()
-    images = handler.fetch_collection(payload.input)
-
-    result: Dict[str, Dict] = {}
-    for image_id in expanded:
-        if image_id in images:
-            result[image_id] = handler.build_sdc(images[image_id])
-
-    return result

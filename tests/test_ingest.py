@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
-
 import pytest
+from cryptography.fernet import Fernet
+import os
 
 from curator.ingest import (
     get_batches,
@@ -8,6 +9,7 @@ from curator.ingest import (
     get_uploads_by_batch,
 )
 from curator.app.models import UploadItem
+from curator.app.crypto import decrypt_access_token
 
 
 @pytest.fixture
@@ -39,13 +41,20 @@ async def test_ingest_upload_success(
     mock_payload,
     mock_upload_item,
 ):
+    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
     mock_session = Mock()
     mock_background_tasks = Mock()
+    # BackgroundTasks adds tasks to a list, we can simulate or just inspect calls.
+    # But since the implementation uses background_tasks.add_task, we can mock add_task.
+
+    # Use a real list to capture tasks if we want, or just mock add_task
     mock_background_tasks.add_task.side_effect = lambda func, *args, **kwargs: func(
         *args, **kwargs
     )
+
     mock_req = Mock()
-    mock_req.id = 1
+    mock_req.id = 42
     mock_req.status = "pending"
     mock_req.key = "test_key"
     mock_req.batchid = 1
@@ -53,19 +62,19 @@ async def test_ingest_upload_success(
     user = {
         "username": "testuser",
         "userid": "user123",
-        "access_token": "test_access_token",
+        "access_token": ("token123", "secret123"),
     }
 
     with (
         patch(
             "curator.ingest.create_upload_request", return_value=[mock_req]
         ) as mock_create_upload_request,
-        patch(
-            "curator.ingest.encrypt_access_token",
-            return_value="encrypted_token",
-        ) as mock_encrypt_access_token,
         patch("curator.ingest.ingest_process_one") as mock_ingest_process_one,
     ):
+        # The ingest_upload function calls encrypt_access_token internally.
+        # We want to verify that the token passed to the worker is encrypted and decryptable.
+        # But since we are patching ingest_process_one, we can inspect its args.
+
         result = await ingest_upload(
             mock_payload,
             mock_background_tasks,
@@ -81,21 +90,25 @@ async def test_ingest_upload_success(
             handler="mapillary",
         )
         mock_session.commit.assert_called_once()
-        mock_encrypt_access_token.assert_called_once_with("test_access_token")
-        mock_ingest_process_one.delay.assert_called_once_with(
-            1, "test_input", "encrypted_token", "testuser"
-        )
-        mock_background_tasks.add_task.assert_called_once_with(
-            mock_ingest_process_one.delay,
-            1,
-            "test_input",
-            "encrypted_token",
-            "testuser",
-        )
+
+        # Check that the task was added to background tasks
+        assert mock_background_tasks.add_task.called
+
+        # Check arguments passed to ingest_process_one.delay
+        # args: (id, input, encrypted_token, username)
+        args = mock_ingest_process_one.delay.call_args[0]
+        assert args[0] == 42
+        assert args[1] == "test_input"
+        assert args[3] == "testuser"
+
+        # Verify token encryption
+        encrypted_token = args[2]
+        decrypted = decrypt_access_token(encrypted_token)
+        assert tuple(decrypted) == ("token123", "secret123")
 
         assert result == [
             {
-                "id": 1,
+                "id": 42,
                 "status": "pending",
                 "image_id": "test_key",
                 "input": "test_input",
@@ -247,7 +260,7 @@ async def test_get_uploads_by_batch_success():
     upload2.result = None
     upload2.error = '{"msg": "something went wrong"}'
     upload2.success = False
-    upload2.handler = "flickr"
+    upload2.handler = "other_handler"
 
     mock_items = [upload1, upload2]
     mock_session = Mock()
