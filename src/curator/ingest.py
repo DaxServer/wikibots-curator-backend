@@ -93,7 +93,6 @@ async def get_batches(
                         "id": r.id,
                         "status": r.status,
                         "image_id": r.key,
-                        "result": r.result,
                         "error": r.error,
                         "success": r.success,
                         "handler": r.handler,
@@ -112,24 +111,24 @@ async def get_uploads_by_batch(
     batch_id: int,
     page: int = 1,
     limit: int = 100,
+    columns: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
     offset = (page - 1) * limit
-    items = get_upload_request(session, batch_id=batch_id, offset=offset, limit=limit)
+    column_list = (
+        columns.split(",")
+        if columns
+        else ["id", "status", "key", "batchid", "error", "success", "handler"]
+    )
+
+    items = get_upload_request(
+        session, batch_id=batch_id, offset=offset, limit=limit, columns=column_list
+    )
     total = count_uploads_in_batch(session, batch_id=batch_id)
 
     return {
         "items": [
-            {
-                "id": r.id,
-                "status": r.status,
-                "image_id": r.key,
-                "batch_id": r.batchid,
-                "result": r.result,
-                "error": r.error,
-                "success": r.success,
-                "handler": r.handler,
-            }
+            {col: getattr(r, col) for col in column_list if hasattr(r, col)}
             for r in items
         ],
         "total": total,

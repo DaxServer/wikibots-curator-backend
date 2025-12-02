@@ -1,3 +1,4 @@
+import logging
 from curator.app.ingest.interfaces import Handler
 from typing import Optional, List
 import json
@@ -6,7 +7,9 @@ from curator.app.models import UploadItem, UploadRequest, User, Batch, Structure
 from datetime import datetime
 
 from sqlmodel import Session, select, update, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, load_only
+
+logger = logging.getLogger(__name__)
 
 
 def get_users(session: Session, offset: int = 0, limit: int = 100) -> List[User]:
@@ -67,7 +70,9 @@ def count_open_uploads_for_batch(
     batch_id: int,
 ) -> int:
     """Count uploads for a batch_id that are not yet completed or errored."""
-    print(f"[dal] count_open_uploads_for_batch: userid={userid} batch_id={batch_id}")
+    logger.info(
+        f"[dal] count_open_uploads_for_batch: userid={userid} batch_id={batch_id}"
+    )
     result = session.exec(
         select(UploadRequest).where(
             UploadRequest.userid == userid,
@@ -76,7 +81,7 @@ def count_open_uploads_for_batch(
         )
     )
     count = len(result.all())
-    print(
+    logger.info(
         f"[dal] count_open_uploads_for_batch: open_count={count} userid={userid} batch_id={batch_id}"
     )
     return count
@@ -142,15 +147,29 @@ def count_uploads_in_batch(session: Session, batch_id: int) -> int:
 
 
 def get_upload_request(
-    session: Session, batch_id: int, offset: int = 0, limit: int = 100
+    session: Session,
+    batch_id: int,
+    offset: int = 0,
+    limit: int = 100,
+    columns: Optional[List[str]] = None,
 ) -> List[UploadRequest]:
-    result = session.exec(
+    query = (
         select(UploadRequest)
         .where(UploadRequest.batchid == batch_id)
         .order_by(UploadRequest.id.asc())
-        .offset(offset)
-        .limit(limit)
     )
+
+    if columns:
+        # Validate columns to ensure they exist on the model
+        valid_columns = [
+            getattr(UploadRequest, col)
+            for col in columns
+            if hasattr(UploadRequest, col)
+        ]
+        if valid_columns:
+            query = query.options(load_only(*valid_columns))
+
+    result = session.exec(query.offset(offset).limit(limit))
 
     return list(result.all())
 
@@ -161,7 +180,7 @@ def get_upload_request_by_id(
     """Fetch an UploadRequest by its ID."""
     # Validate input to prevent SQLAlchemy warnings/errors
     if upload_id is None or not isinstance(upload_id, (int, str)):
-        print(
+        logger.error(
             f"[dal] get_upload_request_by_id: invalid upload_id type: {type(upload_id)}, value: {upload_id}"
         )
         return None
@@ -171,7 +190,7 @@ def get_upload_request_by_id(
         try:
             upload_id = int(upload_id)
         except ValueError:
-            print(
+            logger.error(
                 f"[dal] get_upload_request_by_id: cannot convert upload_id to int: {upload_id}"
             )
             return None
@@ -179,54 +198,26 @@ def get_upload_request_by_id(
     return session.get(UploadRequest, upload_id)
 
 
-def get_next_queued_upload(
-    session: Session, handler: str = "mapillary"
-) -> Optional[UploadRequest]:
-    """Fetch the next queued upload request for a specific handler.
-
-    Returns the oldest queued item (lowest id) or None if no queued items exist.
-    """
-    print(f"[dal] get_next_queued_upload: querying queued item for handler={handler}")
-    result = session.exec(
-        select(UploadRequest)
-        .where(UploadRequest.status == "queued", UploadRequest.handler == handler)
-        .order_by(UploadRequest.id.asc())
-        .limit(1)
-    )
-    item = result.first()
-    if item:
-        print(
-            f"[dal] get_next_queued_upload: found upload_id={item.id} userid={item.userid}"
-        )
-    else:
-        print(
-            f"[dal] get_next_queued_upload: no queued item found for handler={handler}"
-        )
-    return item
-
-
 def update_upload_status(
     session: Session,
     upload_id: int,
     status: str,
-    result: Optional[str] = None,
     error: Optional[StructuredError] = None,
     success: Optional[str] = None,
 ) -> None:
     """Update status (and optional error) of an UploadRequest by id."""
-    print(
-        f"[dal] update_upload_status: upload_id={upload_id} status={status} result={result} error={error} success={success}"
+    logger.info(
+        f"[dal] update_upload_status: upload_id={upload_id} status={status} error={error} success={success}"
     )
     session.exec(
         update(UploadRequest)
         .where(UploadRequest.id == upload_id)
         .values(
             status=status,
-            result=result,
             error=error,
             success=success,
             updated_at=datetime.now(),
         )
     )
     session.commit()
-    print(f"[dal] update_upload_status: flushed for upload_id={upload_id}")
+    logger.info(f"[dal] update_upload_status: flushed for upload_id={upload_id}")
