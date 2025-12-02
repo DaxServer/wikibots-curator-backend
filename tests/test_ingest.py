@@ -279,7 +279,19 @@ async def test_get_uploads_by_batch_success():
         )
 
         mock_get_uploads.assert_called_once_with(
-            mock_session, batch_id=1, offset=0, limit=100
+            mock_session,
+            batch_id=1,
+            offset=0,
+            limit=100,
+            columns=[
+                "id",
+                "status",
+                "key",
+                "batchid",
+                "error",
+                "success",
+                "handler",
+            ],
         )
         mock_count.assert_called_once_with(mock_session, batch_id=1)
 
@@ -290,9 +302,8 @@ async def test_get_uploads_by_batch_success():
         first = result["items"][0]
         assert first["id"] == "req-1"
         assert first["status"] == "completed"
-        assert first["image_id"] == "image1"
-        assert first["batch_id"] == 1
-        assert first["result"] == {"some": "result"}
+        assert first["key"] == "image1"
+        assert first["batchid"] == 1
         assert first["error"] is None
         assert first["success"] is True
         assert first["handler"] == "mapillary"
@@ -329,7 +340,19 @@ async def test_get_uploads_by_batch_pagination():
         )
 
         mock_get_uploads.assert_called_once_with(
-            mock_session, batch_id=1, offset=50, limit=25
+            mock_session,
+            batch_id=1,
+            offset=50,
+            limit=25,
+            columns=[
+                "id",
+                "status",
+                "key",
+                "batchid",
+                "error",
+                "success",
+                "handler",
+            ],
         )
         mock_count.assert_called_once_with(mock_session, batch_id=1)
         assert result["total"] == 1

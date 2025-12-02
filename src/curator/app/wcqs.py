@@ -167,5 +167,3 @@ class WcqsSession:
         ]
 
         self.request.session["wcqs_cookies"] = json.dumps(cookies)
-
-        # redisconnection.set('wcqs:session', json.dumps(cookies))

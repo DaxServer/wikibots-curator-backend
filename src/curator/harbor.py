@@ -1,11 +1,12 @@
+import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 import httpx
 from pydantic import BaseModel
 
 HARBOR_API_URL = "https://tools-harbor.wmcloud.org/api/v2.0/projects/tool-curator/repositories/wikibots/artifacts"
-
 router = APIRouter(prefix="/api/harbor", tags=["harbor"])
+logger = logging.getLogger(__name__)
 
 
 class ImageArtifactTag(BaseModel):
@@ -83,14 +84,14 @@ async def get_harbor_processes():
 
     except httpx.HTTPStatusError as e:
         message = f"Failed to fetch from Harbor: {str(e)}"
-        print(message)
+        logger.error(message)
         raise HTTPException(
             status_code=e.response.status_code,
             detail=message,
         ) from e
     except Exception as e:
         message = f"An error occurred while processing Harbor data: {str(e)}"
-        print(message)
+        logger.error(message)
         raise HTTPException(
             status_code=500,
             detail=message,

@@ -11,6 +11,10 @@ import pywikibot
 import pywikibot.config as config
 from mwoauth import AccessToken
 from pywikibot.tools import compute_file_hash
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class DuplicateUploadError(Exception):
@@ -39,14 +43,13 @@ def upload_file_chunked(
 
     site = get_commons_site(access_token, username)
 
-    print(file_name)
-    print(file_url)
+    logger.info(f"Uploading file {file_name} from {file_url}")
 
     with NamedTemporaryFile() as temp_file:
         temp_file.write(download_file(file_url))
 
         file_hash = compute_file_hash(temp_file.name)
-        print(file_hash)
+        logger.info(f"File hash: {file_hash}")
 
         duplicates_list = find_duplicates(site, file_hash)
         if len(duplicates_list) > 0:
