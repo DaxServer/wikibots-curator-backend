@@ -118,7 +118,8 @@ async def register_api_key(
         )
 
     if x_api_key == env_api_key:
-        request.session["user"] = {"username": env_username}
+        request.session["user"] = {"username": env_username, "sub": "test-user-id"}
+        request.session["access_token"] = ("test-key", "test-secret")
         return JSONResponse(
             content={
                 "message": "User registered successfully",

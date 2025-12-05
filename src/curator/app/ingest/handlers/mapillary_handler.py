@@ -3,8 +3,8 @@ import logging
 from curator.app.wcqs import WcqsSession
 from pywikibot import WbQuantity
 from datetime import datetime
-from typing import Any, Dict, List
-from fastapi import Request
+from typing import Any, Dict, List, Union
+from fastapi import Request, WebSocket
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
@@ -96,7 +96,7 @@ class MapillaryHandler(Handler):
         return from_mapillary(image)
 
     def fetch_existing_pages(
-        self, image_ids: List[str], request: Request
+        self, image_ids: List[str], request: Union[Request, WebSocket]
     ) -> Dict[str, List[ExistingPage]]:
         """
         Fetch existing Wikimedia Commons pages for the given Mapillary image IDs.

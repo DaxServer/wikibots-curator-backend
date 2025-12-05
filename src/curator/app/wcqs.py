@@ -17,7 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from curator.app.config import WCQS_OAUTH_TOKEN, redis_client, REDIS_PREFIX
-from fastapi import Request
+from fastapi import Request, WebSocket
+from typing import Union
 from curator.app.config import USER_AGENT
 from urllib.parse import quote_plus
 import json
@@ -33,10 +34,16 @@ class WcqsSession:
         https://commons.wikimedia.org/wiki/Commons:SPARQL_query_service/API_endpoint
     """
 
-    def __init__(self, request: Request):
+    def __init__(self, request: Union[Request, WebSocket]):
         self.session = requests.Session()
         self.request = request
         self._set_cookies()
+
+    @property
+    def _request_session(self):
+        if hasattr(self.request, "session"):
+            return self.request.session
+        return self.request.scope.get("session", {})
 
     def query(self, query: str):
         """Queries the Wikimedia Commons Query Service."""
@@ -108,7 +115,7 @@ class WcqsSession:
     def _set_cookies(self):
         """Load authentication cookies into the session."""
         cookies = json.loads(
-            self.request.session.get(f"{REDIS_PREFIX}:wcqs_cookies", "[]")
+            self._request_session.get(f"{REDIS_PREFIX}:wcqs_cookies", "[]")
         )
         cookie_dict = {(cookie["domain"], cookie["name"]): cookie for cookie in cookies}
 
@@ -166,4 +173,4 @@ class WcqsSession:
             for cookie in self.session.cookies
         ]
 
-        self.request.session["wcqs_cookies"] = json.dumps(cookies)
+        self._request_session["wcqs_cookies"] = json.dumps(cookies)
