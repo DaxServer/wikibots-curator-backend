@@ -49,9 +49,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
-    with patch(
-        "curator.app.ingest.handlers.mapillary_handler.MapillaryHandler"
-    ) as MockHandler:
+    with patch("curator.app.handler.MapillaryHandler") as MockHandler:
         handler = MockHandler.return_value
         handler.fetch_collection.return_value = {}
 
