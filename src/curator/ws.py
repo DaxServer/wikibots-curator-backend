@@ -10,6 +10,8 @@ from curator.app.messages import (
     FetchImagesMessage,
     SubscribeBatchMessage,
     UploadMessage,
+    FetchBatchesMessage,
+    FetchBatchUploadsMessage,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,14 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, SubscribeBatchMessage):
                 await handler.subscribe_batch(message.data)
+                continue
+
+            if isinstance(message, FetchBatchesMessage):
+                await handler.fetch_batches(message.data)
+                continue
+
+            if isinstance(message, FetchBatchUploadsMessage):
+                await handler.fetch_batch_uploads(message.data)
                 continue
 
             logger.error(

@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import Optional, Any, Dict, Protocol
+from typing import Optional, Any, Protocol
 from sqlmodel import Session
 
 from curator.app.db import engine
@@ -10,9 +10,16 @@ from curator.app.dal import (
     create_upload_request,
     get_upload_request,
     count_uploads_in_batch,
+    get_batches,
+    count_batches,
 )
 from curator.workers.ingest import process_one as ingest_process_one
-from curator.app.messages import UploadData
+from curator.app.messages import (
+    UploadData,
+    FetchBatchesPayload,
+    FetchBatchUploadsPayload,
+)
+from curator.app.auth import UserSession
 
 from fastapi import WebSocketDisconnect
 
@@ -24,7 +31,7 @@ class WebSocketSender(Protocol):
 
 
 class Handler:
-    def __init__(self, user: Dict[str, Any], sender: WebSocketSender, request_obj: Any):
+    def __init__(self, user: UserSession, sender: WebSocketSender, request_obj: Any):
         self.user = user
         self.sender = sender
         self.request_obj = (
@@ -133,6 +140,91 @@ class Handler:
                     }
                     for u in prepared_uploads
                 ],
+            }
+        )
+
+    async def fetch_batches(self, data: FetchBatchesPayload):
+        page = data.page
+        limit = data.limit
+        userid = data.userid
+        offset = (page - 1) * limit
+
+        with Session(engine) as session:
+            batches = get_batches(session, userid, offset, limit)
+            total = count_batches(session, userid)
+
+            # Serialize manually to handle relationships and specific fields
+            serialized_batches = []
+            for batch in batches:
+                b_dict = {
+                    "id": batch.id,
+                    "created_at": batch.created_at.isoformat(),
+                    "username": batch.user.username,
+                    "userid": batch.userid,
+                    "uploads": [
+                        {
+                            "success": u.success,
+                            "error": u.error,
+                            "status": u.status,
+                        }
+                        for u in batch.uploads
+                    ],
+                }
+                serialized_batches.append(b_dict)
+
+        logger.info(
+            f"[ws] [resp] Sending {len(serialized_batches)} batches for {self.user.get('username')}"
+        )
+        await self.sender.send_json(
+            {
+                "type": "BATCHES_LIST",
+                "data": {
+                    "items": serialized_batches,
+                    "total": total,
+                },
+            }
+        )
+
+    async def fetch_batch_uploads(self, data: FetchBatchUploadsPayload):
+        batch_id = data.batch_id
+        page = data.page
+        limit = data.limit
+        columns_str = data.columns
+        columns = columns_str.split(",") if columns_str else None
+        offset = (page - 1) * limit
+
+        # Ensure 'key' is requested if we use load_only, because we map it to image_id
+        dal_columns = list(columns) if columns else None
+        if dal_columns and "key" not in dal_columns:
+            dal_columns.append("key")
+
+        with Session(engine) as session:
+            uploads = get_upload_request(session, batch_id, offset, limit, dal_columns)
+            total = count_uploads_in_batch(session, batch_id)
+
+            serialized_uploads = []
+
+            # If columns were requested, we should try to respect them in the output to save serialization time
+            # But we must include 'key' for image_id mapping.
+            include_fields = set(columns) if columns else None
+            if include_fields:
+                include_fields.add("key")
+
+            for upload in uploads:
+                u_dict = upload.model_dump(mode="json", include=include_fields)
+                u_dict["image_id"] = upload.key
+                serialized_uploads.append(u_dict)
+
+        logger.info(
+            f"[ws] [resp] Sending {len(serialized_uploads)} uploads for batch {batch_id} for {self.user.get('username')}"
+        )
+        await self.sender.send_json(
+            {
+                "type": "BATCH_UPLOADS_LIST",
+                "data": {
+                    "items": serialized_uploads,
+                    "total": total,
+                },
             }
         )
 

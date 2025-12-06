@@ -1,10 +1,16 @@
-from typing import Annotated
+from typing import Annotated, TypedDict
 from fastapi import Depends, HTTPException, status
 from starlette.requests import HTTPConnection
 from mwoauth import AccessToken
 
 
-async def check_login(request: HTTPConnection):
+class UserSession(TypedDict):
+    username: str
+    userid: str
+    access_token: AccessToken
+
+
+async def check_login(request: HTTPConnection) -> UserSession:
     user_data = request.session.get("user")
     if not user_data:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
@@ -19,4 +25,4 @@ async def check_login(request: HTTPConnection):
     return {"username": username, "userid": userid, "access_token": access_token}
 
 
-LoggedInUser = Annotated[dict, Depends(check_login)]
+LoggedInUser = Annotated[UserSession, Depends(check_login)]
