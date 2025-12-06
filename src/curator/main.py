@@ -15,9 +15,7 @@ from alembic.config import Config
 from alembic import command
 from curator.auth import router as auth_router
 from curator.harbor import router as harbor_router
-from curator.collections import router as collections_router
 from curator.toolforge import router as toolforge_router
-from curator.ingest import router as ingest_router
 from curator.ws import router as ws_router
 from curator.admin import router as admin_router
 from curator.app.db import DB_URL
@@ -95,9 +93,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include the routers
 app.include_router(auth_router)
 app.include_router(harbor_router)
-app.include_router(collections_router)
 app.include_router(toolforge_router)
-app.include_router(ingest_router)
 app.include_router(admin_router)
 app.include_router(ws_router)
 

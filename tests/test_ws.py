@@ -22,24 +22,31 @@ app.dependency_overrides[check_login] = mock_check_login
 
 @pytest.fixture
 def mock_mapillary_handler():
-    with patch("curator.ws.MapillaryHandler") as mock:
+    with patch("curator.app.handler.MapillaryHandler") as mock:
         yield mock
 
 
 @pytest.fixture
 def mock_dal():
     with (
-        patch("curator.ws.create_upload_request") as mock_create,
-        patch("curator.ws.get_upload_request") as mock_get,
-        patch("curator.ws.count_uploads_in_batch") as mock_count,
+        patch("curator.app.handler.create_upload_request") as mock_create,
+        patch("curator.app.handler.get_upload_request") as mock_get,
+        patch("curator.app.handler.count_uploads_in_batch") as mock_count,
     ):
         yield mock_create, mock_get, mock_count
 
 
 @pytest.fixture
 def mock_worker():
-    with patch("curator.ws.ingest_process_one") as mock:
+    with patch("curator.app.handler.ingest_process_one") as mock:
         yield mock
+
+
+@pytest.fixture
+def mock_session():
+    with patch("curator.app.handler.Session") as mock:
+        session_instance = mock.return_value.__enter__.return_value
+        yield session_instance
 
 
 def test_ws_fetch_images(mock_mapillary_handler):
@@ -48,9 +55,9 @@ def test_ws_fetch_images(mock_mapillary_handler):
     # Mock fetch_collection
     mock_image = MagicMock()
     mock_image.id = "img1"
-    mock_image.creator.model_dump.return_value = {"username": "creator1"}
+    mock_image.creator.model_dump = MagicMock(return_value={"username": "creator1"})
     # Also mock the model_dump of the image itself for to_jsonable
-    mock_image.model_dump.return_value = {"id": "img1", "lat": 10, "lon": 10}
+    mock_image.model_dump = MagicMock(return_value={"id": "img1", "lat": 10, "lon": 10})
 
     # Since we iterate over values, we need a dict
     mock_handler_instance.fetch_collection.return_value = {"img1": mock_image}
@@ -80,13 +87,6 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         assert data["data"] == "Collection not found"
 
 
-@pytest.fixture
-def mock_session():
-    with patch("curator.ws.Session") as mock:
-        session_instance = mock.return_value.__enter__.return_value
-        yield session_instance
-
-
 def test_ws_upload(mock_dal, mock_worker, mock_session):
     mock_create, _, _ = mock_dal
 
@@ -99,33 +99,38 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
 
     mock_create.return_value = [mock_req]
 
-    with client.websocket_connect("/ws") as websocket:
-        websocket.send_json(
-            {
-                "type": "UPLOAD",
-                "data": {
-                    "items": [
-                        {
-                            "input": "test",
-                            "id": "img1",
-                            "title": "Test Title",
-                            "wikitext": "Test Wikitext",
-                        }
-                    ],
-                    "handler": "mapillary",
-                },
-            }
-        )
+    with patch(
+        "curator.app.handler.encrypt_access_token", return_value="encrypted_token"
+    ):
+        with client.websocket_connect("/ws") as websocket:
+            websocket.send_json(
+                {
+                    "type": "UPLOAD",
+                    "data": {
+                        "items": [
+                            {
+                                "input": "test",
+                                "id": "img1",
+                                "title": "Test Title",
+                                "wikitext": "Test Wikitext",
+                            }
+                        ],
+                        "handler": "mapillary",
+                    },
+                }
+            )
 
-        data = websocket.receive_json()
-        assert data["type"] == "UPLOAD_CREATED"
-        items = data["data"]
-        assert len(items) == 1
-        assert items[0]["id"] == 1
-        assert items[0]["batch_id"] == 100
+            data = websocket.receive_json()
+            assert data["type"] == "UPLOAD_CREATED"
+            items = data["data"]
+            assert len(items) == 1
+            assert items[0]["id"] == 1
+            assert items[0]["batch_id"] == 100
 
         # Verify worker was called
-        mock_worker.delay.assert_called_once()
+        mock_worker.delay.assert_called_once_with(
+            1, "test", "encrypted_token", "testuser"
+        )
 
 
 def test_ws_invalid_message():
