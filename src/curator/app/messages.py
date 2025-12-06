@@ -23,4 +23,33 @@ class SubscribeBatchMessage(BaseModel):
     data: int
 
 
-ClientMessage = Union[FetchImagesMessage, UploadMessage, SubscribeBatchMessage]
+class FetchBatchesPayload(BaseModel):
+    page: int = 1
+    limit: int = 100
+    userid: Optional[str] = None
+
+
+class FetchBatchesMessage(BaseModel):
+    type: Literal["FETCH_BATCHES"]
+    data: FetchBatchesPayload
+
+
+class FetchBatchUploadsPayload(BaseModel):
+    batch_id: int
+    page: int = 1
+    limit: int = 100
+    columns: Optional[str] = None
+
+
+class FetchBatchUploadsMessage(BaseModel):
+    type: Literal["FETCH_BATCH_UPLOADS"]
+    data: FetchBatchUploadsPayload
+
+
+ClientMessage = Union[
+    FetchImagesMessage,
+    UploadMessage,
+    SubscribeBatchMessage,
+    FetchBatchesMessage,
+    FetchBatchUploadsMessage,
+]
