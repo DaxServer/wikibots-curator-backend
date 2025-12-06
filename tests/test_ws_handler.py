@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from curator.app.handler import Handler, WebSocketSender
+from curator.app.messages import UploadData
+from curator.app.models import UploadItem
 
 
 @pytest.fixture
@@ -78,17 +80,17 @@ async def test_handle_upload(handler_instance, mock_sender):
 
         mock_create.return_value = [mock_req]
 
-        data = {
-            "items": [
-                {
-                    "input": "test",
-                    "id": "img1",
-                    "title": "Test Title",
-                    "wikitext": "Test Wikitext",
-                }
+        data = UploadData(
+            items=[
+                UploadItem(
+                    input="test",
+                    id="img1",
+                    title="Test Title",
+                    wikitext="Test Wikitext",
+                )
             ],
-            "handler": "mapillary",
-        }
+            handler="mapillary",
+        )
 
         await handler_instance.upload(data)
 
