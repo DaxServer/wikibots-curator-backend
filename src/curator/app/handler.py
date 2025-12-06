@@ -12,7 +12,7 @@ from curator.app.dal import (
     count_uploads_in_batch,
 )
 from curator.workers.ingest import process_one as ingest_process_one
-from curator.app.models import UploadItem
+from curator.app.messages import UploadData
 
 from fastapi import WebSocketDisconnect
 
@@ -36,12 +36,15 @@ class Handler:
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
 
-    async def fetch_images(self, data: Any):
+    async def fetch_images(self, collection: str):
         handler = MapillaryHandler()
         loop = asyncio.get_running_loop()
         # data is the input string
-        images = await loop.run_in_executor(None, handler.fetch_collection, str(data))
+        images = await loop.run_in_executor(None, handler.fetch_collection, collection)
         if not images:
+            logger.error(
+                f"[ws] [resp] Collection not found for {collection} for {self.user.get('username')}"
+            )
             await self.sender.send_json(
                 {"type": "ERROR", "data": "Collection not found"}
             )
@@ -61,20 +64,11 @@ class Handler:
         for image_id, pages in existing_pages.items():
             images[image_id].existing = pages
 
-        def to_jsonable(x):
-            if hasattr(x, "model_dump"):
-                return x.model_dump(mode="json")
-            if isinstance(x, list):
-                return [to_jsonable(i) for i in x]
-            if isinstance(x, dict):
-                return {kk: to_jsonable(vv) for kk, vv in x.items()}
-            try:
-                d = vars(x)
-                return {kk: to_jsonable(vv) for kk, vv in d.items()}
-            except Exception:
-                return x
+        img_payload = {k: v.model_dump(mode="json") for k, v in images.items()}
 
-        img_payload = {k: to_jsonable(v) for k, v in images.items()}
+        logger.info(
+            f"[ws] [resp] Sending collection {collection} images for {self.user.get('username')}"
+        )
         await self.sender.send_json(
             {
                 "type": "COLLECTION_IMAGES",
@@ -85,10 +79,9 @@ class Handler:
             }
         )
 
-    async def upload(self, data: Dict[str, Any]):
-        items_data = data.get("items", [])
-        items = [UploadItem(**i) for i in items_data]
-        handler_name = data.get("handler")
+    async def upload(self, data: UploadData):
+        items = data.items
+        handler_name = data.handler
 
         with Session(engine) as session:
             reqs = create_upload_request(
@@ -124,6 +117,9 @@ class Handler:
                 self.user["username"],
             )
 
+        logger.info(
+            f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.user.get('username')}"
+        )
         await self.sender.send_json(
             {
                 "type": "UPLOAD_CREATED",
@@ -140,12 +136,15 @@ class Handler:
             }
         )
 
-    async def subscribe_batch(self, data: Any):
-        batch_id = int(data)
+    async def subscribe_batch(self, batch_id: int):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
 
         self.uploads_task = asyncio.create_task(self.stream_uploads(batch_id))
+
+        logger.info(
+            f"[ws] [resp] Subscribed to batch {batch_id} for {self.user.get('username')}"
+        )
         await self.sender.send_json({"type": "SUBSCRIBED", "data": batch_id})
 
     async def stream_uploads(self, batch_id: int):
@@ -167,6 +166,9 @@ class Handler:
                             "success",
                             "handler",
                         ],
+                    )
+                    logger.info(
+                        f"[ws] [resp] Sending batch {batch_id} update for {self.user.get('username')}"
                     )
                     await self.sender.send_json(
                         {
@@ -190,6 +192,9 @@ class Handler:
                         1 for r in items if r.status in ("completed", "failed")
                     )
                     if completed >= total:
+                        logger.info(
+                            f"[ws] [resp] Batch {batch_id} completed for {self.user.get('username')}"
+                        )
                         await self.sender.send_json(
                             {"type": "UPLOADS_COMPLETE", "data": batch_id}
                         )

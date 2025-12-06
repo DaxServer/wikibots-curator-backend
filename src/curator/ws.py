@@ -1,22 +1,22 @@
 import logging
-from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
+from pydantic import TypeAdapter
 
 from curator.app.auth import LoggedInUser
 from curator.app.handler import Handler
+from curator.app.messages import (
+    ClientMessage,
+    FetchImagesMessage,
+    SubscribeBatchMessage,
+    UploadMessage,
+)
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/ws", tags=["ws"])
+router = APIRouter(tags=["ws"])
 
 
-class WsMessage(BaseModel):
-    type: str
-    data: Any = None
-
-
-@router.websocket("")
+@router.websocket("/ws")
 async def ws(websocket: WebSocket, user: LoggedInUser):
     await websocket.accept()
 
@@ -25,12 +25,13 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
     # Create the logic handler
     # websocket acts as both sender and request object (for WcqsSession)
     handler = Handler(user=user, sender=websocket, request_obj=websocket)
+    adapter = TypeAdapter(ClientMessage)
 
     try:
         while True:
             raw_data = await websocket.receive_json()
             try:
-                message = WsMessage(**raw_data)
+                message = adapter.validate_python(raw_data)
             except Exception as e:
                 logger.error(f"Invalid message format: {e}")
                 await websocket.send_json(
@@ -38,23 +39,23 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 )
                 continue
 
-            action = message.type
-            data = message.data
+            logger.info(f"[ws] {message.type} from {user.get('username')}")
 
-            logger.info(f"[ws] {action} from {user.get('username')}")
-
-            if action == "FETCH_IMAGES":
-                await handler.fetch_images(data)
+            if isinstance(message, FetchImagesMessage):
+                await handler.fetch_images(message.data)
                 continue
 
-            if action == "UPLOAD":
-                await handler.upload(data)
+            if isinstance(message, UploadMessage):
+                await handler.upload(message.data)
                 continue
 
-            if action == "SUBSCRIBE_BATCH":
-                await handler.subscribe_batch(data)
+            if isinstance(message, SubscribeBatchMessage):
+                await handler.subscribe_batch(message.data)
                 continue
 
+            logger.error(
+                f"[ws] Unknown action: {message.type} from {user.get('username')}"
+            )
             await websocket.send_json({"type": "ERROR", "data": "Unknown action"})
 
     except WebSocketDisconnect:
