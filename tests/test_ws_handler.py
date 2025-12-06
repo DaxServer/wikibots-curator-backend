@@ -171,6 +171,7 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         mock_upload.error = None
         mock_upload.status = "completed"
         mock_batch.uploads = [mock_upload]
+        mock_batch.userid = "user123"
 
         mock_get_batches.return_value = [mock_batch]
         mock_count_batches.return_value = 1
@@ -195,6 +196,7 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         session = MockSession.return_value.__enter__.return_value
 
         mock_upload = MagicMock()
+        mock_upload.key = "img1"
         mock_upload.model_dump.return_value = {"id": 1, "status": "completed"}
 
         mock_get_uploads.return_value = [mock_upload]
