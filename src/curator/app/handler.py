@@ -6,12 +6,14 @@ from sqlmodel import Session
 from curator.app.db import engine
 from curator.app.crypto import encrypt_access_token
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.messages import BatchStats
 from curator.app.dal import (
     create_upload_request,
     get_upload_request,
     count_uploads_in_batch,
     get_batches,
     count_batches,
+    get_batches_stats,
 )
 from curator.workers.ingest import process_one as ingest_process_one
 from curator.app.messages import (
@@ -153,6 +155,9 @@ class Handler:
             batches = get_batches(session, userid, offset, limit)
             total = count_batches(session, userid)
 
+            batch_ids = [b.id for b in batches]
+            stats = get_batches_stats(session, batch_ids)
+
             # Serialize manually to handle relationships and specific fields
             serialized_batches = []
             for batch in batches:
@@ -161,14 +166,16 @@ class Handler:
                     "created_at": batch.created_at.isoformat(),
                     "username": batch.user.username,
                     "userid": batch.userid,
-                    "uploads": [
-                        {
-                            "success": u.success,
-                            "error": u.error,
-                            "status": u.status,
-                        }
-                        for u in batch.uploads
-                    ],
+                    "stats": stats.get(
+                        batch.id,
+                        BatchStats(
+                            total=1,
+                            queued=0,
+                            in_progress=0,
+                            completed=0,
+                            failed=0,
+                        ),
+                    ).model_dump(mode="json"),
                 }
                 serialized_batches.append(b_dict)
 
@@ -187,31 +194,26 @@ class Handler:
 
     async def fetch_batch_uploads(self, data: FetchBatchUploadsPayload):
         batch_id = data.batch_id
-        page = data.page
-        limit = data.limit
-        columns_str = data.columns
-        columns = columns_str.split(",") if columns_str else None
-        offset = (page - 1) * limit
-
-        # Ensure 'key' is requested if we use load_only, because we map it to image_id
-        dal_columns = list(columns) if columns else None
-        if dal_columns and "key" not in dal_columns:
-            dal_columns.append("key")
 
         with Session(engine) as session:
-            uploads = get_upload_request(session, batch_id, offset, limit, dal_columns)
-            total = count_uploads_in_batch(session, batch_id)
-
+            uploads = get_upload_request(
+                session,
+                batch_id,
+                columns=[
+                    "id",
+                    "status",
+                    "key",
+                    "error",
+                    "success",
+                    "handler",
+                    "filename",
+                    "wikitext",
+                ],
+            )
             serialized_uploads = []
 
-            # If columns were requested, we should try to respect them in the output to save serialization time
-            # But we must include 'key' for image_id mapping.
-            include_fields = set(columns) if columns else None
-            if include_fields:
-                include_fields.add("key")
-
             for upload in uploads:
-                u_dict = upload.model_dump(mode="json", include=include_fields)
+                u_dict = upload.model_dump(mode="json")
                 u_dict["image_id"] = upload.key
                 serialized_uploads.append(u_dict)
 
@@ -221,10 +223,7 @@ class Handler:
         await self.sender.send_json(
             {
                 "type": "BATCH_UPLOADS_LIST",
-                "data": {
-                    "items": serialized_uploads,
-                    "total": total,
-                },
+                "data": serialized_uploads,
             }
         )
 
@@ -247,8 +246,6 @@ class Handler:
                     items = get_upload_request(
                         session,
                         batch_id=batch_id,
-                        offset=0,
-                        limit=1000,
                         columns=[
                             "id",
                             "status",
