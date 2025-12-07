@@ -202,13 +202,10 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         mock_get_uploads.return_value = [mock_upload]
         mock_count_uploads.return_value = 1
 
-        await handler_instance.fetch_batch_uploads(
-            FetchBatchUploadsPayload(batch_id=1, page=1, limit=10)
-        )
+        await handler_instance.fetch_batch_uploads(FetchBatchUploadsPayload(batch_id=1))
 
         mock_sender.send_json.assert_called_once()
         call_args = mock_sender.send_json.call_args[0][0]
         assert call_args["type"] == "BATCH_UPLOADS_LIST"
-        assert len(call_args["data"]["items"]) == 1
-        assert call_args["data"]["items"][0]["id"] == 1
-        assert call_args["data"]["total"] == 1
+        assert len(call_args["data"]) == 1
+        assert call_args["data"][0]["id"] == 1

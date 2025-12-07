@@ -1,6 +1,6 @@
 import logging
 from curator.app.ingest.interfaces import Handler
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import json
 
 from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
@@ -124,13 +124,44 @@ def count_batches(session: Session, userid: Optional[str] = None) -> int:
     return session.exec(query).one()
 
 
+def get_batches_stats(
+    session: Session, batch_ids: List[int]
+) -> Dict[int, Dict[str, int]]:
+    if not batch_ids:
+        return {}
+
+    query = (
+        select(
+            UploadRequest.batchid, UploadRequest.status, func.count(UploadRequest.id)
+        )
+        .where(UploadRequest.batchid.in_(batch_ids))
+        .group_by(UploadRequest.batchid, UploadRequest.status)
+    )
+
+    results = session.exec(query).all()
+
+    # Initialize with zeros
+    stats = {
+        bid: {"total": 0, "queued": 0, "in_progress": 0, "completed": 0, "failed": 0}
+        for bid in batch_ids
+    }
+
+    for batch_id, status, count in results:
+        if batch_id in stats:
+            if status in stats[batch_id]:
+                stats[batch_id][status] = count
+            stats[batch_id]["total"] += count
+
+    return stats
+
+
 def get_batches(
     session: Session, userid: Optional[str] = None, offset: int = 0, limit: int = 100
 ) -> List[Batch]:
     """Fetch batches for a user, ordered by creation time descending."""
     query = (
         select(Batch)
-        .options(selectinload(Batch.uploads), selectinload(Batch.user))
+        .options(selectinload(Batch.user))
         .order_by(Batch.created_at.desc())
     )
 
@@ -149,8 +180,6 @@ def count_uploads_in_batch(session: Session, batch_id: int) -> int:
 def get_upload_request(
     session: Session,
     batch_id: int,
-    offset: int = 0,
-    limit: int = 100,
     columns: Optional[List[str]] = None,
 ) -> List[UploadRequest]:
     query = (
@@ -169,7 +198,7 @@ def get_upload_request(
         if valid_columns:
             query = query.options(load_only(*valid_columns))
 
-    result = session.exec(query.offset(offset).limit(limit))
+    result = session.exec(query)
 
     return list(result.all())
 
