@@ -6,6 +6,7 @@ from sqlmodel import Session
 from curator.app.db import engine
 from curator.app.crypto import encrypt_access_token
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.messages import BatchStats
 from curator.app.dal import (
     create_upload_request,
     get_upload_request,
@@ -165,7 +166,16 @@ class Handler:
                     "created_at": batch.created_at.isoformat(),
                     "username": batch.user.username,
                     "userid": batch.userid,
-                    "stats": stats.get(batch.id, {}),
+                    "stats": stats.get(
+                        batch.id,
+                        BatchStats(
+                            total=1,
+                            queued=0,
+                            in_progress=0,
+                            completed=0,
+                            failed=0,
+                        ),
+                    ).model_dump(mode="json"),
                 }
                 serialized_batches.append(b_dict)
 

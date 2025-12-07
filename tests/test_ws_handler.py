@@ -5,6 +5,7 @@ from curator.app.messages import (
     UploadData,
     FetchBatchesPayload,
     FetchBatchUploadsPayload,
+    BatchStats,
 )
 from curator.app.models import UploadItem
 
@@ -158,6 +159,7 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         patch("curator.app.handler.Session") as MockSession,
         patch("curator.app.handler.get_batches") as mock_get_batches,
         patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch("curator.app.handler.get_batches_stats") as mock_get_stats,
     ):
         session = MockSession.return_value.__enter__.return_value
 
@@ -165,13 +167,13 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         mock_batch.id = 1
         mock_batch.created_at.isoformat.return_value = "2024-01-01T00:00:00"
         mock_batch.user.username = "testuser"
-
-        mock_upload = MagicMock()
-        mock_upload.success = "success"
-        mock_upload.error = None
-        mock_upload.status = "completed"
-        mock_batch.uploads = [mock_upload]
         mock_batch.userid = "user123"
+
+        # Mock get_batches_stats return value
+        mock_stats = BatchStats(
+            total=10, queued=2, in_progress=3, completed=4, failed=1
+        )
+        mock_get_stats.return_value = {1: mock_stats}
 
         mock_get_batches.return_value = [mock_batch]
         mock_count_batches.return_value = 1
@@ -182,7 +184,10 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         call_args = mock_sender.send_json.call_args[0][0]
         assert call_args["type"] == "BATCHES_LIST"
         assert len(call_args["data"]["items"]) == 1
-        assert call_args["data"]["items"][0]["id"] == 1
+        item = call_args["data"]["items"][0]
+        assert item["id"] == 1
+        assert item["stats"]["total"] == 10
+        assert item["stats"]["completed"] == 4
         assert call_args["data"]["total"] == 1
 
 

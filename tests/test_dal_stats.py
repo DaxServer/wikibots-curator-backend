@@ -18,11 +18,11 @@ def test_get_batches_stats():
     batch_ids = [1, 2]
     stats = get_batches_stats(mock_session, batch_ids)
 
-    assert stats[1]["total"] == 7
-    assert stats[1]["completed"] == 5
-    assert stats[1]["failed"] == 2
-    assert stats[1]["queued"] == 0
+    assert stats[1].total == 7
+    assert stats[1].completed == 5
+    assert stats[1].failed == 2
+    assert stats[1].queued == 0
 
-    assert stats[2]["total"] == 10
-    assert stats[2]["queued"] == 10
-    assert stats[2]["completed"] == 0
+    assert stats[2].total == 10
+    assert stats[2].queued == 10
+    assert stats[2].completed == 0
