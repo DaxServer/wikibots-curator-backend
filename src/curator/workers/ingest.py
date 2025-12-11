@@ -2,7 +2,7 @@ from curator.app.models import GenericError
 from curator.app.models import DuplicateError
 from curator.app.models import StructuredError
 import json
-from asgiref.sync import async_to_sync
+import asyncio
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
 from curator.app.models import UploadRequest
@@ -44,8 +44,9 @@ def _fail(
     return False
 
 
-@celery_app.task(name="ingest.process_one")
-def process_one(upload_id: int, input: str, encrypted_access_token: str, username: str):
+async def _process_one_async(
+    upload_id: int, input: str, encrypted_access_token: str, username: str
+) -> bool:
     session = next(get_session())
     item = None
     try:
@@ -57,7 +58,7 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
         update_upload_status(session, upload_id=item.id, status="in_progress")
 
         handler = MapillaryHandler()
-        image = async_to_sync(handler.fetch_image_metadata)(item.key, input)
+        image = await handler.fetch_image_metadata(item.key, input)
         sdc_json = json.loads(item.sdc) if item.sdc else None
         image_url = image.url_original
         access_token = decrypt_access_token(encrypted_access_token)
@@ -85,3 +86,10 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
     except Exception as e:
         structured_error: GenericError = {"type": "error", "message": str(e)}
         return _fail(session, upload_id, item, structured_error)
+
+
+@celery_app.task(name="ingest.process_one")
+def process_one(upload_id: int, input: str, encrypted_access_token: str, username: str):
+    return asyncio.run(
+        _process_one_async(upload_id, input, encrypted_access_token, username)
+    )
