@@ -44,6 +44,10 @@ def _fail(
     return False
 
 
+worker_loop = asyncio.new_event_loop()
+asyncio.set_event_loop(worker_loop)
+
+
 async def _process_one_async(
     upload_id: int, input: str, encrypted_access_token: str, username: str
 ) -> bool:
@@ -90,6 +94,6 @@ async def _process_one_async(
 
 @celery_app.task(name="ingest.process_one")
 def process_one(upload_id: int, input: str, encrypted_access_token: str, username: str):
-    return asyncio.run(
+    return worker_loop.run_until_complete(
         _process_one_async(upload_id, input, encrypted_access_token, username)
     )
