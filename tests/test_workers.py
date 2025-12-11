@@ -49,10 +49,6 @@ def test_worker_process_one_decrypts_token():
                 url_original="https://example.com/file.jpg",
             ),
         ),
-        patch(
-            "curator.workers.ingest.MapillaryHandler.build_sdc",
-            return_value=[],
-        ),
     ):
 
         ok = worker.process_one(1, "seq", encrypted, "User")
