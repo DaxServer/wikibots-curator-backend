@@ -125,5 +125,5 @@ async def integrity_middleware(call, cmd: Command, backend: Backend, *args, **kw
 
 
 cache = Cache()
-cache.setup(f"{REDIS_URL}/10", pickle_type="sqlalchemy", secret=TOKEN_ENCRYPTION_KEY)
+cache.setup(f"{REDIS_URL}/10", pickle_type="sqlalchemy", secret=TOKEN_ENCRYPTION_KEY, client_name=None)
 cache.add_middleware(integrity_middleware)
