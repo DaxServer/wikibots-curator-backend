@@ -22,6 +22,7 @@ dependencies = [
     "redis (>=7.1.0,<8.0.0)",
     "sqlmodel (>=0.0.27,<0.0.28)",
     "starsessions (>=2.2.1,<3.0.0)",
+    "cashews[redis] (>=7.4.4,<8.0.0)",
 ]
 
 [project.optional-dependencies]

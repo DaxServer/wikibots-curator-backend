@@ -1,7 +1,7 @@
 import os
 from cryptography.fernet import Fernet
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from curator.app.crypto import encrypt_access_token
 import curator.workers.ingest as worker
 
@@ -43,6 +43,7 @@ def test_worker_process_one_decrypts_token():
         patch("curator.workers.ingest.count_open_uploads_for_batch", return_value=0),
         patch(
             "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
             return_value=SimpleNamespace(
                 id="img1",
                 url_original="https://example.com/file.jpg",

@@ -1,4 +1,8 @@
+import logging
 import os
+from cashews import Cache, Command
+from cashews.backends.interface import Backend
+from cashews.exceptions import UnSecureDataError
 import redis
 from pywikibot import Site
 from cryptography.fernet import Fernet
@@ -96,6 +100,30 @@ PWB_SITE_COMMONS = Site("commons", "commons")
 PWB_SITE_WIKIDATA = Site("wikidata", "wikidata")
 
 REDIS_PREFIX = "skI4ZdSn18vvLkMHnPk8AEyg/8VjDRT6sY2u+BXIdsk="
-redis_client = redis.Redis.from_url(
-    os.getenv("TOOL_REDIS_URI", "redis://localhost:6379"), db=10
-)
+REDIS_URL = os.getenv("TOOL_REDIS_URI", "redis://localhost:6379")
+redis_client = redis.Redis.from_url(REDIS_URL, db=10)
+
+logger = logging.getLogger(__name__)
+
+
+async def integrity_middleware(call, cmd: Command, backend: Backend, *args, **kwargs):
+    try:
+        return await call(*args, **kwargs)
+    except UnSecureDataError:
+        if cmd == Command.GET:
+            key = args[0] if args else kwargs.get("key")
+            if key:
+                logger.warning(f"[cache] Data integrity compromised for key: {key}")
+                await backend.delete(key)
+
+            # Return default to simulate cache miss
+            default = kwargs.get("default")
+            if default is None and len(args) > 1:
+                default = args[1]
+            return default
+        raise
+
+
+cache = Cache()
+cache.setup(f"{REDIS_URL}/10", pickle_type="sqlalchemy", secret=TOKEN_ENCRYPTION_KEY)
+cache.add_middleware(integrity_middleware)

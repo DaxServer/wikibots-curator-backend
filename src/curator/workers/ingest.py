@@ -2,6 +2,7 @@ from curator.app.models import GenericError
 from curator.app.models import DuplicateError
 from curator.app.models import StructuredError
 import json
+from asgiref.sync import async_to_sync
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
 from curator.app.models import UploadRequest
@@ -56,7 +57,7 @@ def process_one(upload_id: int, input: str, encrypted_access_token: str, usernam
         update_upload_status(session, upload_id=item.id, status="in_progress")
 
         handler = MapillaryHandler()
-        image = handler.fetch_image_metadata(item.key, input)
+        image = async_to_sync(handler.fetch_image_metadata)(item.key, input)
         if item.sdc:
             sdc_json = json.loads(item.sdc)
         else:

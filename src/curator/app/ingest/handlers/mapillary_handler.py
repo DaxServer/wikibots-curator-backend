@@ -1,5 +1,6 @@
-from functools import lru_cache
+from datetime import timedelta
 import logging
+from curator.app.config import cache
 from curator.app.wcqs import WcqsSession
 from pywikibot import WbQuantity
 from datetime import datetime
@@ -54,22 +55,23 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
     )
 
 
-@lru_cache(maxsize=1024)
-def _fetch_sequence_data(sequence_id: str) -> dict:
+@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:{sequence_id}")
+async def _fetch_sequence_data(sequence_id: str) -> dict:
     """
     Fetch sequence data from Mapillary API
     """
-    logger.info(f"Fetching Mapillary sequence data for {sequence_id}")
+    logger.info(f"[mapillary] fetching sequence data for {sequence_id}")
 
-    response = httpx.get(
-        f"https://graph.mapillary.com/images",
-        params={
-            "access_token": MAPILLARY_API_TOKEN,
-            "sequence_ids": sequence_id,
-            "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
-        },
-        timeout=30,
-    )
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://graph.mapillary.com/images",
+            params={
+                "access_token": MAPILLARY_API_TOKEN,
+                "sequence_ids": sequence_id,
+                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            timeout=30,
+        )
     response.raise_for_status()
     images = response.json()["data"]
 
@@ -82,12 +84,12 @@ def _fetch_sequence_data(sequence_id: str) -> dict:
 class MapillaryHandler(Handler):
     name = "mapillary"
 
-    def fetch_collection(self, input: str) -> Dict[str, Image]:
-        collection = _fetch_sequence_data(input)
+    async def fetch_collection(self, input: str) -> Dict[str, Image]:
+        collection = await _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
 
-    def fetch_image_metadata(self, image_id: str, input: str) -> Image:
-        collection = _fetch_sequence_data(input)
+    async def fetch_image_metadata(self, image_id: str, input: str) -> Image:
+        collection = await _fetch_sequence_data(input)
         image = collection.get(image_id)
         if not image:
             raise ValueError(

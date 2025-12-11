@@ -42,7 +42,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
         mock_image.creator.model_dump = MagicMock(return_value={"username": "creator1"})
         mock_image.model_dump = MagicMock(return_value={"id": "img1"})
 
-        handler.fetch_collection.return_value = {"img1": mock_image}
+        handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
         handler.fetch_existing_pages.return_value = {"img1": []}
 
         await handler_instance.fetch_images("some_input")
@@ -58,7 +58,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
 async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
     with patch("curator.app.handler.MapillaryHandler") as MockHandler:
         handler = MockHandler.return_value
-        handler.fetch_collection.return_value = {}
+        handler.fetch_collection = AsyncMock(return_value={})
 
         await handler_instance.fetch_images("invalid")
 
