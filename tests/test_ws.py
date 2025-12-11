@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 import asyncio
 from curator.main import app
 from curator.app.auth import check_login
@@ -60,7 +60,9 @@ def test_ws_fetch_images(mock_mapillary_handler):
     mock_image.model_dump = MagicMock(return_value={"id": "img1", "lat": 10, "lon": 10})
 
     # Since we iterate over values, we need a dict
-    mock_handler_instance.fetch_collection.return_value = {"img1": mock_image}
+    mock_handler_instance.fetch_collection = AsyncMock(
+        return_value={"img1": mock_image}
+    )
 
     # Mock fetch_existing_pages
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
@@ -77,7 +79,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
 
 def test_ws_fetch_images_not_found(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
-    mock_handler_instance.fetch_collection.return_value = {}
+    mock_handler_instance.fetch_collection = AsyncMock(return_value={})
 
     with client.websocket_connect("/ws") as websocket:
         websocket.send_json({"type": "FETCH_IMAGES", "data": "invalid"})

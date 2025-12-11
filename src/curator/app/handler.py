@@ -49,7 +49,7 @@ class Handler:
         handler = MapillaryHandler()
         loop = asyncio.get_running_loop()
         # data is the input string
-        images = await loop.run_in_executor(None, handler.fetch_collection, collection)
+        images = await handler.fetch_collection(collection)
         if not images:
             logger.error(
                 f"[ws] [resp] Collection not found for {collection} for {self.user.get('username')}"
