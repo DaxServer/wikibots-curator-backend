@@ -72,7 +72,7 @@ async def test_handle_upload(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.Session") as MockSession,
         patch("curator.app.handler.create_upload_request") as mock_create,
-        patch("curator.app.handler.ingest_process_one") as mock_worker,
+        patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
 
         session = MockSession.return_value.__enter__.return_value
@@ -99,7 +99,7 @@ async def test_handle_upload(handler_instance, mock_sender):
 
         await handler_instance.upload(data)
 
-        mock_worker.delay.assert_called_once()
+        mock_worker.enqueue.assert_called_once()
         mock_sender.send_json.assert_called_once()
         call_args = mock_sender.send_json.call_args[0][0]
         assert call_args["type"] == "UPLOAD_CREATED"

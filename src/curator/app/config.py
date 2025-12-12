@@ -4,7 +4,6 @@ from cashews import Cache, Command
 from cashews.backends.interface import Backend
 from cashews.exceptions import UnSecureDataError
 import redis
-from pywikibot import Site
 from cryptography.fernet import Fernet
 
 
@@ -41,63 +40,9 @@ WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 
 
-class WikidataEntity:
-    CCBYSA40 = "Q18199165"
-    Circa = "Q5727902"
-    Copyrighted = "Q50423863"
-    DedicatedToPublicDomainByCopyrightOwner = "Q88088423"
-    FileAvailableOnInternet = "Q74228490"
-    Flickr = "Q103204"
-    iNaturalist = "Q16958215"
-    Mapillary = "Q17985544"
-    MapillaryDatabase = "Q26757498"
-    Pixel = "Q355198"
-    PortableAntiquitiesSchemeDatabase = "Q111225724"
-    PublicDomain = "Q19652"
-    StatedByCopyrightHolderAtSourceWebsite = "Q61045577"
-    USACE = "Q1049334"
-    WorkOfTheFederalGovernmentOfTheUnitedStates = "Q60671452"
-    YouTube = "Q866"
-
-
 class WikidataProperty:
-    AppliesToJurisdiction = "P1001"
-    AuthorNameString = "P2093"
-    ContentDeliverer = "P3274"
-    CoordinatesOfThePointOfView = "P1259"
-    CopyrightLicense = "P275"
-    CopyrightStatus = "P6216"
-    Creator = "P170"
-    Depicts = "P180"
-    DescribedAtUrl = "P973"
-    DeterminationMethod = "P459"
-    FlickrPhotoId = "P12120"
-    FlickrUserId = "P3267"
-    Height = "P2048"
-    INaturalistPhotoId = "P13419"
-    INaturalistObservationId = "P5683"
-    INaturalistTaxonId = "P3151"
-    INaturalistUserId = "P12022"
-    Inception = "P571"
     MapillaryPhotoID = "P1947"
-    ORCID = "P496"
-    Operator = "P137"
-    PortableAntiquitiesSchemeImageID = "P13556"
-    PublicationDate = "P577"
-    PublishedIn = "P1433"
-    StatedIn = "P248"
-    SourceOfFile = "P7482"
-    SourcingCircumstances = "P1480"
-    Title = "P1476"
-    Url = "P2699"
-    Width = "P2049"
-    YouTubeChannelId = "P2397"
-    YouTubeHandle = "P11245"
-    YouTubeVideoId = "P1651"
 
-
-PWB_SITE_COMMONS = Site("commons", "commons")
-PWB_SITE_WIKIDATA = Site("wikidata", "wikidata")
 
 REDIS_PREFIX = "skI4ZdSn18vvLkMHnPk8AEyg/8VjDRT6sY2u+BXIdsk="
 REDIS_URL = os.getenv("TOOL_REDIS_URI", "redis://localhost:6379")

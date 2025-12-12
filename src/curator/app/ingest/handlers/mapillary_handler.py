@@ -2,22 +2,17 @@ from datetime import timedelta
 import logging
 from curator.app.config import cache
 from curator.app.wcqs import WcqsSession
-from pywikibot import WbQuantity
 from datetime import datetime
 from typing import Any, Dict, List, Union
 from fastapi import Request, WebSocket
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
-    PWB_SITE_COMMONS,
-    PWB_SITE_WIKIDATA,
-    WikidataEntity,
     WikidataProperty,
 )
 from curator.app.image_models import Creator, Image, Location, Dates, ExistingPage
 from curator.app.ingest.interfaces import Handler
 import httpx
-from pywikibot import Claim, ItemPage, Timestamp, WbTime
 
 logger = logging.getLogger(__name__)
 

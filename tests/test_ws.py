@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch, AsyncMock, ANY
 import asyncio
 from curator.main import app
 from curator.app.auth import check_login
@@ -38,7 +38,7 @@ def mock_dal():
 
 @pytest.fixture
 def mock_worker():
-    with patch("curator.app.handler.ingest_process_one") as mock:
+    with patch("curator.app.handler.ingest_queue") as mock:
         yield mock
 
 
@@ -130,8 +130,9 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
             assert items[0]["batch_id"] == 100
 
         # Verify worker was called
-        mock_worker.delay.assert_called_once_with(
-            1, "test", "encrypted_token", "testuser"
+        mock_worker.enqueue.assert_called_once_with(
+            ANY,
+            1,
         )
 
 

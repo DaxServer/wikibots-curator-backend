@@ -63,6 +63,12 @@ class UploadRequest(SQLModel, table=True):
     status: str = Field(index=True, max_length=50)
     key: str = Field(index=True, max_length=255)
     handler: str = Field(index=True, max_length=255)
+    collection: Optional[str] = Field(default=None, max_length=255)
+    access_token: Optional[str] = Field(
+        default=None,
+        sa_column=Column(Text),
+        exclude=True,
+    )
     filename: str = Field(index=True, max_length=255)
     wikitext: Optional[str] = Field(default=None, sa_column=Column(Text))
     sdc: Optional[str] = Field(default=None, sa_column=Column(Text))
