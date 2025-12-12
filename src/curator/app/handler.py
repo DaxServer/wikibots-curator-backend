@@ -15,7 +15,8 @@ from curator.app.dal import (
     count_batches,
     get_batches_stats,
 )
-from curator.workers.ingest import process_one as ingest_process_one
+from curator.workers.ingest import process_one
+from curator.workers.rq import queue as ingest_queue
 from curator.app.messages import (
     UploadData,
     FetchBatchesPayload,
@@ -91,6 +92,7 @@ class Handler:
     async def upload(self, data: UploadData):
         items = data.items
         handler_name = data.handler
+        encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
         with Session(engine) as session:
             reqs = create_upload_request(
@@ -99,6 +101,7 @@ class Handler:
                 userid=self.user["userid"],
                 payload=items,
                 handler=handler_name,
+                encrypted_access_token=encrypted_access_token,
             )
             session.commit()
 
@@ -116,14 +119,10 @@ class Handler:
                     }
                 )
 
-        token = self.user.get("access_token")
-        enc = encrypt_access_token(token) if token else None
         for upload in prepared_uploads:
-            ingest_process_one.delay(
+            ingest_queue.enqueue(
+                process_one,
                 upload["id"],
-                upload["input"],
-                enc,
-                self.user["username"],
             )
 
         logger.info(

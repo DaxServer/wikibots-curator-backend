@@ -1,11 +1,4 @@
-import sys
 from unittest.mock import MagicMock, patch
-
-# Mock pywikibot and its modules before importing curator.app.wcqs
-sys.modules["pywikibot"] = MagicMock()
-sys.modules["pywikibot.login"] = MagicMock()
-sys.modules["pywikibot.data"] = MagicMock()
-sys.modules["pywikibot.data.api"] = MagicMock()
 
 import pytest
 from datetime import datetime, timezone, timedelta

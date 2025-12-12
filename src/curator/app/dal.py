@@ -94,6 +94,7 @@ def create_upload_request(
     userid: str,
     payload: list[UploadItem],
     handler: Handler,
+    encrypted_access_token: str,
 ) -> List[UploadRequest]:
     # Ensure normalized FK rows exist
     ensure_user(session=session, userid=userid, username=username)
@@ -107,6 +108,8 @@ def create_upload_request(
             key=item.id,
             handler=handler,
             status="queued",
+            collection=item.input,
+            encrypted_access_token=encrypted_access_token,
             filename=item.title,
             wikitext=item.wikitext,
             sdc=json.dumps(item.sdc) if item.sdc else None,
@@ -243,15 +246,27 @@ def update_upload_status(
     logger.info(
         f"[dal] update_upload_status: upload_id={upload_id} status={status} error={error} success={success}"
     )
+    values: dict = {
+        "status": status,
+        "error": error,
+        "success": success,
+        "updated_at": datetime.now(),
+    }
     session.exec(
-        update(UploadRequest)
-        .where(UploadRequest.id == upload_id)
-        .values(
-            status=status,
-            error=error,
-            success=success,
-            updated_at=datetime.now(),
-        )
+        update(UploadRequest).where(UploadRequest.id == upload_id).values(**values)
     )
     session.commit()
     logger.info(f"[dal] update_upload_status: flushed for upload_id={upload_id}")
+
+
+def clear_upload_access_token(session: Session, upload_id: int) -> None:
+    logger.info(f"[dal] clear_upload_access_token: upload_id={upload_id}")
+    session.exec(
+        update(UploadRequest)
+        .where(UploadRequest.id == upload_id)
+        .values(encrypted_access_token=None, updated_at=datetime.now())
+    )
+    session.commit()
+    logger.info(
+        f"[dal] clear_upload_access_token: cleared token for upload_id={upload_id}"
+    )

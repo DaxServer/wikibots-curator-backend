@@ -1,6 +1,9 @@
 import json
+from types import SimpleNamespace
 
 from typing import Any
+
+import pytest
 
 
 class DummySession:
@@ -19,7 +22,8 @@ class Calls:
         self.status_updates: list[tuple[int, str, dict | None]] = []
 
 
-def test_process_one_runs_async(monkeypatch):
+@pytest.mark.asyncio
+async def test_process_one_runs_async(monkeypatch):
     from curator.workers import ingest as mod
 
     calls = Calls()
@@ -37,6 +41,9 @@ def test_process_one_runs_async(monkeypatch):
             self.wikitext = "== Summary =="
             self.sdc = json.dumps([{"P180": "Q42"}])
             self.labels = {"en": "Test"}
+            self.collection = "seq-1"
+            self.encrypted_access_token = "cipher"
+            self.user = SimpleNamespace(username="user1")
 
     def fake_get_upload_request_by_id(session: Any, upload_id: int):
         return DummyItem()
@@ -60,9 +67,9 @@ def test_process_one_runs_async(monkeypatch):
     monkeypatch.setattr(mod, "MapillaryHandler", StubHandler)
     monkeypatch.setattr(mod, "decrypt_access_token", fake_decrypt_access_token)
     monkeypatch.setattr(mod, "upload_file_chunked", fake_upload_file_chunked)
-    monkeypatch.setattr(mod, "count_open_uploads_for_batch", lambda *a, **k: 0)
+    monkeypatch.setattr(mod, "clear_upload_access_token", lambda *a, **k: None)
 
-    ok = mod.process_one(1, "seq-1", "cipher", "UserX")
+    ok = await mod.process_one(1)
 
     assert ok is True
     assert calls.status_updates[0][1] == "in_progress"

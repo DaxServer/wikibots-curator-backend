@@ -1,20 +1,46 @@
 from tempfile import NamedTemporaryFile
 import httpx
-from pywikibot import Page
-from pywikibot import FilePage
-from typing import List
+from typing import Any, List, Optional
 import json
 from curator.app.config import OAUTH_KEY
 from curator.app.config import OAUTH_SECRET
-from typing import Optional
-import pywikibot
-import pywikibot.config as config
 from mwoauth import AccessToken
-from pywikibot.tools import compute_file_hash
 import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+pywikibot: Any | None = None
+config: Any | None = None
+Page: Any | None = None
+FilePage: Any | None = None
+compute_file_hash: Any | None = None
+
+
+def _ensure_pywikibot() -> None:
+    global pywikibot, config, Page, FilePage, compute_file_hash
+    if pywikibot is None or config is None:
+        import pywikibot as _pywikibot
+        import pywikibot.config as _config
+
+        if pywikibot is None:
+            pywikibot = _pywikibot
+        if config is None:
+            config = _config
+
+    if compute_file_hash is None:
+        from pywikibot.tools import compute_file_hash as _compute_file_hash
+
+        compute_file_hash = _compute_file_hash
+
+    if Page is None or FilePage is None:
+        from pywikibot import Page as _Page, FilePage as _FilePage
+
+        if Page is None:
+            Page = _Page
+        if FilePage is None:
+            FilePage = _FilePage
 
 
 class DuplicateUploadError(Exception):
@@ -40,6 +66,7 @@ def upload_file_chunked(
     - Sets authentication
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
+    _ensure_pywikibot()
 
     site = get_commons_site(access_token, username)
 
@@ -71,6 +98,8 @@ def upload_file_chunked(
 
 
 def get_commons_site(access_token: AccessToken, username: str):
+    _ensure_pywikibot()
+
     config.authenticate["commons.wikimedia.org"] = (OAUTH_KEY, OAUTH_SECRET) + tuple(
         access_token
     )
@@ -97,6 +126,8 @@ def find_duplicates(site, sha1: str) -> List[dict]:
 
 
 def build_file_page(site, file_name: str):
+    _ensure_pywikibot()
+
     return FilePage(Page(site, title=file_name, ns=6))
 
 

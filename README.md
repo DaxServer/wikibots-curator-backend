@@ -54,9 +54,9 @@ For subsequent deployments, use:
 toolforge webservice restart
 ```
 
-### Celery worker
+### Worker
 
-After building the `web` image, run the Celery worker:
+After building the `web` image, run the worker process:
 
 ```bash
 toolforge jobs run --image tool-curator/web:latest --emails all --continuous --filelog --mount all --command "worker" worker

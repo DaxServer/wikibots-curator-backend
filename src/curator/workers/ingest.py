@@ -2,23 +2,21 @@ from curator.app.models import GenericError
 from curator.app.models import DuplicateError
 from curator.app.models import StructuredError
 import json
-import asyncio
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
 from curator.app.models import UploadRequest
-from curator.workers.celery import celery_app
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
 from curator.app.db import get_session
 from curator.app.dal import (
-    count_open_uploads_for_batch,
     get_upload_request_by_id,
     update_upload_status,
+    clear_upload_access_token,
 )
 
 
 def _cleanup(session, item: UploadRequest | None = None):
     if item:
-        count_open_uploads_for_batch(session, userid=item.userid, batch_id=item.batchid)
+        clear_upload_access_token(session, upload_id=item.id)
     session.close()
 
 
@@ -44,13 +42,7 @@ def _fail(
     return False
 
 
-worker_loop = asyncio.new_event_loop()
-asyncio.set_event_loop(worker_loop)
-
-
-async def _process_one_async(
-    upload_id: int, input: str, encrypted_access_token: str, username: str
-) -> bool:
+async def process_one(upload_id: int) -> bool:
     session = next(get_session())
     item = None
     try:
@@ -62,10 +54,13 @@ async def _process_one_async(
         update_upload_status(session, upload_id=item.id, status="in_progress")
 
         handler = MapillaryHandler()
-        image = await handler.fetch_image_metadata(item.key, input)
+        image = await handler.fetch_image_metadata(item.key, item.collection or "")
         sdc_json = json.loads(item.sdc) if item.sdc else None
         image_url = image.url_original
-        access_token = decrypt_access_token(encrypted_access_token)
+        if not item.encrypted_access_token:
+            raise Exception("Missing access token")
+        access_token = decrypt_access_token(item.encrypted_access_token)
+        username = item.user.username
 
         edit_summary = f"Uploaded via Curator from Mapillary image {image.id}"
         upload_result = upload_file_chunked(
@@ -90,10 +85,3 @@ async def _process_one_async(
     except Exception as e:
         structured_error: GenericError = {"type": "error", "message": str(e)}
         return _fail(session, upload_id, item, structured_error)
-
-
-@celery_app.task(name="ingest.process_one")
-def process_one(upload_id: int, input: str, encrypted_access_token: str, username: str):
-    return worker_loop.run_until_complete(
-        _process_one_async(upload_id, input, encrypted_access_token, username)
-    )

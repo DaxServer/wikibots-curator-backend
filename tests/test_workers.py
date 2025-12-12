@@ -2,11 +2,15 @@ import os
 from cryptography.fernet import Fernet
 from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock
+
+import pytest
+
 from curator.app.crypto import encrypt_access_token
 import curator.workers.ingest as worker
 
 
-def test_worker_process_one_decrypts_token():
+@pytest.mark.asyncio
+async def test_worker_process_one_decrypts_token():
     os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
     encrypted = encrypt_access_token(("t", "s"))
@@ -22,6 +26,9 @@ def test_worker_process_one_decrypts_token():
         wikitext="",
         labels={"en": {"language": "en", "value": "Example"}},
         sdc=None,
+        collection="seq",
+        encrypted_access_token=encrypted,
+        user=SimpleNamespace(username="User"),
     )
 
     def fake_session_iter():
@@ -35,12 +42,16 @@ def test_worker_process_one_decrypts_token():
         patch("curator.workers.ingest.update_upload_status"),
         patch(
             "curator.workers.ingest.upload_file_chunked",
-            side_effect=lambda file_name, file_url, access_token, **kwargs: (
-                captured.setdefault("token", access_token),
-                {"result": "success", "title": file_name, "url": file_url},
+            side_effect=lambda **kwargs: (
+                captured.setdefault("token", kwargs["access_token"]),
+                {
+                    "result": "success",
+                    "title": kwargs["file_name"],
+                    "url": kwargs["file_url"],
+                },
             )[1],
         ),
-        patch("curator.workers.ingest.count_open_uploads_for_batch", return_value=0),
+        patch("curator.workers.ingest.clear_upload_access_token"),
         patch(
             "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
             new_callable=AsyncMock,
@@ -50,7 +61,6 @@ def test_worker_process_one_decrypts_token():
             ),
         ),
     ):
-
-        ok = worker.process_one(1, "seq", encrypted, "User")
+        ok = await worker.process_one(1)
         assert ok is True
         assert tuple(captured["token"]) == ("t", "s")
