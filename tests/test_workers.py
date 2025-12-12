@@ -6,14 +6,13 @@ from unittest.mock import patch, AsyncMock
 import pytest
 
 from curator.app.crypto import encrypt_access_token
+from curator.app.models import UploadRequest
 import curator.workers.ingest as worker
 
 
 @pytest.mark.asyncio
 async def test_worker_process_one_decrypts_token():
     os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
-    encrypted = encrypt_access_token(("t", "s"))
 
     item = SimpleNamespace(
         id=1,
@@ -27,7 +26,7 @@ async def test_worker_process_one_decrypts_token():
         labels={"en": {"language": "en", "value": "Example"}},
         sdc=None,
         collection="seq",
-        encrypted_access_token=encrypted,
+        access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
     )
 
@@ -64,3 +63,22 @@ async def test_worker_process_one_decrypts_token():
         ok = await worker.process_one(1)
         assert ok is True
         assert tuple(captured["token"]) == ("t", "s")
+
+
+def test_upload_request_access_token_excluded_from_model_dump():
+    upload = UploadRequest(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        collection="seq",
+        access_token="secret",
+        filename="File.jpg",
+        wikitext="wikitext",
+    )
+
+    dumped = upload.model_dump(mode="json")
+
+    assert "access_token" not in dumped

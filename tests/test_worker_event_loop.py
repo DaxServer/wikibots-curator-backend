@@ -53,9 +53,9 @@ async def test_process_one_runs_without_event_loop_closed(runs):
             key="123",
             handler="mapillary",
             filename="file.jpg",
-            wikitext="",
-            collection="input",
-            encrypted_access_token="enc",
+            wikitext="wikitext",
+            collection="collection",
+            access_token="token",
         )
         mock_item.user = User(userid="user", username="user")
         mock_get.return_value = mock_item

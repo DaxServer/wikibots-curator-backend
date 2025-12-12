@@ -42,7 +42,7 @@ async def test_process_one_runs_async(monkeypatch):
             self.sdc = json.dumps([{"P180": "Q42"}])
             self.labels = {"en": "Test"}
             self.collection = "seq-1"
-            self.encrypted_access_token = "cipher"
+            self.access_token = "cipher"
             self.user = SimpleNamespace(username="user1")
 
     def fake_get_upload_request_by_id(session: Any, upload_id: int):

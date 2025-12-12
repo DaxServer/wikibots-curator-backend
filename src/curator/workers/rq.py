@@ -12,7 +12,7 @@ def start():
     if sys.platform == "darwin":
         os.environ.setdefault("NO_PROXY", "*")
 
-    worker = Worker(["ingest"], connection=redis_client)
+    worker = Worker([queue], connection=redis_client)
     worker.work()
 
 

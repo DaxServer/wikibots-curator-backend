@@ -5,7 +5,6 @@ import json
 
 from curator.app.messages import BatchStats
 from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
-from datetime import datetime
 
 from sqlmodel import Session, select, update, func
 from sqlalchemy.orm import selectinload, load_only
@@ -109,7 +108,7 @@ def create_upload_request(
             handler=handler,
             status="queued",
             collection=item.input,
-            encrypted_access_token=encrypted_access_token,
+            access_token=encrypted_access_token,
             filename=item.title,
             wikitext=item.wikitext,
             sdc=json.dumps(item.sdc) if item.sdc else None,
@@ -250,7 +249,6 @@ def update_upload_status(
         "status": status,
         "error": error,
         "success": success,
-        "updated_at": datetime.now(),
     }
     session.exec(
         update(UploadRequest).where(UploadRequest.id == upload_id).values(**values)
@@ -264,7 +262,7 @@ def clear_upload_access_token(session: Session, upload_id: int) -> None:
     session.exec(
         update(UploadRequest)
         .where(UploadRequest.id == upload_id)
-        .values(encrypted_access_token=None, updated_at=datetime.now())
+        .values(access_token=None)
     )
     session.commit()
     logger.info(

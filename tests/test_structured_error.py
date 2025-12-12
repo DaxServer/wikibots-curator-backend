@@ -59,7 +59,6 @@ def test_update_upload_status_with_error(mock_update):
 
     assert call_kwargs["status"] == "failed"
     assert call_kwargs["error"] == error_data
-    assert "updated_at" in call_kwargs
 
     # Verify session.exec was called with the result of values()
     mock_session.exec.assert_called_once_with(mock_values_clause)

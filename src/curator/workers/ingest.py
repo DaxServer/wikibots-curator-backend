@@ -15,9 +15,11 @@ from curator.app.dal import (
 
 
 def _cleanup(session, item: UploadRequest | None = None):
-    if item:
-        clear_upload_access_token(session, upload_id=item.id)
-    session.close()
+    try:
+        if item:
+            clear_upload_access_token(session, upload_id=item.id)
+    finally:
+        session.close()
 
 
 def _success(session, item: UploadRequest, url) -> bool:
@@ -57,9 +59,9 @@ async def process_one(upload_id: int) -> bool:
         image = await handler.fetch_image_metadata(item.key, item.collection or "")
         sdc_json = json.loads(item.sdc) if item.sdc else None
         image_url = image.url_original
-        if not item.encrypted_access_token:
+        if not item.access_token:
             raise Exception("Missing access token")
-        access_token = decrypt_access_token(item.encrypted_access_token)
+        access_token = decrypt_access_token(item.access_token)
         username = item.user.username
 
         edit_summary = f"Uploaded via Curator from Mapillary image {image.id}"
