@@ -1,10 +1,11 @@
+from fastapi import WebSocket
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
-from curator.app.handler import Handler, WebSocketSender
-from curator.app.messages import (
+from curator.app.handler import Handler
+from curator.asyncapi import (
     UploadData,
-    FetchBatchesPayload,
-    FetchBatchUploadsPayload,
+    FetchBatchesData,
+    FetchBatchUploadsData,
     BatchStats,
 )
 from curator.app.models import UploadItem
@@ -12,7 +13,7 @@ from curator.app.models import UploadItem
 
 @pytest.fixture
 def mock_sender():
-    sender = MagicMock(spec=WebSocketSender)
+    sender = MagicMock(spec=WebSocket)
     sender.send_json = AsyncMock()
     return sender
 
@@ -178,7 +179,7 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         mock_get_batches.return_value = [mock_batch]
         mock_count_batches.return_value = 1
 
-        await handler_instance.fetch_batches(FetchBatchesPayload(page=1, limit=10))
+        await handler_instance.fetch_batches(FetchBatchesData(page=1, limit=10))
 
         mock_sender.send_json.assert_called_once()
         call_args = mock_sender.send_json.call_args[0][0]
@@ -207,7 +208,7 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         mock_get_uploads.return_value = [mock_upload]
         mock_count_uploads.return_value = 1
 
-        await handler_instance.fetch_batch_uploads(FetchBatchUploadsPayload(batch_id=1))
+        await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batch_id=1))
 
         mock_sender.send_json.assert_called_once()
         call_args = mock_sender.send_json.call_args[0][0]

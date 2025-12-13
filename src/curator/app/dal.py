@@ -3,9 +3,9 @@ from curator.app.ingest.interfaces import Handler
 from typing import Dict, Optional, List
 import json
 
-from curator.app.messages import BatchStats
 from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
 
+from curator.asyncapi import BatchStats
 from sqlmodel import Session, select, update, func
 from sqlalchemy.orm import selectinload, load_only
 

@@ -23,6 +23,7 @@ dependencies = [
     "starsessions (>=2.2.1,<3.0.0)",
     "cashews[redis] (>=7.4.4,<8.0.0)",
     "rq (>=2.6.1,<3.0.0)",
+    "pyyaml (>=6.0.3,<7.0.0)",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,7 @@ dev = [
 
 [project.scripts]
 alembic = "alembic.config:main"
+asyncapi = "curator.lib.asyncapi_codegen:main"
 web = "curator.main:start"
 worker = "curator.workers.rq:start"
 

@@ -1,0 +1,657 @@
+asyncapi: 3.0.0
+info:
+  title: Curator WebSocket API
+  version: 1.0.0
+
+defaultContentType: application/json
+
+channels:
+  wsChannel:
+    address: /ws
+    description: Single WebSocket endpoint used for all Curator realtime messaging.
+    messages:
+      FetchImages:
+        $ref: '#/components/messages/FetchImages'
+      Upload:
+        $ref: '#/components/messages/Upload'
+      SubscribeBatch:
+        $ref: '#/components/messages/SubscribeBatch'
+      FetchBatches:
+        $ref: '#/components/messages/FetchBatches'
+      FetchBatchUploads:
+        $ref: '#/components/messages/FetchBatchUploads'
+      Error:
+        $ref: '#/components/messages/Error'
+      CollectionImages:
+        $ref: '#/components/messages/CollectionImages'
+      UploadCreated:
+        $ref: '#/components/messages/UploadCreated'
+      BatchesList:
+        $ref: '#/components/messages/BatchesList'
+      BatchUploadsList:
+        $ref: '#/components/messages/BatchUploadsList'
+      Subscribed:
+        $ref: '#/components/messages/Subscribed'
+      UploadsUpdate:
+        $ref: '#/components/messages/UploadsUpdate'
+      UploadsComplete:
+        $ref: '#/components/messages/UploadsComplete'
+
+operations:
+  ReceiveClientMessages:
+    action: receive
+    channel:
+      $ref: '#/channels/wsChannel'
+    messages:
+      - $ref: '#/channels/wsChannel/messages/FetchImages'
+      - $ref: '#/channels/wsChannel/messages/Upload'
+      - $ref: '#/channels/wsChannel/messages/SubscribeBatch'
+      - $ref: '#/channels/wsChannel/messages/FetchBatches'
+      - $ref: '#/channels/wsChannel/messages/FetchBatchUploads'
+
+  SendServerMessages:
+    action: send
+    channel:
+      $ref: '#/channels/wsChannel'
+    messages:
+      - $ref: '#/channels/wsChannel/messages/Error'
+      - $ref: '#/channels/wsChannel/messages/CollectionImages'
+      - $ref: '#/channels/wsChannel/messages/UploadCreated'
+      - $ref: '#/channels/wsChannel/messages/BatchesList'
+      - $ref: '#/channels/wsChannel/messages/BatchUploadsList'
+      - $ref: '#/channels/wsChannel/messages/Subscribed'
+      - $ref: '#/channels/wsChannel/messages/UploadsUpdate'
+      - $ref: '#/channels/wsChannel/messages/UploadsComplete'
+
+components:
+  messages:
+    FetchImages:
+      name: FETCH_IMAGES
+      title: Fetch images for a collection
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [FETCH_IMAGES]
+          data:
+            type: string
+            description: Collection identifier or input string.
+
+    Upload:
+      name: UPLOAD
+      title: Queue one or more uploads in a batch
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [UPLOAD]
+          data:
+            type: object
+            required:
+              - items
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UploadItem'
+              handler:
+                type: string
+                nullable: true
+                description: Optional handler identifier (for example, mapillary).
+
+    SubscribeBatch:
+      name: SUBSCRIBE_BATCH
+      title: Subscribe to upload status updates for a batch
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [SUBSCRIBE_BATCH]
+          data:
+            type: integer
+            description: Batch identifier.
+
+    FetchBatches:
+      name: FETCH_BATCHES
+      title: Fetch paginated list of batches
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [FETCH_BATCHES]
+          data:
+            type: object
+            properties:
+              page:
+                type: integer
+                default: 1
+                minimum: 1
+              limit:
+                type: integer
+                default: 100
+                minimum: 1
+              userid:
+                type: string
+                nullable: true
+                description: Optional user id to filter batches.
+
+    FetchBatchUploads:
+      name: FETCH_BATCH_UPLOADS
+      title: Fetch uploads belonging to a batch
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [FETCH_BATCH_UPLOADS]
+          data:
+            type: object
+            required:
+              - batch_id
+            properties:
+              batch_id:
+                type: integer
+                description: Batch identifier.
+
+    Error:
+      name: ERROR
+      title: Error message
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [ERROR]
+          data:
+            type: string
+            description: Human-readable error message.
+
+    CollectionImages:
+      name: COLLECTION_IMAGES
+      title: Collection images and creator metadata
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [COLLECTION_IMAGES]
+          data:
+            type: object
+            required:
+              - images
+              - creator
+            properties:
+              images:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/Image'
+              creator:
+                $ref: '#/components/schemas/Creator'
+
+    UploadCreated:
+      name: UPLOAD_CREATED
+      title: Upload batch items created
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [UPLOAD_CREATED]
+          data:
+            type: array
+            items:
+              $ref: '#/components/schemas/UploadCreatedItem'
+
+    BatchesList:
+      name: BATCHES_LIST
+      title: Paginated list of batches
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [BATCHES_LIST]
+          data:
+            type: object
+            required:
+              - items
+              - total
+            properties:
+              items:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BatchItem'
+              total:
+                type: integer
+
+    BatchUploadsList:
+      name: BATCH_UPLOADS_LIST
+      title: List of uploads for a batch
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [BATCH_UPLOADS_LIST]
+          data:
+            type: array
+            items:
+              $ref: '#/components/schemas/BatchUploadItem'
+
+    Subscribed:
+      name: SUBSCRIBED
+      title: Confirmation of batch subscription
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [SUBSCRIBED]
+          data:
+            type: integer
+            description: Subscribed batch identifier.
+
+    UploadsUpdate:
+      name: UPLOADS_UPDATE
+      title: Periodic upload status update for a batch
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [UPLOADS_UPDATE]
+          data:
+            type: array
+            items:
+              $ref: '#/components/schemas/UploadUpdateItem'
+
+    UploadsComplete:
+      name: UPLOADS_COMPLETE
+      title: Notification that a batch has completed processing
+      payload:
+        type: object
+        required:
+          - type
+          - data
+        properties:
+          type:
+            type: string
+            enum: [UPLOADS_COMPLETE]
+          data:
+            type: integer
+            description: Completed batch identifier.
+
+  schemas:
+    UploadItem:
+      type: object
+      required:
+        - id
+        - input
+        - title
+        - wikitext
+      properties:
+        id:
+          type: string
+        input:
+          type: string
+        title:
+          type: string
+        wikitext:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        sdc:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          nullable: true
+
+    UploadCreatedItem:
+      type: object
+      required:
+        - id
+        - status
+        - image_id
+        - input
+        - batch_id
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        image_id:
+          type: string
+        input:
+          type: string
+        batch_id:
+          type: integer
+
+    BatchStats:
+      type: object
+      required:
+        - total
+        - queued
+        - in_progress
+        - completed
+        - failed
+      properties:
+        total:
+          type: integer
+        queued:
+          type: integer
+        in_progress:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+
+    BatchItem:
+      type: object
+      required:
+        - id
+        - created_at
+        - username
+        - userid
+        - stats
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        username:
+          type: string
+        userid:
+          type: string
+        stats:
+          $ref: '#/components/schemas/BatchStats'
+
+    BatchUploadItem:
+      type: object
+      required:
+        - id
+        - status
+        - filename
+        - wikitext
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        filename:
+          type: string
+        wikitext:
+          type: string
+        batchid:
+          type: integer
+          nullable: true
+        userid:
+          type: string
+          nullable: true
+        key:
+          type: string
+          nullable: true
+        handler:
+          type: string
+          nullable: true
+        sdc:
+          type: string
+          nullable: true
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        result:
+          type: string
+          nullable: true
+        error:
+          $ref: '#/components/schemas/StructuredError'
+        success:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        image_id:
+          type: string
+          nullable: true
+
+    UploadUpdateItem:
+      type: object
+      required:
+        - id
+        - status
+        - key
+        - handler
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        key:
+          type: string
+        error:
+          $ref: '#/components/schemas/StructuredError'
+        success:
+          type: string
+          nullable: true
+        handler:
+          type: string
+
+    ErrorLink:
+      type: object
+      required:
+        - title
+        - url
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
+
+    DuplicateError:
+      type: object
+      required:
+        - type
+        - message
+        - links
+      properties:
+        type:
+          type: string
+          enum: [duplicate]
+        message:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorLink'
+
+    GenericError:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          enum: [error]
+        message:
+          type: string
+
+    StructuredError:
+      oneOf:
+        - $ref: '#/components/schemas/DuplicateError'
+        - $ref: '#/components/schemas/GenericError'
+
+    Creator:
+      type: object
+      required:
+        - id
+        - username
+        - profile_url
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        profile_url:
+          type: string
+          format: uri
+
+    Location:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        accuracy:
+          type: integer
+          nullable: true
+        compass_angle:
+          type: number
+          format: float
+          nullable: true
+
+    Dates:
+      type: object
+      properties:
+        taken:
+          type: string
+          format: date-time
+          nullable: true
+        published:
+          type: string
+          format: date-time
+          nullable: true
+
+    ExistingPage:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+
+    Image:
+      type: object
+      required:
+        - id
+        - title
+        - dates
+        - creator
+        - url_original
+        - thumbnail_url
+        - preview_url
+        - url
+        - width
+        - height
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        dates:
+          $ref: '#/components/schemas/Dates'
+        creator:
+          $ref: '#/components/schemas/Creator'
+        location:
+          $ref: '#/components/schemas/Location'
+          nullable: true
+        url_original:
+          type: string
+          format: uri
+        thumbnail_url:
+          type: string
+          format: uri
+        preview_url:
+          type: string
+          format: uri
+        url:
+          type: string
+          format: uri
+        width:
+          type: integer
+        height:
+          type: integer
+        camera_make:
+          type: string
+          nullable: true
+        camera_model:
+          type: string
+          nullable: true
+        is_pano:
+          type: boolean
+          nullable: true
+        license:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        existing:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExistingPage'

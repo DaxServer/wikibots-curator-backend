@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch, AsyncMock, ANY
 import asyncio
 from curator.main import app
 from curator.app.auth import check_login
+from curator.asyncapi import WS_CHANNEL_ADDRESS
 
 client = TestClient(app)
 
@@ -67,7 +68,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
     # Mock fetch_existing_pages
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
 
-    with client.websocket_connect("/ws") as websocket:
+    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json({"type": "FETCH_IMAGES", "data": "some_input"})
 
         data = websocket.receive_json()
@@ -81,7 +82,7 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
     mock_handler_instance.fetch_collection = AsyncMock(return_value={})
 
-    with client.websocket_connect("/ws") as websocket:
+    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json({"type": "FETCH_IMAGES", "data": "invalid"})
 
         data = websocket.receive_json()
@@ -104,7 +105,7 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
     with patch(
         "curator.app.handler.encrypt_access_token", return_value="encrypted_token"
     ):
-        with client.websocket_connect("/ws") as websocket:
+        with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
             websocket.send_json(
                 {
                     "type": "UPLOAD",
@@ -137,7 +138,7 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
 
 
 def test_ws_invalid_message():
-    with client.websocket_connect("/ws") as websocket:
+    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json({"invalid": "json"})
 
         data = websocket.receive_json()
@@ -167,7 +168,7 @@ async def test_stream_uploads_completion(mock_dal, mock_session):
         mock_sleep.return_value = asyncio.Future()
         mock_sleep.return_value.set_result(None)
 
-        with client.websocket_connect("/ws") as websocket:
+        with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
             # Send subscribe
             websocket.send_json({"type": "SUBSCRIBE_BATCH", "data": 123})
 
