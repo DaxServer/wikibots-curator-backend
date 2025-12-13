@@ -1,12 +1,18 @@
 import logging
 import asyncio
-from typing import Optional, Any, Protocol
+from typing import Optional, Any
+from dataclasses import asdict
+from curator.asyncapi import (
+    BatchStats,
+    FetchBatchUploadsData,
+    FetchBatchesData,
+    UploadData,
+)
 from sqlmodel import Session
 
 from curator.app.db import engine
 from curator.app.crypto import encrypt_access_token
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
-from curator.app.messages import BatchStats
 from curator.app.dal import (
     create_upload_request,
     get_upload_request,
@@ -17,26 +23,17 @@ from curator.app.dal import (
 )
 from curator.workers.ingest import process_one
 from curator.workers.rq import queue as ingest_queue
-from curator.app.messages import (
-    UploadData,
-    FetchBatchesPayload,
-    FetchBatchUploadsPayload,
-)
 from curator.app.auth import UserSession
 
-from fastapi import WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 
 
-class WebSocketSender(Protocol):
-    async def send_json(self, data: Any) -> None: ...
-
-
 class Handler:
-    def __init__(self, user: UserSession, sender: WebSocketSender, request_obj: Any):
+    def __init__(self, user: UserSession, sender: WebSocket, request_obj: Any):
         self.user = user
-        self.sender = sender
+        self.socket = sender
         self.request_obj = (
             request_obj  # Can be WebSocket or Request, needed for WcqsSession
         )
@@ -55,7 +52,7 @@ class Handler:
             logger.error(
                 f"[ws] [resp] Collection not found for {collection} for {self.user.get('username')}"
             )
-            await self.sender.send_json(
+            await self.socket.send_json(
                 {"type": "ERROR", "data": "Collection not found"}
             )
             return
@@ -79,7 +76,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Sending collection {collection} images for {self.user.get('username')}"
         )
-        await self.sender.send_json(
+        await self.socket.send_json(
             {
                 "type": "COLLECTION_IMAGES",
                 "data": {
@@ -128,7 +125,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.user.get('username')}"
         )
-        await self.sender.send_json(
+        await self.socket.send_json(
             {
                 "type": "UPLOAD_CREATED",
                 "data": [
@@ -144,7 +141,7 @@ class Handler:
             }
         )
 
-    async def fetch_batches(self, data: FetchBatchesPayload):
+    async def fetch_batches(self, data: FetchBatchesData):
         page = data.page
         limit = data.limit
         userid = data.userid
@@ -165,23 +162,25 @@ class Handler:
                     "created_at": batch.created_at.isoformat(),
                     "username": batch.user.username,
                     "userid": batch.userid,
-                    "stats": stats.get(
-                        batch.id,
-                        BatchStats(
-                            total=1,
-                            queued=0,
-                            in_progress=0,
-                            completed=0,
-                            failed=0,
-                        ),
-                    ).model_dump(mode="json"),
+                    "stats": asdict(
+                        stats.get(
+                            batch.id,
+                            BatchStats(
+                                total=1,
+                                queued=0,
+                                in_progress=0,
+                                completed=0,
+                                failed=0,
+                            ),
+                        )
+                    ),
                 }
                 serialized_batches.append(b_dict)
 
         logger.info(
             f"[ws] [resp] Sending {len(serialized_batches)} batches for {self.user.get('username')}"
         )
-        await self.sender.send_json(
+        await self.socket.send_json(
             {
                 "type": "BATCHES_LIST",
                 "data": {
@@ -191,7 +190,7 @@ class Handler:
             }
         )
 
-    async def fetch_batch_uploads(self, data: FetchBatchUploadsPayload):
+    async def fetch_batch_uploads(self, data: FetchBatchUploadsData):
         batch_id = data.batch_id
 
         with Session(engine) as session:
@@ -200,6 +199,7 @@ class Handler:
                 batch_id,
                 columns=[
                     "id",
+                    "batchid",
                     "status",
                     "key",
                     "error",
@@ -219,7 +219,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Sending {len(serialized_uploads)} uploads for batch {batch_id} for {self.user.get('username')}"
         )
-        await self.sender.send_json(
+        await self.socket.send_json(
             {
                 "type": "BATCH_UPLOADS_LIST",
                 "data": serialized_uploads,
@@ -235,7 +235,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Subscribed to batch {batch_id} for {self.user.get('username')}"
         )
-        await self.sender.send_json({"type": "SUBSCRIBED", "data": batch_id})
+        await self.socket.send_json({"type": "SUBSCRIBED", "data": batch_id})
 
     async def stream_uploads(self, batch_id: int):
         try:
@@ -258,7 +258,7 @@ class Handler:
                     logger.info(
                         f"[ws] [resp] Sending batch {batch_id} update for {self.user.get('username')}"
                     )
-                    await self.sender.send_json(
+                    await self.socket.send_json(
                         {
                             "type": "UPLOADS_UPDATE",
                             "data": [
@@ -283,7 +283,7 @@ class Handler:
                         logger.info(
                             f"[ws] [resp] Batch {batch_id} completed for {self.user.get('username')}"
                         )
-                        await self.sender.send_json(
+                        await self.socket.send_json(
                             {"type": "UPLOADS_COMPLETE", "data": batch_id}
                         )
                         break

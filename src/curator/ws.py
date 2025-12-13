@@ -1,3 +1,12 @@
+from curator.asyncapi import (
+    WS_CHANNEL_ADDRESS,
+    ClientMessage,
+    FetchBatchUploadsMessage,
+    FetchBatchesMessage,
+    FetchImagesMessage,
+    SubscribeBatchMessage,
+    UploadMessage,
+)
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -5,20 +14,12 @@ from pydantic import TypeAdapter
 
 from curator.app.auth import LoggedInUser
 from curator.app.handler import Handler
-from curator.app.messages import (
-    ClientMessage,
-    FetchImagesMessage,
-    SubscribeBatchMessage,
-    UploadMessage,
-    FetchBatchesMessage,
-    FetchBatchUploadsMessage,
-)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ws"])
 
 
-@router.websocket("/ws")
+@router.websocket(WS_CHANNEL_ADDRESS)
 async def ws(websocket: WebSocket, user: LoggedInUser):
     await websocket.accept()
 
