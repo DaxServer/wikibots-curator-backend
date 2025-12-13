@@ -7,14 +7,22 @@ from curator.asyncapi import (
     FetchBatchesData,
     FetchBatchUploadsData,
     BatchStats,
+    AsyncAPIWebSocket,
 )
 from curator.app.models import UploadItem
 
 
 @pytest.fixture
 def mock_sender():
-    sender = MagicMock(spec=WebSocket)
-    sender.send_json = AsyncMock()
+    sender = MagicMock(spec=AsyncAPIWebSocket)
+    sender.send_collection_images = AsyncMock()
+    sender.send_error = AsyncMock()
+    sender.send_upload_created = AsyncMock()
+    sender.send_subscribed = AsyncMock()
+    sender.send_uploads_update = AsyncMock()
+    sender.send_uploads_complete = AsyncMock()
+    sender.send_batches_list = AsyncMock()
+    sender.send_batch_uploads_list = AsyncMock()
     return sender
 
 
@@ -40,19 +48,43 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
         # Mock fetch_collection
         mock_image = MagicMock()
         mock_image.id = "img1"
-        mock_image.creator.model_dump = MagicMock(return_value={"username": "creator1"})
-        mock_image.model_dump = MagicMock(return_value={"id": "img1"})
+        # Set attributes directly accessed by _convert_image
+        mock_image.title = "Image 1"
+        mock_image.url_original = "http://original"
+        mock_image.thumbnail_url = "http://thumb"
+        mock_image.preview_url = "http://preview"
+        mock_image.url = "http://url"
+        mock_image.width = 100
+        mock_image.height = 100
+        mock_image.description = "desc"
+        mock_image.camera_make = "Canon"
+        mock_image.camera_model = "EOS"
+        mock_image.is_pano = False
+        mock_image.license = "CC"
+        mock_image.tags = ["tag1"]
+        mock_image.location = None
+        mock_image.existing = []
+
+        # Mock Creator data - used for Creator(**dict)
+        mock_image.creator.id = "c1"
+        mock_image.creator.username = "creator1"
+        mock_image.creator.profile_url = "http://profile"
+
+        # Mock Dates data - used for Dates(**dict)
+        mock_image.dates.taken = "2023-01-01"
+        mock_image.dates.published = "2023-01-02"
 
         handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
         handler.fetch_existing_pages.return_value = {"img1": []}
 
         await handler_instance.fetch_images("some_input")
 
-        assert mock_sender.send_json.call_count == 1
-        call_args = mock_sender.send_json.call_args[0][0]
-        assert call_args["type"] == "COLLECTION_IMAGES"
-        assert "images" in call_args["data"]
-        assert "creator" in call_args["data"]
+        assert mock_sender.send_collection_images.call_count == 1
+        call_args = mock_sender.send_collection_images.call_args[0][0]
+        # call_args is CollectionImagesData
+        assert call_args.creator.username == "creator1"
+        assert len(call_args.images) == 1
+        assert call_args.images["img1"].id == "img1"
 
 
 @pytest.mark.asyncio
@@ -63,9 +95,7 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 
         await handler_instance.fetch_images("invalid")
 
-        mock_sender.send_json.assert_called_once_with(
-            {"type": "ERROR", "data": "Collection not found"}
-        )
+        mock_sender.send_error.assert_called_once_with("Collection not found")
 
 
 @pytest.mark.asyncio
@@ -101,10 +131,10 @@ async def test_handle_upload(handler_instance, mock_sender):
         await handler_instance.upload(data)
 
         mock_worker.enqueue.assert_called_once()
-        mock_sender.send_json.assert_called_once()
-        call_args = mock_sender.send_json.call_args[0][0]
-        assert call_args["type"] == "UPLOAD_CREATED"
-        assert call_args["data"][0]["id"] == 1
+        mock_sender.send_upload_created.assert_called_once()
+        call_args = mock_sender.send_upload_created.call_args[0][0]
+        # call_args is List[UploadCreatedItem]
+        assert call_args[0].id == 1
 
 
 @pytest.mark.asyncio
@@ -117,9 +147,7 @@ async def test_handle_subscribe_batch(handler_instance, mock_sender):
     ) as mock_method:
         await handler_instance.subscribe_batch(123)
 
-        mock_sender.send_json.assert_called_once_with(
-            {"type": "SUBSCRIBED", "data": 123}
-        )
+        mock_sender.send_subscribed.assert_called_once_with(123)
         assert handler_instance.uploads_task is not None
 
 
@@ -148,10 +176,8 @@ async def test_stream_uploads(handler_instance, mock_sender):
 
         await handler_instance.stream_uploads(123)
 
-        assert mock_sender.send_json.call_count == 2
-        calls = mock_sender.send_json.call_args_list
-        assert calls[0][0][0]["type"] == "UPLOADS_UPDATE"
-        assert calls[1][0][0]["type"] == "UPLOADS_COMPLETE"
+        mock_sender.send_uploads_update.assert_called_once()
+        mock_sender.send_uploads_complete.assert_called_once_with(123)
 
 
 @pytest.mark.asyncio
@@ -160,36 +186,33 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         patch("curator.app.handler.Session") as MockSession,
         patch("curator.app.handler.get_batches") as mock_get_batches,
         patch("curator.app.handler.count_batches") as mock_count_batches,
-        patch("curator.app.handler.get_batches_stats") as mock_get_stats,
     ):
         session = MockSession.return_value.__enter__.return_value
 
         mock_batch = MagicMock()
         mock_batch.id = 1
-        mock_batch.created_at.isoformat.return_value = "2024-01-01T00:00:00"
-        mock_batch.user.username = "testuser"
+        mock_batch.created_at = "2024-01-01T00:00:00"
+        mock_batch.username = "testuser"
         mock_batch.userid = "user123"
-
-        # Mock get_batches_stats return value
-        mock_stats = BatchStats(
+        mock_batch.stats = BatchStats(
             total=10, queued=2, in_progress=3, completed=4, failed=1
         )
-        mock_get_stats.return_value = {1: mock_stats}
 
         mock_get_batches.return_value = [mock_batch]
         mock_count_batches.return_value = 1
 
         await handler_instance.fetch_batches(FetchBatchesData(page=1, limit=10))
 
-        mock_sender.send_json.assert_called_once()
-        call_args = mock_sender.send_json.call_args[0][0]
-        assert call_args["type"] == "BATCHES_LIST"
-        assert len(call_args["data"]["items"]) == 1
-        item = call_args["data"]["items"][0]
-        assert item["id"] == 1
-        assert item["stats"]["total"] == 10
-        assert item["stats"]["completed"] == 4
-        assert call_args["data"]["total"] == 1
+        mock_sender.send_batches_list.assert_called_once()
+        call_args = mock_sender.send_batches_list.call_args[0][0]
+        # call_args is BatchesListData
+        assert len(call_args.items) == 1
+        item = call_args.items[0]
+        # item is BatchItem
+        assert item.id == 1
+        assert item.stats.total == 10
+        assert item.stats.completed == 4
+        assert call_args.total == 1
 
 
 @pytest.mark.asyncio
@@ -202,16 +225,24 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         session = MockSession.return_value.__enter__.return_value
 
         mock_upload = MagicMock()
+        mock_upload.id = 1
+        mock_upload.status = "completed"
+        mock_upload.filename = "test.jpg"
+        mock_upload.wikitext = "wikitext"
+        mock_upload.batchid = 1
         mock_upload.key = "img1"
-        mock_upload.model_dump.return_value = {"id": 1, "status": "completed"}
+        mock_upload.image_id = "img1"
+        mock_upload.error = None
+        mock_upload.success = None
+        mock_upload.handler = "mapillary"
 
         mock_get_uploads.return_value = [mock_upload]
         mock_count_uploads.return_value = 1
 
         await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batch_id=1))
 
-        mock_sender.send_json.assert_called_once()
-        call_args = mock_sender.send_json.call_args[0][0]
-        assert call_args["type"] == "BATCH_UPLOADS_LIST"
-        assert len(call_args["data"]) == 1
-        assert call_args["data"][0]["id"] == 1
+        mock_sender.send_batch_uploads_list.assert_called_once()
+        call_args = mock_sender.send_batch_uploads_list.call_args[0][0]
+        # call_args is List[BatchUploadItem]
+        assert len(call_args) == 1
+        assert call_args[0].id == 1

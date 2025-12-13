@@ -4,6 +4,12 @@ from pathlib import Path
 from typing import Dict, List, Any, Set
 
 import yaml
+import re
+
+
+def _to_snake_case(name: str) -> str:
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
 def load_spec(path: Path) -> Dict[str, Any]:
@@ -262,6 +268,10 @@ def generate_code(spec: Dict[str, Any]) -> str:
     lines.append("")
     lines.append("from dataclasses import dataclass")
     lines.append("from typing import Literal, Union, List, Optional, Dict, Any")
+    lines.append("from fastapi import WebSocket")
+    lines.append("from pydantic import TypeAdapter")
+    lines.append("")
+    lines.append("")
     lines.append(f'WS_CHANNEL_ADDRESS: str = "{address_value}"')
     lines.append("")
     lines.append("")
@@ -340,6 +350,7 @@ def generate_code(spec: Dict[str, Any]) -> str:
         return name
 
     message_class_names: Dict[str, str] = {}
+    message_info: Dict[str, tuple[str, str]] = {}
 
     for key, message_schema in components_messages.items():
         payload = message_schema.get("payload")
@@ -370,6 +381,7 @@ def generate_code(spec: Dict[str, Any]) -> str:
 
         class_name = f"{key}Message"
         message_class_names[key] = class_name
+        message_info[key] = (literal_value, data_type)
 
         lines.append("")
         lines.append("@dataclass")
@@ -390,6 +402,9 @@ def generate_code(spec: Dict[str, Any]) -> str:
         for member in client_members:
             lines.append(f"    {member},")
         lines.append("]")
+    else:
+        lines.append("")
+        lines.append("ClientMessage = Any")
 
     if server_members:
         lines.append("")
@@ -397,6 +412,40 @@ def generate_code(spec: Dict[str, Any]) -> str:
         for member in server_members:
             lines.append(f"    {member},")
         lines.append("]")
+    else:
+        lines.append("")
+        lines.append("ServerMessage = Any")
+
+    lines.append("")
+    lines.append("_ClientMessageAdapter = TypeAdapter(ClientMessage)")
+    lines.append("_ServerMessageAdapter = TypeAdapter(ServerMessage)")
+    lines.append("")
+    lines.append("class AsyncAPIWebSocket(WebSocket):")
+    lines.append(
+        '    async def receive_json(self, mode: str = "text") -> ClientMessage:'
+    )
+    lines.append("        data = await super().receive_json(mode=mode)")
+    lines.append("        return _ClientMessageAdapter.validate_python(data)")
+    lines.append("")
+    lines.append(
+        '    async def send_json(self, data: ServerMessage, mode: str = "text") -> None:'
+    )
+    lines.append(
+        "        await super().send_json(_ServerMessageAdapter.dump_python(data, mode='json'), mode=mode)"
+    )
+
+    for key in send_message_keys:
+        if key not in message_info:
+            continue
+        literal_value, data_type = message_info[key]
+        method_name = f"send_{_to_snake_case(key)}"
+        class_name = message_class_names[key]
+
+        lines.append("")
+        lines.append(f"    async def {method_name}(self, data: {data_type}) -> None:")
+        lines.append(
+            f'        await self.send_json({class_name}(type="{literal_value}", data=data))'
+        )
 
     return "\n".join(lines)
 

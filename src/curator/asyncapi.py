@@ -2,6 +2,9 @@
 
 from dataclasses import dataclass
 from typing import Literal, Union, List, Optional, Dict, Any
+from fastapi import WebSocket
+from pydantic import TypeAdapter
+
 
 WS_CHANNEL_ADDRESS: str = "/ws"
 
@@ -299,3 +302,45 @@ ServerMessage = Union[
     UploadsUpdateMessage,
     UploadsCompleteMessage,
 ]
+
+_ClientMessageAdapter = TypeAdapter(ClientMessage)
+_ServerMessageAdapter = TypeAdapter(ServerMessage)
+
+
+class AsyncAPIWebSocket(WebSocket):
+    async def receive_json(self, mode: str = "text") -> ClientMessage:
+        data = await super().receive_json(mode=mode)
+        return _ClientMessageAdapter.validate_python(data)
+
+    async def send_json(self, data: ServerMessage, mode: str = "text") -> None:
+        await super().send_json(
+            _ServerMessageAdapter.dump_python(data, mode="json"), mode=mode
+        )
+
+    async def send_error(self, data: str) -> None:
+        await self.send_json(ErrorMessage(type="ERROR", data=data))
+
+    async def send_collection_images(self, data: CollectionImagesData) -> None:
+        await self.send_json(
+            CollectionImagesMessage(type="COLLECTION_IMAGES", data=data)
+        )
+
+    async def send_upload_created(self, data: List[UploadCreatedItem]) -> None:
+        await self.send_json(UploadCreatedMessage(type="UPLOAD_CREATED", data=data))
+
+    async def send_batches_list(self, data: BatchesListData) -> None:
+        await self.send_json(BatchesListMessage(type="BATCHES_LIST", data=data))
+
+    async def send_batch_uploads_list(self, data: List[BatchUploadItem]) -> None:
+        await self.send_json(
+            BatchUploadsListMessage(type="BATCH_UPLOADS_LIST", data=data)
+        )
+
+    async def send_subscribed(self, data: int) -> None:
+        await self.send_json(SubscribedMessage(type="SUBSCRIBED", data=data))
+
+    async def send_uploads_update(self, data: List[UploadUpdateItem]) -> None:
+        await self.send_json(UploadsUpdateMessage(type="UPLOADS_UPDATE", data=data))
+
+    async def send_uploads_complete(self, data: int) -> None:
+        await self.send_json(UploadsCompleteMessage(type="UPLOADS_COMPLETE", data=data))
