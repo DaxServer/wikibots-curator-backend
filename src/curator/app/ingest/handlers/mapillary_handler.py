@@ -10,7 +10,7 @@ from curator.app.config import (
     MAPILLARY_API_TOKEN,
     WikidataProperty,
 )
-from curator.app.image_models import Creator, Image, Location, Dates, ExistingPage
+from curator.asyncapi import Creator, Image, Location, Dates, ExistingPage
 from curator.app.ingest.interfaces import Handler
 import httpx
 
@@ -35,7 +35,7 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
     return Image(
         id=str(image.get("id")),
         title=f"Photo from Mapillary {date} ({str(image.get('id'))}).jpg",
-        dates=Dates(taken=dt),
+        dates=Dates(taken=dt.isoformat()),
         creator=creator,
         location=loc,
         url_original=image.get("thumb_original_url"),
@@ -47,6 +47,9 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
         camera_make=image.get("make"),
         camera_model=image.get("model"),
         is_pano=image.get("is_pano"),
+        existing=[],
+        tags=[],
+        description="",
     )
 
 

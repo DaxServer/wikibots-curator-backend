@@ -1,6 +1,6 @@
 from curator.asyncapi import (
     WS_CHANNEL_ADDRESS,
-    ClientMessage,
+    AsyncAPIWebSocket,
     FetchBatchUploadsMessage,
     FetchBatchesMessage,
     FetchImagesMessage,
@@ -9,8 +9,8 @@ from curator.asyncapi import (
 )
 import logging
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from pydantic import TypeAdapter
+from fastapi import APIRouter, WebSocketDisconnect, WebSocket
+from pydantic import ValidationError
 
 from curator.app.auth import LoggedInUser
 from curator.app.handler import Handler
@@ -21,25 +21,23 @@ router = APIRouter(tags=["ws"])
 
 @router.websocket(WS_CHANNEL_ADDRESS)
 async def ws(websocket: WebSocket, user: LoggedInUser):
-    await websocket.accept()
+    # Wrap the standard WebSocket with our typed version
+    typed_ws = AsyncAPIWebSocket(websocket.scope, websocket.receive, websocket.send)
+    await typed_ws.accept()
 
     logger.info(f"User {user.get('username')} connected")
 
     # Create the logic handler
     # websocket acts as both sender and request object (for WcqsSession)
-    handler = Handler(user=user, sender=websocket, request_obj=websocket)
-    adapter = TypeAdapter(ClientMessage)
+    handler = Handler(user=user, sender=typed_ws, request_obj=typed_ws)
 
     try:
         while True:
-            raw_data = await websocket.receive_json()
             try:
-                message = adapter.validate_python(raw_data)
-            except Exception as e:
+                message = await typed_ws.receive_json()
+            except ValidationError as e:
                 logger.error(f"Invalid message format: {e}")
-                await websocket.send_json(
-                    {"type": "ERROR", "data": "Invalid message format"}
-                )
+                await typed_ws.send_error("Invalid message format")
                 continue
 
             logger.info(f"[ws] {message.type} from {user.get('username')}")
@@ -67,7 +65,7 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
             logger.error(
                 f"[ws] Unknown action: {message.type} from {user.get('username')}"
             )
-            await websocket.send_json({"type": "ERROR", "data": "Unknown action"})
+            await typed_ws.send_error("Unknown action")
 
     except WebSocketDisconnect:
         handler.cancel_tasks()

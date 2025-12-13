@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, AsyncMock, ANY
 import asyncio
 from curator.main import app
 from curator.app.auth import check_login
-from curator.asyncapi import WS_CHANNEL_ADDRESS
+from curator.asyncapi import WS_CHANNEL_ADDRESS, Image, Creator, Dates, Location
 
 client = TestClient(app)
 
@@ -53,17 +53,36 @@ def mock_session():
 def test_ws_fetch_images(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
 
-    # Mock fetch_collection
-    mock_image = MagicMock()
-    mock_image.id = "img1"
-    mock_image.creator.model_dump = MagicMock(return_value={"username": "creator1"})
-    # Also mock the model_dump of the image itself for to_jsonable
-    mock_image.model_dump = MagicMock(return_value={"id": "img1", "lat": 10, "lon": 10})
-
-    # Since we iterate over values, we need a dict
-    mock_handler_instance.fetch_collection = AsyncMock(
-        return_value={"img1": mock_image}
+    # Create real objects
+    creator = Creator(id="c1", username="creator1", profile_url="http://profile")
+    dates = Dates(taken="2023-01-01", published="2023-01-02")
+    location = Location(
+        latitude=10.0, longitude=10.0, accuracy=None, compass_angle=None
     )
+
+    image = Image(
+        id="img1",
+        title="Image 1",
+        dates=dates,
+        creator=creator,
+        url_original="http://original",
+        thumbnail_url="http://thumb",
+        preview_url="http://preview",
+        url="http://url",
+        width=100,
+        height=100,
+        description="desc",
+        location=location,
+        camera_make="Canon",
+        camera_model="EOS",
+        is_pano=False,
+        license="CC",
+        tags=["tag1"],
+        existing=[],
+    )
+
+    # Mock fetch_collection
+    mock_handler_instance.fetch_collection = AsyncMock(return_value={"img1": image})
 
     # Mock fetch_existing_pages
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
@@ -75,7 +94,11 @@ def test_ws_fetch_images(mock_mapillary_handler):
         assert data["type"] == "COLLECTION_IMAGES"
         assert "images" in data["data"]
         assert "creator" in data["data"]
-        assert data["data"]["creator"] == {"username": "creator1"}
+        assert data["data"]["creator"] == {
+            "id": "c1",
+            "username": "creator1",
+            "profile_url": "http://profile",
+        }
 
 
 def test_ws_fetch_images_not_found(mock_mapillary_handler):

@@ -1,15 +1,42 @@
 import logging
 from curator.app.ingest.interfaces import Handler
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 import json
 
 from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
 
-from curator.asyncapi import BatchStats
+from curator.asyncapi import (
+    BatchStats,
+    BatchItem,
+    BatchUploadItem,
+    DuplicateError,
+    GenericError,
+    ErrorLink,
+)
 from sqlmodel import Session, select, update, func
-from sqlalchemy.orm import selectinload, load_only
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_error(
+    error: Optional[StructuredError],
+) -> Optional[Union[DuplicateError, GenericError]]:
+    if not error:
+        return None
+
+    error_type = error["type"]
+
+    if error_type == "duplicate":
+        links_data = error.get("links", [])
+        links = [
+            ErrorLink(**link) if isinstance(link, dict) else link for link in links_data
+        ]
+        return DuplicateError(type=error["type"], message=error["message"], links=links)
+    elif error_type == "error":
+        return GenericError(type=error["type"], message=error["message"])
+
+    return None
 
 
 def get_users(session: Session, offset: int = 0, limit: int = 100) -> List[User]:
@@ -23,14 +50,36 @@ def count_users(session: Session) -> int:
 
 def get_all_upload_requests(
     session: Session, offset: int = 0, limit: int = 100
-) -> List[UploadRequest]:
+) -> List[BatchUploadItem]:
     """Fetch all upload requests."""
-    return session.exec(
+    result = session.exec(
         select(UploadRequest)
         .order_by(UploadRequest.id.desc())
         .offset(offset)
         .limit(limit)
     ).all()
+
+    return [
+        BatchUploadItem(
+            id=u.id,
+            status=u.status,
+            filename=u.filename,
+            wikitext=u.wikitext,
+            batchid=u.batchid,
+            userid=u.userid,
+            key=u.key,
+            handler=u.handler,
+            sdc=u.sdc,
+            labels=u.labels,
+            result=u.result,
+            error=_convert_error(u.error),
+            success=u.success,
+            created_at=u.created_at.isoformat() if u.created_at else None,
+            updated_at=u.updated_at.isoformat() if u.updated_at else None,
+            image_id=u.key,
+        )
+        for u in result
+    ]
 
 
 def count_all_upload_requests(session: Session) -> int:
@@ -164,7 +213,7 @@ def get_batches_stats(session: Session, batch_ids: List[int]) -> Dict[int, Batch
 
 def get_batches(
     session: Session, userid: Optional[str] = None, offset: int = 0, limit: int = 100
-) -> List[Batch]:
+) -> List[BatchItem]:
     """Fetch batches for a user, ordered by creation time descending."""
     query = (
         select(Batch)
@@ -175,7 +224,23 @@ def get_batches(
     if userid:
         query = query.where(Batch.userid == userid)
 
-    return session.exec(query.offset(offset).limit(limit)).all()
+    batches = session.exec(query.offset(offset).limit(limit)).all()
+    batch_ids = [b.id for b in batches]
+    stats = get_batches_stats(session, batch_ids)
+
+    return [
+        BatchItem(
+            id=batch.id,
+            created_at=batch.created_at.isoformat(),
+            username=batch.user.username,
+            userid=batch.userid,
+            stats=stats.get(
+                batch.id,
+                BatchStats(total=0, queued=0, in_progress=0, completed=0, failed=0),
+            ),
+        )
+        for batch in batches
+    ]
 
 
 def count_uploads_in_batch(session: Session, batch_id: int) -> int:
@@ -187,27 +252,36 @@ def count_uploads_in_batch(session: Session, batch_id: int) -> int:
 def get_upload_request(
     session: Session,
     batch_id: int,
-    columns: Optional[List[str]] = None,
-) -> List[UploadRequest]:
+) -> List[BatchUploadItem]:
     query = (
         select(UploadRequest)
         .where(UploadRequest.batchid == batch_id)
         .order_by(UploadRequest.id.asc())
     )
 
-    if columns:
-        # Validate columns to ensure they exist on the model
-        valid_columns = [
-            getattr(UploadRequest, col)
-            for col in columns
-            if hasattr(UploadRequest, col)
-        ]
-        if valid_columns:
-            query = query.options(load_only(*valid_columns))
-
     result = session.exec(query)
 
-    return list(result.all())
+    return [
+        BatchUploadItem(
+            id=u.id,
+            status=u.status,
+            filename=u.filename,
+            wikitext=u.wikitext,
+            batchid=u.batchid,
+            userid=u.userid,
+            key=u.key,
+            handler=u.handler,
+            sdc=u.sdc,
+            labels=u.labels,
+            result=u.result,
+            error=_convert_error(u.error),
+            success=u.success,
+            created_at=u.created_at.isoformat() if u.created_at else None,
+            updated_at=u.updated_at.isoformat() if u.updated_at else None,
+            image_id=u.key,
+        )
+        for u in result.all()
+    ]
 
 
 def get_upload_request_by_id(
