@@ -1,6 +1,6 @@
+import importlib
 import os
 import sys
-import importlib
 
 
 def test_toolforge_db_url_builds_mysqlconnector():

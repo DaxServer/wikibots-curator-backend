@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from curator.admin import (
     admin_get_batches,
-    admin_get_users,
     admin_get_upload_requests,
+    admin_get_users,
 )
 
 

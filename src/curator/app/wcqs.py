@@ -16,15 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from curator.app.config import WCQS_OAUTH_TOKEN, redis_client, REDIS_PREFIX
-from fastapi import Request, WebSocket
-from typing import Union
-from curator.app.config import USER_AGENT
-from urllib.parse import quote_plus
 import json
-import requests
-
 from datetime import datetime, timedelta, timezone
+from typing import Union
+from urllib.parse import quote_plus
+
+import requests
+from fastapi import Request, WebSocket
+
+from curator.app.config import REDIS_PREFIX, USER_AGENT, WCQS_OAUTH_TOKEN, redis_client
 
 
 class WcqsSession:

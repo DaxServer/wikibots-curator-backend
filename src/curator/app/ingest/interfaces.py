@@ -1,6 +1,8 @@
-from curator.app.image_models import Image, ExistingPage
-from typing import Protocol, Dict, List
+from typing import Dict, List, Protocol
+
 from fastapi import Request
+
+from curator.app.image_models import ExistingPage, Image
 
 
 class Handler(Protocol):

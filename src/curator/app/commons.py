@@ -1,12 +1,12 @@
-from tempfile import NamedTemporaryFile
-import httpx
-from typing import Any, List, Optional
 import json
-from curator.app.config import OAUTH_KEY
-from curator.app.config import OAUTH_SECRET
-from mwoauth import AccessToken
 import logging
+from tempfile import NamedTemporaryFile
+from typing import Any, List, Optional
 
+import httpx
+from mwoauth import AccessToken
+
+from curator.app.config import OAUTH_KEY, OAUTH_SECRET
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,8 @@ def _ensure_pywikibot() -> None:
         compute_file_hash = _compute_file_hash
 
     if Page is None or FilePage is None:
-        from pywikibot import Page as _Page, FilePage as _FilePage
+        from pywikibot import FilePage as _FilePage
+        from pywikibot import Page as _Page
 
         if Page is None:
             Page = _Page

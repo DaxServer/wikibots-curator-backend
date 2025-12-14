@@ -1,11 +1,11 @@
+import json
 import logging
 import os
 import sys
-import requests
 import tarfile
-import json
 from tempfile import NamedTemporaryFile
 
+import requests
 
 logger = logging.getLogger(__name__)
 frontend_dir = os.path.join(os.path.dirname(__file__), "../..", "frontend")

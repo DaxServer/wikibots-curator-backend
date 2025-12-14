@@ -1,6 +1,8 @@
 import json
+
 from cryptography.fernet import Fernet
 from mwoauth import AccessToken
+
 from curator.app.config import TOKEN_ENCRYPTION_KEY
 
 

@@ -2,8 +2,10 @@
 # Do not edit manually
 
 from __future__ import annotations
-from typing import Any, List, Dict, Optional
-from pydantic import model_serializer, model_validator, BaseModel, Field
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class UploadItem(BaseModel):

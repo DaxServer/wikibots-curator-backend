@@ -1,11 +1,11 @@
 import logging
 import os
+
+import redis
 from cashews import Cache, Command
 from cashews.backends.interface import Backend
 from cashews.exceptions import UnSecureDataError
-import redis
 from cryptography.fernet import Fernet
-
 
 OAUTH_KEY = os.environ.get("CURATOR_OAUTH1_KEY")
 OAUTH_SECRET = os.environ.get("CURATOR_OAUTH1_SECRET")

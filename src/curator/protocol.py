@@ -1,25 +1,27 @@
-from typing import Union, List, Annotated
+from typing import Annotated, List, Union
+
 from fastapi import WebSocket
-from pydantic import TypeAdapter, Field
+from pydantic import Field, TypeAdapter
+
 from curator.asyncapi import (
-    FetchImagesPayload,
-    UploadPayload,
-    SubscribeBatchPayload,
+    BatchesListData,
+    BatchesListPayload,
+    BatchUploadItem,
+    BatchUploadsListPayload,
+    CollectionImagesData,
+    CollectionImagesPayload,
+    ErrorPayload,
     FetchBatchesPayload,
     FetchBatchUploadsPayload,
-    ErrorPayload,
-    CollectionImagesPayload,
-    UploadCreatedPayload,
-    BatchesListPayload,
-    BatchUploadsListPayload,
+    FetchImagesPayload,
+    SubscribeBatchPayload,
     SubscribedPayload,
-    UploadsUpdatePayload,
-    UploadsCompletePayload,
-    BatchUploadItem,
     UploadCreatedItem,
+    UploadCreatedPayload,
+    UploadPayload,
+    UploadsCompletePayload,
+    UploadsUpdatePayload,
     UploadUpdateItem,
-    CollectionImagesData,
-    BatchesListData,
 )
 
 WS_CHANNEL_ADDRESS: str = "/ws"

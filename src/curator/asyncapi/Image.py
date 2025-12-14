@@ -2,12 +2,15 @@
 # Do not edit manually
 
 from __future__ import annotations
-from typing import Any, List, Dict, Optional
-from pydantic import model_serializer, model_validator, BaseModel, Field
-from .Dates import Dates
+
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, model_serializer, model_validator
+
 from .Creator import Creator
-from .Location import Location
+from .Dates import Dates
 from .ExistingPage import ExistingPage
+from .Location import Location
 
 
 class Image(BaseModel):

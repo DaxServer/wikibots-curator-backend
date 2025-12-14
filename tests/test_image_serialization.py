@@ -1,5 +1,6 @@
 from datetime import datetime
-from curator.app.image_models import Image, Creator, Dates, Location, ExistingPage
+
+from curator.app.image_models import Creator, Dates, ExistingPage, Image, Location
 
 
 def test_image_serialization():

@@ -1,33 +1,33 @@
-import logging
 import asyncio
-from typing import Optional, Any
-from curator.protocol import AsyncAPIWebSocket
-from curator.asyncapi import (
-    FetchBatchUploadsData,
-    FetchBatchesData,
-    UploadData,
-    CollectionImagesData,
-    UploadCreatedItem,
-    BatchesListData,
-    UploadUpdateItem,
-)
-from sqlmodel import Session
-
-from curator.app.db import engine
-from curator.app.crypto import encrypt_access_token
-from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
-from curator.app.dal import (
-    create_upload_request,
-    get_upload_request,
-    count_uploads_in_batch,
-    get_batches,
-    count_batches,
-)
-from curator.workers.ingest import process_one
-from curator.workers.rq import queue as ingest_queue
-from curator.app.auth import UserSession
+import logging
+from typing import Any, Optional
 
 from fastapi import WebSocketDisconnect
+from sqlmodel import Session
+
+from curator.app.auth import UserSession
+from curator.app.crypto import encrypt_access_token
+from curator.app.dal import (
+    count_batches,
+    count_uploads_in_batch,
+    create_upload_request,
+    get_batches,
+    get_upload_request,
+)
+from curator.app.db import engine
+from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.asyncapi import (
+    BatchesListData,
+    CollectionImagesData,
+    FetchBatchesData,
+    FetchBatchUploadsData,
+    UploadCreatedItem,
+    UploadData,
+    UploadUpdateItem,
+)
+from curator.protocol import AsyncAPIWebSocket
+from curator.workers.ingest import process_one
+from curator.workers.rq import queue as ingest_queue
 
 logger = logging.getLogger(__name__)
 

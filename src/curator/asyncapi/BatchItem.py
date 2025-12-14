@@ -2,8 +2,11 @@
 # Do not edit manually
 
 from __future__ import annotations
+
 from typing import Any, Dict, Optional
-from pydantic import model_serializer, model_validator, BaseModel, Field
+
+from pydantic import BaseModel, Field, model_serializer, model_validator
+
 from .BatchStats import BatchStats
 
 

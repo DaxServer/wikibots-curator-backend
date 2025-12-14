@@ -1,13 +1,13 @@
 import os
-from cryptography.fernet import Fernet
 from types import SimpleNamespace
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from cryptography.fernet import Fernet
 
+import curator.workers.ingest as worker
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadRequest
-import curator.workers.ingest as worker
 
 
 @pytest.mark.asyncio

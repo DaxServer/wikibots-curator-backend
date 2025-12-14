@@ -1,16 +1,19 @@
-from curator.app.models import GenericError
-from curator.app.models import DuplicateError
-from curator.app.models import StructuredError
 import json
+
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
-from curator.app.models import UploadRequest
-from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
-from curator.app.db import get_session
 from curator.app.dal import (
+    clear_upload_access_token,
     get_upload_request_by_id,
     update_upload_status,
-    clear_upload_access_token,
+)
+from curator.app.db import get_session
+from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.models import (
+    DuplicateError,
+    GenericError,
+    StructuredError,
+    UploadRequest,
 )
 
 

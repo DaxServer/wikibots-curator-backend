@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock
-from curator.app.dal import get_batches_stats
+
 from sqlmodel import Session
+
+from curator.app.dal import get_batches_stats
 
 
 def test_get_batches_stats():

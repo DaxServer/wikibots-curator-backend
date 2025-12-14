@@ -1,7 +1,8 @@
-from typing import Literal, Optional, TypedDict, Union
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, JSON, Text
 from datetime import datetime
+from typing import Literal, Optional, TypedDict, Union
+
+from sqlalchemy import JSON, Column, Text
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class ErrorLink(TypedDict):

@@ -1,10 +1,12 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from curator.app.models import User
 
 
 def make_image():
-    from curator.app.image_models import Image, Creator, Location, Dates
+    from curator.app.image_models import Creator, Dates, Image, Location
 
     return Image(
         id="123",
