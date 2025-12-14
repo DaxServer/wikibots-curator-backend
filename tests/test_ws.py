@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch, AsyncMock, ANY
 import asyncio
 from curator.main import app
 from curator.app.auth import check_login
-from curator.asyncapi import WS_CHANNEL_ADDRESS, Image, Creator, Dates, Location
+from curator.protocol import WS_CHANNEL_ADDRESS
+from curator.asyncapi import Image, Creator, Dates, Location
 
 client = TestClient(app)
 

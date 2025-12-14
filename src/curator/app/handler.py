@@ -1,8 +1,8 @@
 import logging
 import asyncio
 from typing import Optional, Any
+from curator.protocol import AsyncAPIWebSocket
 from curator.asyncapi import (
-    AsyncAPIWebSocket,
     FetchBatchUploadsData,
     FetchBatchesData,
     UploadData,

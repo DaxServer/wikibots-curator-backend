@@ -1,13 +1,17 @@
-from fastapi import WebSocket
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from curator.app.handler import Handler
+from curator.protocol import AsyncAPIWebSocket
 from curator.asyncapi import (
     UploadData,
     FetchBatchesData,
     FetchBatchUploadsData,
     BatchStats,
-    AsyncAPIWebSocket,
+    Image,
+    Creator,
+    Dates,
+    BatchItem,
+    BatchUploadItem,
 )
 from curator.app.models import UploadItem
 
@@ -45,36 +49,31 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
     with patch("curator.app.handler.MapillaryHandler") as MockHandler:
         handler = MockHandler.return_value
 
-        # Mock fetch_collection
-        mock_image = MagicMock()
-        mock_image.id = "img1"
-        # Set attributes directly accessed by _convert_image
-        mock_image.title = "Image 1"
-        mock_image.url_original = "http://original"
-        mock_image.thumbnail_url = "http://thumb"
-        mock_image.preview_url = "http://preview"
-        mock_image.url = "http://url"
-        mock_image.width = 100
-        mock_image.height = 100
-        mock_image.description = "desc"
-        mock_image.camera_make = "Canon"
-        mock_image.camera_model = "EOS"
-        mock_image.is_pano = False
-        mock_image.license = "CC"
-        mock_image.tags = ["tag1"]
-        mock_image.location = None
-        mock_image.existing = []
+        # Create real objects
+        creator = Creator(id="c1", username="creator1", profile_url="http://profile")
+        dates = Dates(taken="2023-01-01", published="2023-01-02")
+        image = Image(
+            id="img1",
+            title="Image 1",
+            url_original="http://original",
+            thumbnail_url="http://thumb",
+            preview_url="http://preview",
+            url="http://url",
+            width=100,
+            height=100,
+            description="desc",
+            camera_make="Canon",
+            camera_model="EOS",
+            is_pano=False,
+            license="CC",
+            tags=["tag1"],
+            location=None,
+            existing=[],
+            creator=creator,
+            dates=dates,
+        )
 
-        # Mock Creator data - used for Creator(**dict)
-        mock_image.creator.id = "c1"
-        mock_image.creator.username = "creator1"
-        mock_image.creator.profile_url = "http://profile"
-
-        # Mock Dates data - used for Dates(**dict)
-        mock_image.dates.taken = "2023-01-01"
-        mock_image.dates.published = "2023-01-02"
-
-        handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
+        handler.fetch_collection = AsyncMock(return_value={"img1": image})
         handler.fetch_existing_pages.return_value = {"img1": []}
 
         await handler_instance.fetch_images("some_input")
@@ -189,19 +188,19 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
     ):
         session = MockSession.return_value.__enter__.return_value
 
-        mock_batch = MagicMock()
-        mock_batch.id = 1
-        mock_batch.created_at = "2024-01-01T00:00:00"
-        mock_batch.username = "testuser"
-        mock_batch.userid = "user123"
-        mock_batch.stats = BatchStats(
-            total=10, queued=2, in_progress=3, completed=4, failed=1
+        stats = BatchStats(total=10, queued=2, in_progress=3, completed=4, failed=1)
+        batch = BatchItem(
+            id=1,
+            created_at="2024-01-01T00:00:00",
+            username="testuser",
+            userid="user123",
+            stats=stats,
         )
 
-        mock_get_batches.return_value = [mock_batch]
+        mock_get_batches.return_value = [batch]
         mock_count_batches.return_value = 1
 
-        await handler_instance.fetch_batches(FetchBatchesData(page=1, limit=10))
+        await handler_instance.fetch_batches(FetchBatchesData())
 
         mock_sender.send_batches_list.assert_called_once()
         call_args = mock_sender.send_batches_list.call_args[0][0]
@@ -214,6 +213,9 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         assert item.stats.completed == 4
         assert call_args.total == 1
 
+        # Verify defaults were used (page=1, limit=100 -> offset=0)
+        mock_get_batches.assert_called_with(session, None, 0, 100)
+
 
 @pytest.mark.asyncio
 async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
@@ -224,19 +226,20 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
     ):
         session = MockSession.return_value.__enter__.return_value
 
-        mock_upload = MagicMock()
-        mock_upload.id = 1
-        mock_upload.status = "completed"
-        mock_upload.filename = "test.jpg"
-        mock_upload.wikitext = "wikitext"
-        mock_upload.batchid = 1
-        mock_upload.key = "img1"
-        mock_upload.image_id = "img1"
-        mock_upload.error = None
-        mock_upload.success = None
-        mock_upload.handler = "mapillary"
+        upload = BatchUploadItem(
+            id=1,
+            status="completed",
+            filename="test.jpg",
+            wikitext="wikitext",
+            batchid=1,
+            key="img1",
+            image_id="img1",
+            error=None,
+            success=None,
+            handler="mapillary",
+        )
 
-        mock_get_uploads.return_value = [mock_upload]
+        mock_get_uploads.return_value = [upload]
         mock_count_uploads.return_value = 1
 
         await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batch_id=1))

@@ -1,11 +1,13 @@
-from curator.asyncapi import (
+from curator.protocol import (
     WS_CHANNEL_ADDRESS,
     AsyncAPIWebSocket,
-    FetchBatchUploadsMessage,
-    FetchBatchesMessage,
-    FetchImagesMessage,
-    SubscribeBatchMessage,
-    UploadMessage,
+)
+from curator.asyncapi import (
+    FetchBatchUploadsPayload,
+    FetchBatchesPayload,
+    FetchImagesPayload,
+    SubscribeBatchPayload,
+    UploadPayload,
 )
 import logging
 
@@ -42,23 +44,23 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             logger.info(f"[ws] {message.type} from {user.get('username')}")
 
-            if isinstance(message, FetchImagesMessage):
+            if isinstance(message, FetchImagesPayload):
                 await handler.fetch_images(message.data)
                 continue
 
-            if isinstance(message, UploadMessage):
+            if isinstance(message, UploadPayload):
                 await handler.upload(message.data)
                 continue
 
-            if isinstance(message, SubscribeBatchMessage):
+            if isinstance(message, SubscribeBatchPayload):
                 await handler.subscribe_batch(message.data)
                 continue
 
-            if isinstance(message, FetchBatchesMessage):
+            if isinstance(message, FetchBatchesPayload):
                 await handler.fetch_batches(message.data)
                 continue
 
-            if isinstance(message, FetchBatchUploadsMessage):
+            if isinstance(message, FetchBatchUploadsPayload):
                 await handler.fetch_batch_uploads(message.data)
                 continue
 
