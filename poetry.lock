@@ -79,14 +79,14 @@ tests = ["mypy (>=1.14.0)", "pytest", "pytest-asyncio"]
 
 [[package]]
 name = "authlib"
-version = "1.6.5"
+version = "1.6.6"
 description = "The ultimate Python library in building OAuth and OpenID Connect servers and clients."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "authlib-1.6.5-py2.py3-none-any.whl", hash = "sha256:3e0e0507807f842b02175507bdee8957a1d5707fd4afb17c32fb43fee90b6e3a"},
-    {file = "authlib-1.6.5.tar.gz", hash = "sha256:6aaf9c79b7cc96c900f0b284061691c5d4e61221640a948fe690b556a6d6d10b"},
+    {file = "authlib-1.6.6-py2.py3-none-any.whl", hash = "sha256:7d9e9bc535c13974313a87f53e8430eb6ea3d1cf6ae4f6efcd793f2e949143fd"},
+    {file = "authlib-1.6.6.tar.gz", hash = "sha256:45770e8e056d0f283451d9996fbb59b70d45722b45d854d58f32878d0a40c38e"},
 ]
 
 [package.dependencies]
@@ -559,14 +559,14 @@ idna = ">=2.0.0"
 
 [[package]]
 name = "fastapi"
-version = "0.124.2"
+version = "0.124.4"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "fastapi-0.124.2-py3-none-any.whl", hash = "sha256:6314385777a507bb19b34bd064829fddaea0eea54436deb632b5de587554055c"},
-    {file = "fastapi-0.124.2.tar.gz", hash = "sha256:72e188f01f360e2f59da51c8822cbe4bca210c35daaae6321b1b724109101c00"},
+    {file = "fastapi-0.124.4-py3-none-any.whl", hash = "sha256:6d1e703698443ccb89e50abe4893f3c84d9d6689c0cf1ca4fad6d3c15cf69f15"},
+    {file = "fastapi-0.124.4.tar.gz", hash = "sha256:0e9422e8d6b797515f33f500309f6e1c98ee4e85563ba0f2debb282df6343763"},
 ]
 
 [package.dependencies]
@@ -1718,14 +1718,14 @@ files = [
 
 [[package]]
 name = "pywikibot"
-version = "10.7.3"
+version = "10.7.4"
 description = "Python MediaWiki Bot Framework"
 optional = false
 python-versions = ">=3.8.0"
 groups = ["main"]
 files = [
-    {file = "pywikibot-10.7.3-py3-none-any.whl", hash = "sha256:6de878cd87963ef918cbf72dc0a2f515b8c861dd18518401f2420f234abc2751"},
-    {file = "pywikibot-10.7.3.tar.gz", hash = "sha256:ba390f817aaae61e2f2127945c72969cc47632db746b6e908f3db4a9db9f4ffe"},
+    {file = "pywikibot-10.7.4-py3-none-any.whl", hash = "sha256:ae1353fbf3321c55c4b52f71194d04c7d70ece7d65c856e8539b2d5b9fbd2042"},
+    {file = "pywikibot-10.7.4.tar.gz", hash = "sha256:fe11df6512e812068f2992eeb3dc7f7793bad869f053fd40ecf02c79b1a3eb7e"},
 ]
 
 [package.dependencies]
@@ -2700,4 +2700,4 @@ dev = ["pytest", "pytest-asyncio"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "ed0b786087f667bf232cc55b80160354d8a265e420b47fec84dece5ddb6d5197"
+content-hash = "5d0a07c9751ab02a227ef12e7a06a47976b85f99b23cd41a69bbacfe4abc153d"
