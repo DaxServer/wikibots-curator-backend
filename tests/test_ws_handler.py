@@ -1,19 +1,21 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+
 from curator.app.handler import Handler
-from curator.protocol import AsyncAPIWebSocket
+from curator.app.models import UploadItem
 from curator.asyncapi import (
-    UploadData,
-    FetchBatchesData,
-    FetchBatchUploadsData,
+    BatchItem,
     BatchStats,
-    Image,
+    BatchUploadItem,
     Creator,
     Dates,
-    BatchItem,
-    BatchUploadItem,
+    FetchBatchesData,
+    FetchBatchUploadsData,
+    Image,
+    UploadData,
 )
-from curator.app.models import UploadItem
+from curator.protocol import AsyncAPIWebSocket
 
 
 @pytest.fixture

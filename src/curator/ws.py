@@ -1,21 +1,21 @@
-from curator.protocol import (
-    WS_CHANNEL_ADDRESS,
-    AsyncAPIWebSocket,
-)
-from curator.asyncapi import (
-    FetchBatchUploadsPayload,
-    FetchBatchesPayload,
-    FetchImagesPayload,
-    SubscribeBatchPayload,
-    UploadPayload,
-)
 import logging
 
-from fastapi import APIRouter, WebSocketDisconnect, WebSocket
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from curator.app.auth import LoggedInUser
 from curator.app.handler import Handler
+from curator.asyncapi import (
+    FetchBatchesPayload,
+    FetchBatchUploadsPayload,
+    FetchImagesPayload,
+    SubscribeBatchPayload,
+    UploadPayload,
+)
+from curator.protocol import (
+    WS_CHANNEL_ADDRESS,
+    AsyncAPIWebSocket,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ws"])

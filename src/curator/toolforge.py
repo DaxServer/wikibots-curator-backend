@@ -1,9 +1,9 @@
 import functools
 import os
-from typing import Dict, Any, Callable, TypeVar, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")

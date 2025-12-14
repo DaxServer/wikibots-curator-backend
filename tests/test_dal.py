@@ -1,6 +1,7 @@
 from unittest.mock import Mock
-from curator.app.models import UploadRequest
+
 from curator.app.dal import get_upload_request_by_id
+from curator.app.models import UploadRequest
 
 
 def test_get_upload_request_by_id():

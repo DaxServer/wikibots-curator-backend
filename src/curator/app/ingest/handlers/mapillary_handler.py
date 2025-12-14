@@ -1,18 +1,18 @@
-from datetime import timedelta
 import logging
-from curator.app.config import cache
-from curator.app.wcqs import WcqsSession
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Union
+
+import httpx
 from fastapi import Request, WebSocket
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
     WikidataProperty,
+    cache,
 )
-from curator.asyncapi import Creator, Image, Location, Dates, ExistingPage
 from curator.app.ingest.interfaces import Handler
-import httpx
+from curator.app.wcqs import WcqsSession
+from curator.asyncapi import Creator, Dates, ExistingPage, Image, Location
 
 logger = logging.getLogger(__name__)
 

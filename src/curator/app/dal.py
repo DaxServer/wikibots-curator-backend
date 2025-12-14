@@ -1,20 +1,20 @@
-import logging
-from curator.app.ingest.interfaces import Handler
-from typing import Dict, Optional, List, Union
 import json
+import logging
+from typing import Dict, List, Optional, Union
 
-from curator.app.models import UploadItem, UploadRequest, User, Batch, StructuredError
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, func, select, update
 
+from curator.app.ingest.interfaces import Handler
+from curator.app.models import Batch, StructuredError, UploadItem, UploadRequest, User
 from curator.asyncapi import (
-    BatchStats,
     BatchItem,
+    BatchStats,
     BatchUploadItem,
     DuplicateError,
-    GenericError,
     ErrorLink,
+    GenericError,
 )
-from sqlmodel import Session, select, update, func
-from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 

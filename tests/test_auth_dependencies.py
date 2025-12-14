@@ -1,8 +1,10 @@
+from unittest.mock import Mock
+
 import pytest
 from fastapi import HTTPException, Request, status
-from unittest.mock import Mock
-from curator.app.auth import check_login
+
 from curator.admin import check_admin
+from curator.app.auth import check_login
 
 
 @pytest.mark.asyncio

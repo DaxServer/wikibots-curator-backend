@@ -1,6 +1,6 @@
 import os
-from sqlmodel import create_engine, Session
 
+from sqlmodel import Session, create_engine
 
 TOOLSDB_USER = os.getenv("TOOL_TOOLSDB_USER")
 TOOLSDB_PASSWORD = os.getenv("TOOL_TOOLSDB_PASSWORD")

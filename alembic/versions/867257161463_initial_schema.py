@@ -6,12 +6,12 @@ Create Date: 2025-10-07 21:19:13.750858
 
 """
 
-from sqlmodel import SQLModel
-from alembic import op
 from typing import Sequence, Union
 
-from curator.app.db import engine
+from sqlmodel import SQLModel
 
+from alembic import op
+from curator.app.db import engine
 
 # revision identifiers, used by Alembic.
 revision: str = "867257161463"

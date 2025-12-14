@@ -1,15 +1,16 @@
 import pytest
-from pydantic import TypeAdapter
-from curator.protocol import ClientMessage
+from pydantic import TypeAdapter, ValidationError
+
 from curator.asyncapi import (
-    FetchImagesPayload,
-    UploadPayload,
-    SubscribeBatchPayload,
     FetchBatchesPayload,
     FetchBatchUploadsPayload,
+    FetchImagesPayload,
+    SubscribeBatchPayload,
     UploadData,
     UploadItem,
+    UploadPayload,
 )
+from curator.protocol import ClientMessage
 
 adapter = TypeAdapter(ClientMessage)
 
@@ -78,7 +79,7 @@ def test_fetch_batch_uploads_payload():
 
 def test_invalid_payload_type():
     data = {"type": "INVALID_TYPE", "data": {}}
-    with pytest.raises(Exception):  # Pydantic raises ValidationError
+    with pytest.raises(ValidationError):  # Pydantic raises ValidationError
         adapter.validate_python(data)
 
 

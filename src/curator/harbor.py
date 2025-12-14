@@ -1,7 +1,8 @@
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict, List, Optional
+
 import httpx
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 HARBOR_API_URL = "https://tools-harbor.wmcloud.org/api/v2.0/projects/tool-curator/repositories/wikibots/artifacts"

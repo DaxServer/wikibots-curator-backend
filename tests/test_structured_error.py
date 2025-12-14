@@ -1,6 +1,7 @@
 from unittest.mock import Mock, patch
-from curator.app.models import UploadRequest, DuplicateError, GenericError
+
 from curator.app.dal import update_upload_status
+from curator.app.models import DuplicateError, GenericError, UploadRequest
 
 
 def test_upload_request_model_validation():

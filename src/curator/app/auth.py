@@ -1,7 +1,8 @@
 from typing import Annotated, TypedDict
+
 from fastapi import Depends, HTTPException, status
-from starlette.requests import HTTPConnection
 from mwoauth import AccessToken
+from starlette.requests import HTTPConnection
 
 
 class UserSession(TypedDict):

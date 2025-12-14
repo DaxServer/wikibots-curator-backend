@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, Request, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from curator.app.db import get_session
 from curator.app.dal import (
-    get_batches,
+    count_all_upload_requests,
     count_batches,
-    get_users,
     count_users,
     get_all_upload_requests,
-    count_all_upload_requests,
+    get_batches,
+    get_users,
 )
+from curator.app.db import get_session
 
 
 def check_admin(request: Request):

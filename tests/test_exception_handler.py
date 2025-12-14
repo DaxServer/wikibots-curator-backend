@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from curator.main import app
 
 client = TestClient(app, raise_server_exceptions=False)

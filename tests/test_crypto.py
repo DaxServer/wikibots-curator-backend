@@ -1,4 +1,4 @@
-from curator.app.crypto import encrypt_access_token, decrypt_access_token
+from curator.app.crypto import decrypt_access_token, encrypt_access_token
 
 
 def test_encrypt_decrypt_roundtrip():

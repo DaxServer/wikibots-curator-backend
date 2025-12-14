@@ -1,15 +1,11 @@
-from curator.app.config import OAUTH_KEY
-from curator.app.config import OAUTH_SECRET
-from curator.app.config import URLS
-from mwoauth import ConsumerToken, Handshaker, RequestToken
-from fastapi import APIRouter, HTTPException, Request, Header, status
-
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import os
 from typing import Optional
 
-from curator.app.config import USER_AGENT
+from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from mwoauth import ConsumerToken, Handshaker, RequestToken
 
+from curator.app.config import OAUTH_KEY, OAUTH_SECRET, URLS, USER_AGENT
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

@@ -1,9 +1,10 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from datetime import datetime, timezone, timedelta
-from curator.app.wcqs import WcqsSession
+
 from curator.app.config import REDIS_PREFIX
+from curator.app.wcqs import WcqsSession
 
 
 @pytest.fixture

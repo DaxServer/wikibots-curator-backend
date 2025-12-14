@@ -1,18 +1,18 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
 from mwoauth import AccessToken
 
 from curator.app.commons import (
-    get_commons_site,
-    download_file,
-    find_duplicates,
-    build_file_page,
-    perform_upload,
-    ensure_uploaded,
     apply_sdc,
+    build_file_page,
+    download_file,
+    ensure_uploaded,
+    find_duplicates,
+    get_commons_site,
+    perform_upload,
     upload_file_chunked,
 )
-
 
 # --- Helper Functions Tests ---
 

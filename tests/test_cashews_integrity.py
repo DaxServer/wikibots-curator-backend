@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 from cashews import Command
 from cashews.exceptions import UnSecureDataError
 
