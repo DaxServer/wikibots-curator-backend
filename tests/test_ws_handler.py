@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from curator.app.handler import Handler
@@ -251,3 +252,28 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         # call_args is List[BatchUploadItem]
         assert len(call_args) == 1
         assert call_args[0].id == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_fetch_images_api_error(handler_instance, mock_sender):
+    with patch("curator.app.handler.MapillaryHandler") as MockHandler:
+        handler = MockHandler.return_value
+
+        # Create a mock response with a text property
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "500 error"
+
+        # Raise HTTPStatusError
+        error = httpx.HTTPStatusError(
+            "Error message", request=MagicMock(), response=mock_response
+        )
+        handler.fetch_collection = AsyncMock(side_effect=error)
+
+        await handler_instance.fetch_images("invalid_collection")
+
+        # The handler should send the error message which includes response.text
+        mock_sender.send_error.assert_called_once()
+        args = mock_sender.send_error.call_args[0]
+        assert "Mapillary API Error" in args[0]
+        assert "500 error" in args[0]
