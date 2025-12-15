@@ -132,7 +132,7 @@ async def test_handle_upload(handler_instance, mock_sender):
 
         await handler_instance.upload(data)
 
-        mock_worker.enqueue.assert_called_once()
+        mock_worker.enqueue_many.assert_called_once()
         mock_sender.send_upload_created.assert_called_once()
         call_args = mock_sender.send_upload_created.call_args[0][0]
         # call_args is List[UploadCreatedItem]

@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 import httpx
 from fastapi import WebSocketDisconnect
+from rq import Queue
 from sqlmodel import Session
 
 from curator.app.auth import UserSession
@@ -116,11 +117,12 @@ class Handler:
                     }
                 )
 
-        for upload in prepared_uploads:
-            ingest_queue.enqueue(
-                process_one,
-                upload["id"],
-            )
+        ingest_queue.enqueue_many(
+            [
+                Queue.prepare_data(process_one, (upload["id"],))
+                for upload in prepared_uploads
+            ]
+        )
 
         logger.info(
             f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.user.get('username')}"

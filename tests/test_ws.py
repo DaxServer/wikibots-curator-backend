@@ -157,10 +157,7 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
             assert items[0]["batch_id"] == 100
 
         # Verify worker was called
-        mock_worker.enqueue.assert_called_once_with(
-            ANY,
-            1,
-        )
+        mock_worker.enqueue_many.assert_called_once()
 
 
 def test_ws_invalid_message():
