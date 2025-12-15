@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any, Optional
 
+import httpx
 from fastapi import WebSocketDisconnect
 from sqlmodel import Session
 
@@ -48,8 +49,15 @@ class Handler:
     async def fetch_images(self, collection: str):
         handler = MapillaryHandler()
         loop = asyncio.get_running_loop()
-        # data is the input string
-        images = await handler.fetch_collection(collection)
+        try:
+            images = await handler.fetch_collection(collection)
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"[ws] [resp] Mapillary API error for {collection} for {self.user.get('username')}: {e}"
+            )
+            await self.socket.send_error(f"Mapillary API Error: {e.response.text}")
+            return
+
         if not images:
             logger.error(
                 f"[ws] [resp] Collection not found for {collection} for {self.user.get('username')}"
