@@ -190,11 +190,8 @@ def get_batches_stats(session: Session, batch_ids: List[int]) -> Dict[int, Batch
 
     results = session.exec(query).all()
 
-    # Initialize with zeros
-    stats = {
-        bid: BatchStats(total=0, queued=0, in_progress=0, completed=0, failed=0)
-        for bid in batch_ids
-    }
+    # Initialize with empty BatchStats objects
+    stats = {bid: BatchStats() for bid in batch_ids}
 
     for batch_id, status, count in results:
         if batch_id in stats:
@@ -207,6 +204,8 @@ def get_batches_stats(session: Session, batch_ids: List[int]) -> Dict[int, Batch
                 stats[batch_id].completed = count
             elif status == "failed":
                 stats[batch_id].failed = count
+            elif status == "duplicate":
+                stats[batch_id].duplicate = count
 
     return stats
 
@@ -236,7 +235,7 @@ def get_batches(
             userid=batch.userid,
             stats=stats.get(
                 batch.id,
-                BatchStats(total=0, queued=0, in_progress=0, completed=0, failed=0),
+                BatchStats(),
             ),
         )
         for batch in batches

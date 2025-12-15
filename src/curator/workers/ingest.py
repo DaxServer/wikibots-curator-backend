@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
 from curator.app.crypto import decrypt_access_token
@@ -34,13 +35,14 @@ def _success(session, item: UploadRequest, url) -> bool:
 def _fail(
     session,
     upload_id: int,
+    status: Literal["failed", "duplicate"],
     item: UploadRequest | None,
     structured_error: StructuredError,
 ) -> bool:
     update_upload_status(
         session,
         upload_id=upload_id,
-        status="failed",
+        status=status,
         error=structured_error,
     )
     _cleanup(session, item)
@@ -86,7 +88,7 @@ async def process_one(upload_id: int) -> bool:
             "message": str(e),
             "links": e.duplicates,
         }
-        return _fail(session, upload_id, item, structured_error)
+        return _fail(session, upload_id, "duplicate", item, structured_error)
     except Exception as e:
         structured_error: GenericError = {"type": "error", "message": str(e)}
-        return _fail(session, upload_id, item, structured_error)
+        return _fail(session, upload_id, "failed", item, structured_error)

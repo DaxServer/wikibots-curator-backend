@@ -191,7 +191,13 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
     ):
         session = MockSession.return_value.__enter__.return_value
 
-        stats = BatchStats(total=10, queued=2, in_progress=3, completed=4, failed=1)
+        stats = BatchStats(
+            total=10,
+            queued=2,
+            in_progress=3,
+            completed=4,
+            failed=1,
+        )
         batch = BatchItem(
             id=1,
             created_at="2024-01-01T00:00:00",
@@ -214,6 +220,10 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         assert item.id == 1
         assert item.stats.total == 10
         assert item.stats.completed == 4
+        assert item.stats.failed == 1
+        assert item.stats.queued == 2
+        assert item.stats.in_progress == 3
+        assert item.stats.duplicate == 0
         assert call_args.total == 1
 
         # Verify defaults were used (page=1, limit=100 -> offset=0)
