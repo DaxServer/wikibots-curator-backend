@@ -10,6 +10,7 @@ from curator.app.dal import (
     get_users,
 )
 from curator.app.db import get_session
+from curator.app.models import UploadRequest
 
 
 def check_admin(request: Request):
@@ -57,3 +58,20 @@ async def admin_get_upload_requests(
     items = get_all_upload_requests(session, offset=offset, limit=limit)
     total = count_all_upload_requests(session)
     return {"items": items, "total": total}
+
+
+@router.put("/upload_requests/{upload_request_id}")
+async def admin_update_upload_request(
+    upload_request_id: int,
+    update_data: dict,
+    session: Session = Depends(get_session),
+):
+    upload_request = session.get(UploadRequest, upload_request_id)
+    if not upload_request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    for key, value in update_data.items():
+        setattr(upload_request, key, value)
+
+    session.commit()
+    return {"message": "Upload request updated successfully"}
