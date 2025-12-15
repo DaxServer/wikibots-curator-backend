@@ -9,11 +9,12 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class BatchStats(BaseModel):
-    total: int = Field()
-    queued: int = Field()
-    in_progress: int = Field()
-    completed: int = Field()
-    failed: int = Field()
+    total: Optional[int] = Field(default=0)
+    queued: Optional[int] = Field(default=0)
+    in_progress: Optional[int] = Field(default=0)
+    completed: Optional[int] = Field(default=0)
+    failed: Optional[int] = Field(default=0)
+    duplicate: Optional[int] = Field(default=0)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -43,6 +44,7 @@ class BatchStats(BaseModel):
             "in_progress",
             "completed",
             "failed",
+            "duplicate",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -60,6 +62,7 @@ class BatchStats(BaseModel):
             "in_progress",
             "completed",
             "failed",
+            "duplicate",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

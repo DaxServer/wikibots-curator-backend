@@ -209,7 +209,9 @@ class Handler:
 
                     total = count_uploads_in_batch(session, batch_id=batch_id)
                     completed = sum(
-                        1 for r in items if r.status in ("completed", "failed")
+                        1
+                        for r in items
+                        if r.status in ("completed", "failed", "duplicate")
                     )
                     if completed >= total:
                         logger.info(
