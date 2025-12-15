@@ -183,6 +183,7 @@ class Handler:
         await self.socket.send_subscribed(batch_id)
 
     async def stream_uploads(self, batch_id: int):
+        last_update_items = None
         try:
             while True:
                 await asyncio.sleep(2)
@@ -190,9 +191,6 @@ class Handler:
                     items = get_upload_request(
                         session,
                         batch_id=batch_id,
-                    )
-                    logger.info(
-                        f"[ws] [resp] Sending batch {batch_id} update for {self.user.get('username')}"
                     )
 
                     update_items = [
@@ -207,7 +205,12 @@ class Handler:
                         for item in items
                     ]
 
-                    await self.socket.send_uploads_update(update_items)
+                    if update_items != last_update_items:
+                        logger.info(
+                            f"[ws] [resp] Sending batch {batch_id} update for {self.user.get('username')}"
+                        )
+                        await self.socket.send_uploads_update(update_items)
+                        last_update_items = update_items
 
                     total = count_uploads_in_batch(session, batch_id=batch_id)
                     completed = sum(
