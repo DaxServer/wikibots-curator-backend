@@ -14,6 +14,10 @@ class FetchBatchesData(BaseModel):
     userid: Optional[str] = Field(
         description="""Optional user id to filter batches""", default=None
     )
+    filter: Optional[str] = Field(
+        description="""Optional filter text for batches (id or username)""",
+        default=None,
+    )
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -37,7 +41,13 @@ class FetchBatchesData(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["page", "limit", "userid", "additional_properties"]
+        known_object_properties = [
+            "page",
+            "limit",
+            "userid",
+            "filter",
+            "additional_properties",
+        ]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -47,7 +57,13 @@ class FetchBatchesData(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["page", "limit", "userid", "additionalProperties"]
+        known_json_properties = [
+            "page",
+            "limit",
+            "userid",
+            "filter",
+            "additionalProperties",
+        ]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

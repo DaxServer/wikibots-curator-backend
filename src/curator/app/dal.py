@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Union
 
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, func, select, update
 
@@ -169,10 +170,24 @@ def create_upload_request(
     return reqs
 
 
-def count_batches(session: Session, userid: Optional[str] = None) -> int:
+def count_batches(
+    session: Session, userid: Optional[str] = None, filter_text: Optional[str] = None
+) -> int:
     query = select(func.count(Batch.id))
+    if filter_text:
+        query = query.join(User)
+
     if userid:
         query = query.where(Batch.userid == userid)
+
+    if filter_text:
+        query = query.where(
+            or_(
+                cast(Batch.id, String).ilike(f"%{filter_text}%"),
+                User.username.ilike(f"%{filter_text}%"),
+            )
+        )
+
     return session.exec(query).one()
 
 
@@ -211,7 +226,11 @@ def get_batches_stats(session: Session, batch_ids: List[int]) -> Dict[int, Batch
 
 
 def get_batches(
-    session: Session, userid: Optional[str] = None, offset: int = 0, limit: int = 100
+    session: Session,
+    userid: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 100,
+    filter_text: Optional[str] = None,
 ) -> List[BatchItem]:
     """Fetch batches for a user, ordered by creation time descending."""
     query = (
@@ -220,8 +239,19 @@ def get_batches(
         .order_by(Batch.created_at.desc())
     )
 
+    if filter_text:
+        query = query.join(User)
+
     if userid:
         query = query.where(Batch.userid == userid)
+
+    if filter_text:
+        query = query.where(
+            or_(
+                cast(Batch.id, String).ilike(f"%{filter_text}%"),
+                User.username.ilike(f"%{filter_text}%"),
+            )
+        )
 
     batches = session.exec(query.offset(offset).limit(limit)).all()
     batch_ids = [b.id for b in batches]
