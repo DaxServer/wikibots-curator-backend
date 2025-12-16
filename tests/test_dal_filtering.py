@@ -7,7 +7,7 @@ from curator.app.dal import count_batches, get_batches
 from curator.app.models import Batch, User
 
 
-def test_get_batches_filtering_integration(tmp_path):
+def test_get_batches_filtering_integration():
     """Integration test using in-memory SQLite"""
     from sqlmodel import Session, SQLModel, create_engine
 
