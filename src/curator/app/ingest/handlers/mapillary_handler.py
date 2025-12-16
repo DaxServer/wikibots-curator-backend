@@ -117,8 +117,9 @@ class MapillaryHandler(Handler):
             image = await _fetch_single_image(image_id)
 
         if not image:
+            context = "sequence" if collection_id else "Mapillary API"
             raise ValueError(
-                f"Image data not found in sequence for image_id={image_id}"
+                f"Image data not found in {context} for image_id={image_id}"
             )
 
         return from_mapillary(image)
