@@ -14,6 +14,7 @@ from curator.asyncapi import (
     FetchBatchesPayload,
     FetchBatchUploadsPayload,
     FetchImagesPayload,
+    RetryUploadsPayload,
     SubscribeBatchPayload,
     SubscribedPayload,
     UploadCreatedItem,
@@ -33,6 +34,7 @@ ClientMessage = Annotated[
         SubscribeBatchPayload,
         FetchBatchesPayload,
         FetchBatchUploadsPayload,
+        RetryUploadsPayload,
     ],
     Field(discriminator="type"),
 ]

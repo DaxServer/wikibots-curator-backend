@@ -26,6 +26,8 @@ from .FetchImagesPayload import FetchImagesPayload
 from .GenericError import GenericError
 from .Image import Image
 from .Location import Location
+from .RetryUploadsData import RetryUploadsData
+from .RetryUploadsPayload import RetryUploadsPayload
 from .SubscribeBatchPayload import SubscribeBatchPayload
 from .SubscribedPayload import SubscribedPayload
 from .UploadCreatedItem import UploadCreatedItem

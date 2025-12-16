@@ -54,18 +54,30 @@ async def process_one(upload_id: int) -> bool:
     item = None
     try:
         item = get_upload_request_by_id(session, upload_id)
-        if not item:
+        if not item or item.status != "queued":
             _cleanup(session)
             return False
 
         update_upload_status(session, upload_id=item.id, status="in_progress")
 
         handler = MapillaryHandler()
-        image = await handler.fetch_image_metadata(item.key, item.collection or "")
+        image = await handler.fetch_image_metadata(item.key, item.collection)
         sdc_json = json.loads(item.sdc) if item.sdc else None
         image_url = image.url_original
+
         if not item.access_token:
-            raise Exception("Missing access token")
+            structured_error: GenericError = {
+                "type": "error",
+                "message": "Missing access token",
+            }
+            return _fail(
+                session=session,
+                upload_id=item.id,
+                status="failed",
+                item=item,
+                structured_error=structured_error,
+            )
+
         access_token = decrypt_access_token(item.access_token)
         username = item.user.username
 

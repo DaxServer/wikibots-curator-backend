@@ -341,3 +341,36 @@ def clear_upload_access_token(session: Session, upload_id: int) -> None:
     logger.info(
         f"[dal] clear_upload_access_token: cleared token for upload_id={upload_id}"
     )
+
+
+def reset_failed_uploads(
+    session: Session, batch_id: int, userid: str, encrypted_access_token: str
+) -> List[int]:
+    """
+    Reset status of failed uploads in a batch to 'queued'.
+    Only if the batch belongs to the userid.
+    Updates the access token for the retry.
+    """
+    batch = session.get(Batch, batch_id)
+    if not batch:
+        raise ValueError("Batch not found")
+
+    if batch.userid != userid:
+        raise PermissionError("Permission denied")
+
+    statement = select(UploadRequest).where(
+        UploadRequest.batchid == batch_id, UploadRequest.status == "failed"
+    )
+    failed_uploads = session.exec(statement).all()
+
+    reset_ids = []
+    for upload in failed_uploads:
+        upload.status = "queued"
+        upload.error = None
+        upload.result = None
+        upload.access_token = encrypted_access_token
+        session.add(upload)
+        reset_ids.append(upload.id)
+
+    session.commit()
+    return reset_ids

@@ -9,6 +9,7 @@ from curator.asyncapi import (
     FetchBatchesPayload,
     FetchBatchUploadsPayload,
     FetchImagesPayload,
+    RetryUploadsPayload,
     SubscribeBatchPayload,
     UploadPayload,
 )
@@ -62,6 +63,10 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, FetchBatchUploadsPayload):
                 await handler.fetch_batch_uploads(message.data)
+                continue
+
+            if isinstance(message, RetryUploadsPayload):
+                await handler.retry_uploads(message.data)
                 continue
 
             logger.error(
