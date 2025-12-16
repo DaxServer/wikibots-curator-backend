@@ -227,8 +227,9 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
         assert item.stats.duplicate == 0
         assert call_args.total == 1
 
-        # Verify defaults were used (page=1, limit=100 -> offset=0)
-        mock_get_batches.assert_called_with(session, None, 0, 100)
+        # Verify defaults were used (page=1, limit=100 -> offset=0, filter=None)
+        mock_get_batches.assert_called_with(session, None, 0, 100, None)
+        mock_count_batches.assert_called_with(session, None, None)
 
 
 @pytest.mark.asyncio

@@ -146,11 +146,12 @@ class Handler:
         page = data.page
         limit = data.limit
         userid = data.userid
+        filter_text = data.filter
         offset = (page - 1) * limit
 
         with Session(engine) as session:
-            batch_items = get_batches(session, userid, offset, limit)
-            total = count_batches(session, userid)
+            batch_items = get_batches(session, userid, offset, limit, filter_text)
+            total = count_batches(session, userid, filter_text)
 
         logger.info(
             f"[ws] [resp] Sending {len(batch_items)} batches for {self.user.get('username')}"
