@@ -15,6 +15,7 @@ from curator.app.dal import (
     create_upload_request,
     get_batches,
     get_upload_request,
+    reset_failed_uploads,
 )
 from curator.app.db import engine
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
@@ -23,6 +24,7 @@ from curator.asyncapi import (
     CollectionImagesData,
     FetchBatchesData,
     FetchBatchUploadsData,
+    RetryUploadsData,
     UploadCreatedItem,
     UploadData,
     UploadUpdateItem,
@@ -170,6 +172,39 @@ class Handler:
             f"[ws] [resp] Sending {len(serialized_uploads)} uploads for batch {batch_id} for {self.user.get('username')}"
         )
         await self.socket.send_batch_uploads_list(serialized_uploads)
+
+    async def retry_uploads(self, data: RetryUploadsData):
+        batch_id = data.batch_id
+        username = self.user["username"]
+        userid = self.user["userid"]
+        encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
+
+        try:
+            with Session(engine) as session:
+                retried_ids = reset_failed_uploads(
+                    session, batch_id, userid, encrypted_access_token
+                )
+        except ValueError:
+            await self.socket.send_error(f"Batch {batch_id} not found")
+            return
+        except PermissionError:
+            await self.socket.send_error("Permission denied")
+            return
+
+        if not retried_ids:
+            logger.info(
+                f"[ws] [resp] No failed uploads to retry for batch {batch_id} for {username}"
+            )
+            await self.socket.send_error("No failed uploads to retry")
+            return
+
+        ingest_queue.enqueue_many(
+            [Queue.prepare_data(process_one, (uid,)) for uid in retried_ids]
+        )
+
+        logger.info(
+            f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batch_id} for {username}"
+        )
 
     async def subscribe_batch(self, batch_id: int):
         if self.uploads_task and not self.uploads_task.done():

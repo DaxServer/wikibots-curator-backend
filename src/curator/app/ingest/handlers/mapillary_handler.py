@@ -79,6 +79,26 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
     return {str(i["id"]): i for i in images}
 
 
+@cache(ttl=timedelta(hours=1), key="curator:mapillary:image:{image_id}")
+async def _fetch_single_image(image_id: str) -> dict:
+    """
+    Fetch single image data from Mapillary API
+    """
+    logger.info(f"[mapillary] fetching single image data for {image_id}")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://graph.mapillary.com/{image_id}",
+            params={
+                "access_token": MAPILLARY_API_TOKEN,
+                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            timeout=30,
+        )
+    response.raise_for_status()
+    return response.json()
+
+
 class MapillaryHandler(Handler):
     name = "mapillary"
 
@@ -86,13 +106,21 @@ class MapillaryHandler(Handler):
         collection = await _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
 
-    async def fetch_image_metadata(self, image_id: str, input: str) -> Image:
-        collection = await _fetch_sequence_data(input)
-        image = collection.get(image_id)
+    async def fetch_image_metadata(
+        self, image_id: str, collection_id: str | None = None
+    ) -> Image:
+        if collection_id:
+            collection = await _fetch_sequence_data(collection_id)
+            image = collection.get(image_id)
+        else:
+            # Fallback for legacy uploads where collection/sequence ID is missing
+            image = await _fetch_single_image(image_id)
+
         if not image:
             raise ValueError(
                 f"Image data not found in sequence for image_id={image_id}"
             )
+
         return from_mapillary(image)
 
     def fetch_existing_pages(

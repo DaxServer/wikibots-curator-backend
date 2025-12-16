@@ -14,6 +14,7 @@ from curator.asyncapi import (
     FetchBatchesData,
     FetchBatchUploadsData,
     Image,
+    RetryUploadsData,
     UploadData,
 )
 from curator.protocol import AsyncAPIWebSocket
@@ -356,3 +357,68 @@ async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender
         assert calls[0][0][0][0].status == "queued"
         assert calls[1][0][0][0].status == "in_progress"
         assert calls[2][0][0][0].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_retry_uploads_success(handler_instance, mock_sender):
+    with (
+        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.reset_failed_uploads") as mock_reset,
+        patch("curator.app.handler.ingest_queue") as mock_worker,
+    ):
+        mock_reset.return_value = [1, 2]
+
+        data = RetryUploadsData(batch_id=123)
+        await handler_instance.retry_uploads(data)
+
+        mock_reset.assert_called_once()
+        mock_worker.enqueue_many.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_retry_uploads_no_failures(handler_instance, mock_sender):
+    with (
+        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.reset_failed_uploads") as mock_reset,
+        patch("curator.app.handler.ingest_queue") as mock_worker,
+    ):
+        mock_reset.return_value = []
+
+        data = RetryUploadsData(batch_id=123)
+        await handler_instance.retry_uploads(data)
+
+        mock_reset.assert_called_once()
+        mock_worker.enqueue_many.assert_not_called()
+        mock_sender.send_error.assert_called_once_with("No failed uploads to retry")
+
+
+@pytest.mark.asyncio
+async def test_retry_uploads_forbidden(handler_instance, mock_sender):
+    with (
+        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.reset_failed_uploads") as mock_reset,
+        patch("curator.app.handler.ingest_queue") as mock_worker,
+    ):
+        mock_reset.side_effect = PermissionError("Permission denied")
+
+        data = RetryUploadsData(batch_id=123)
+        await handler_instance.retry_uploads(data)
+
+        mock_reset.assert_called_once()
+        mock_sender.send_error.assert_called_once_with("Permission denied")
+
+
+@pytest.mark.asyncio
+async def test_retry_uploads_not_found(handler_instance, mock_sender):
+    with (
+        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.reset_failed_uploads") as mock_reset,
+        patch("curator.app.handler.ingest_queue") as mock_worker,
+    ):
+        mock_reset.side_effect = ValueError("Batch not found")
+
+        data = RetryUploadsData(batch_id=123)
+        await handler_instance.retry_uploads(data)
+
+        mock_reset.assert_called_once()
+        mock_sender.send_error.assert_called_once_with("Batch 123 not found")
