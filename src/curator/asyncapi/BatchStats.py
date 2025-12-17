@@ -9,12 +9,12 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class BatchStats(BaseModel):
-    total: Optional[int] = Field(default=0)
-    queued: Optional[int] = Field(default=0)
-    in_progress: Optional[int] = Field(default=0)
-    completed: Optional[int] = Field(default=0)
-    failed: Optional[int] = Field(default=0)
-    duplicate: Optional[int] = Field(default=0)
+    total: int = Field(default=0)
+    queued: int = Field(default=0)
+    in_progress: int = Field(default=0)
+    completed: int = Field(default=0)
+    failed: int = Field(default=0)
+    duplicate: int = Field(default=0)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
