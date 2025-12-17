@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -152,6 +153,17 @@ async def test_handle_subscribe_batch(handler_instance, mock_sender):
 
         mock_sender.send_subscribed.assert_called_once_with(123)
         assert handler_instance.uploads_task is not None
+
+
+@pytest.mark.asyncio
+async def test_handle_unsubscribe_batch(handler_instance):
+    # Create a dummy task
+    handler_instance.uploads_task = asyncio.create_task(asyncio.sleep(1))
+
+    await handler_instance.unsubscribe_batch(123)
+
+    await asyncio.sleep(0)
+    assert handler_instance.uploads_task.cancelled()
 
 
 @pytest.mark.asyncio

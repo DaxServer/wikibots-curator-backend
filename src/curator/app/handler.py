@@ -218,6 +218,14 @@ class Handler:
         )
         await self.socket.send_subscribed(batch_id)
 
+    async def unsubscribe_batch(self, batch_id: int):
+        if self.uploads_task and not self.uploads_task.done():
+            self.uploads_task.cancel()
+
+        logger.info(
+            f"[ws] [resp] Unsubscribed from batch {batch_id} for {self.user.get('username')}"
+        )
+
     async def stream_uploads(self, batch_id: int):
         last_update_items = None
         try:
