@@ -3,35 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .Creator import Creator
-from .Dates import Dates
-from .ExistingPage import ExistingPage
-from .Location import Location
 
-
-class Image(BaseModel):
-    id: str = Field()
-    title: str = Field()
-    description: Optional[str] = Field(default=None)
-    dates: Dates = Field()
-    creator: Creator = Field()
-    location: Optional[Location] = Field(default=None)
-    url_original: str = Field()
-    thumbnail_url: str = Field()
-    preview_url: str = Field()
-    url: str = Field()
-    width: int = Field()
-    height: int = Field()
-    camera_make: Optional[str] = Field(default=None)
-    camera_model: Optional[str] = Field(default=None)
-    is_pano: Optional[bool] = Field(default=None)
-    license: Optional[str] = Field(default=None)
-    tags: Optional[List[str]] = Field(default=None)
-    existing: Optional[List[ExistingPage]] = Field(default=None)
+class GeoLocation(BaseModel):
+    latitude: float = Field()
+    longitude: float = Field()
+    accuracy: Optional[int] = Field(default=None)
+    compass_angle: float = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -56,24 +37,10 @@ class Image(BaseModel):
                 return data
         json_properties = list(data.keys())
         known_object_properties = [
-            "id",
-            "title",
-            "description",
-            "dates",
-            "creator",
-            "location",
-            "url_original",
-            "thumbnail_url",
-            "preview_url",
-            "url",
-            "width",
-            "height",
-            "camera_make",
-            "camera_model",
-            "is_pano",
-            "license",
-            "tags",
-            "existing",
+            "latitude",
+            "longitude",
+            "accuracy",
+            "compass_angle",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -86,24 +53,10 @@ class Image(BaseModel):
             return data
 
         known_json_properties = [
-            "id",
-            "title",
-            "description",
-            "dates",
-            "creator",
-            "location",
-            "url_original",
-            "thumbnail_url",
-            "preview_url",
-            "url",
-            "width",
-            "height",
-            "camera_make",
-            "camera_model",
-            "is_pano",
-            "license",
-            "tags",
-            "existing",
+            "latitude",
+            "longitude",
+            "accuracy",
+            "compass_angle",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

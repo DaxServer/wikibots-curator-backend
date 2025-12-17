@@ -24,8 +24,8 @@ from .FetchBatchUploadsData import FetchBatchUploadsData
 from .FetchBatchUploadsPayload import FetchBatchUploadsPayload
 from .FetchImagesPayload import FetchImagesPayload
 from .GenericError import GenericError
-from .Image import Image
-from .Location import Location
+from .GeoLocation import GeoLocation
+from .MediaImage import MediaImage
 from .RetryUploadsData import RetryUploadsData
 from .RetryUploadsPayload import RetryUploadsPayload
 from .SubscribeBatchPayload import SubscribeBatchPayload
