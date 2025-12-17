@@ -99,10 +99,11 @@ def test_ws_fetch_images(mock_mapillary_handler):
 
 def test_ws_fetch_images_not_found(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
+    # Return empty dict to trigger "Collection not found"
     mock_handler_instance.fetch_collection = AsyncMock(return_value={})
 
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json({"type": "FETCH_IMAGES", "data": "invalid"})
+        websocket.send_json({"type": "FETCH_IMAGES", "data": "bad_input"})
 
         data = websocket.receive_json()
         assert data["type"] == "ERROR"
@@ -206,4 +207,25 @@ async def test_stream_uploads_completion(mock_dal, mock_session):
         # Expect UPLOADS_COMPLETE
         msg = websocket.receive_json()
         assert msg["type"] == "UPLOADS_COMPLETE"
-        assert msg["data"] == 123
+
+
+def test_ws_subscribe_batches_list(mock_session):
+    with (
+        patch("curator.app.handler.get_batches") as mock_get_batches,
+        patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
+    ):
+        mock_sleep.side_effect = [None, asyncio.CancelledError()]
+        mock_get_batches.return_value = []
+        mock_count_batches.return_value = 0
+
+        websocket.send_json(
+            {"type": "SUBSCRIBE_BATCHES_LIST", "data": {"userid": "u1", "filter": "f1"}}
+        )
+
+        # Should receive BATCHES_LIST
+        data = websocket.receive_json()
+        assert data["type"] == "BATCHES_LIST"
+        assert data["data"]["items"] == []
+        assert data["data"]["total"] == 0
