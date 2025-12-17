@@ -34,7 +34,7 @@ def handler_instance(mock_user, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_subscribe_batches_list(handler_instance, mock_sender):
+async def test_subscribe_batches_list(handler_instance):
     # Mock stream_batches_list to return a coroutine
     with patch.object(
         handler_instance, "stream_batches_list", new_callable=AsyncMock
@@ -48,7 +48,7 @@ async def test_subscribe_batches_list(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_subscribe_batches_list_with_args(handler_instance, mock_sender):
+async def test_subscribe_batches_list_with_args(handler_instance):
     # Mock stream_batches_list to return a coroutine
     with patch.object(
         handler_instance, "stream_batches_list", new_callable=AsyncMock
@@ -115,15 +115,7 @@ async def test_stream_batches_list_sends_on_change(handler_instance, mock_sender
 
         mock_count_batches.return_value = 1
 
-        try:
-            await handler_instance.stream_batches_list(userid="u1", filter_text="f1")
-        except asyncio.CancelledError:
-            pass
-
-        print(f"Call count: {mock_sender.send_batches_list.call_count}")
-        for call in mock_sender.send_batches_list.call_args_list:
-            print(f"Call args: {call}")
-
+        await handler_instance.stream_batches_list(userid="u1", filter_text="f1")
         assert mock_sender.send_batches_list.call_count == 2
 
         # Verify get_batches was called with correct args
