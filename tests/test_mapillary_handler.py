@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
-from curator.asyncapi import Image
+from curator.asyncapi import MediaImage
 
 
 @pytest.fixture
@@ -51,7 +51,7 @@ async def test_fetch_image_metadata_sequence(mock_fetch_sequence, mock_fetch_sin
 
     result = await handler.fetch_image_metadata(image_id, sequence_id)
 
-    assert isinstance(result, Image)
+    assert isinstance(result, MediaImage)
     assert result.id == "123"
     mock_fetch_sequence.assert_called_once_with(sequence_id)
     mock_fetch_single.assert_not_called()
@@ -67,7 +67,7 @@ async def test_fetch_image_metadata_single(mock_fetch_sequence, mock_fetch_singl
 
     result = await handler.fetch_image_metadata(image_id, input_sequence)
 
-    assert isinstance(result, Image)
+    assert isinstance(result, MediaImage)
     assert result.id == "123"
     mock_fetch_single.assert_called_once_with(image_id)
     mock_fetch_sequence.assert_not_called()

@@ -14,7 +14,8 @@ from curator.asyncapi import (
     Dates,
     FetchBatchesData,
     FetchBatchUploadsData,
-    Image,
+    GeoLocation,
+    MediaImage,
     RetryUploadsData,
     UploadData,
 )
@@ -57,7 +58,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
         # Create real objects
         creator = Creator(id="c1", username="creator1", profile_url="http://profile")
         dates = Dates(taken="2023-01-01", published="2023-01-02")
-        image = Image(
+        image = MediaImage(
             id="img1",
             title="Image 1",
             url_original="http://original",
@@ -72,7 +73,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
             is_pano=False,
             license="CC",
             tags=["tag1"],
-            location=None,
+            location=GeoLocation(latitude=1.0, longitude=2.0, compass_angle=0),
             existing=[],
             creator=creator,
             dates=dates,

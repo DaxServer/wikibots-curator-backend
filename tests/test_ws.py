@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from curator.app.auth import check_login
-from curator.asyncapi import Creator, Dates, Image, Location
+from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
 from curator.main import app
 from curator.protocol import WS_CHANNEL_ADDRESS
 
@@ -59,11 +59,9 @@ def test_ws_fetch_images(mock_mapillary_handler):
     # Create real objects
     creator = Creator(id="c1", username="creator1", profile_url="http://profile")
     dates = Dates(taken="2023-01-01", published="2023-01-02")
-    location = Location(
-        latitude=10.0, longitude=10.0, accuracy=None, compass_angle=None
-    )
+    location = GeoLocation(latitude=10.0, longitude=10.0, compass_angle=0.0)
 
-    image = Image(
+    image = MediaImage(
         id="img1",
         title="Image 1",
         dates=dates,

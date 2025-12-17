@@ -12,12 +12,12 @@ from curator.app.config import (
 )
 from curator.app.ingest.interfaces import Handler
 from curator.app.wcqs import WcqsSession
-from curator.asyncapi import Creator, Dates, ExistingPage, Image, Location
+from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaImage
 
 logger = logging.getLogger(__name__)
 
 
-def from_mapillary(image: Dict[str, Any]) -> Image:
+def from_mapillary(image: Dict[str, Any]) -> MediaImage:
     coords = image.get("geometry").get("coordinates")
     owner = image.get("creator")
     creator = Creator(
@@ -25,14 +25,14 @@ def from_mapillary(image: Dict[str, Any]) -> Image:
         username=owner.get("username"),
         profile_url=f"https://www.mapillary.com/app/user/{owner.get('username')}",
     )
-    loc = Location(
+    loc = GeoLocation(
         latitude=coords[1],
         longitude=coords[0],
         compass_angle=image.get("compass_angle"),
     )
     dt = datetime.fromtimestamp(image.get("captured_at") / 1000.0)
     date = dt.date().isoformat()
-    return Image(
+    return MediaImage(
         id=str(image.get("id")),
         title=f"Photo from Mapillary {date} ({str(image.get('id'))}).jpg",
         dates=Dates(taken=dt.isoformat()),
@@ -102,13 +102,13 @@ async def _fetch_single_image(image_id: str) -> dict:
 class MapillaryHandler(Handler):
     name = "mapillary"
 
-    async def fetch_collection(self, input: str) -> Dict[str, Image]:
+    async def fetch_collection(self, input: str) -> Dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
 
     async def fetch_image_metadata(
         self, image_id: str, collection_id: str | None = None
-    ) -> Image:
+    ) -> MediaImage:
         if collection_id:
             collection = await _fetch_sequence_data(collection_id)
             image = collection.get(image_id)

@@ -8,11 +8,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
 from .Creator import Creator
-from .Image import Image
+from .MediaImage import MediaImage
 
 
 class CollectionImagesData(BaseModel):
-    images: dict[str, Image] = Field()
+    images: dict[str, MediaImage] = Field()
     creator: Creator = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
