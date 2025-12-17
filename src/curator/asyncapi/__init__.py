@@ -30,6 +30,7 @@ from .RetryUploadsData import RetryUploadsData
 from .RetryUploadsPayload import RetryUploadsPayload
 from .SubscribeBatchPayload import SubscribeBatchPayload
 from .SubscribedPayload import SubscribedPayload
+from .UnsubscribeBatchPayload import UnsubscribeBatchPayload
 from .UploadCreatedItem import UploadCreatedItem
 from .UploadCreatedPayload import UploadCreatedPayload
 from .UploadData import UploadData
