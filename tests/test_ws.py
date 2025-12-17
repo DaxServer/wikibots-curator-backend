@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -56,16 +56,11 @@ def mock_session():
 def test_ws_fetch_images(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
 
-    # Create real objects
-    creator = Creator(id="c1", username="creator1", profile_url="http://profile")
-    dates = Dates(taken="2023-01-01", published="2023-01-02")
-    location = GeoLocation(latitude=10.0, longitude=10.0, compass_angle=0.0)
-
     image = MediaImage(
         id="img1",
         title="Image 1",
-        dates=dates,
-        creator=creator,
+        dates=Dates(taken="2023-01-01"),
+        creator=Creator(id="c1", username="creator1", profile_url="http://profile"),
         url_original="http://original",
         thumbnail_url="http://thumb",
         preview_url="http://preview",
@@ -73,7 +68,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
         width=100,
         height=100,
         description="desc",
-        location=location,
+        location=GeoLocation(latitude=10.0, longitude=10.0, compass_angle=0.0),
         camera_make="Canon",
         camera_model="EOS",
         is_pano=False,
@@ -126,33 +121,35 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
 
     mock_create.return_value = [mock_req]
 
-    with patch(
-        "curator.app.handler.encrypt_access_token", return_value="encrypted_token"
+    with (
+        patch(
+            "curator.app.handler.encrypt_access_token", return_value="encrypted_token"
+        ),
+        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
     ):
-        with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-            websocket.send_json(
-                {
-                    "type": "UPLOAD",
-                    "data": {
-                        "items": [
-                            {
-                                "input": "test",
-                                "id": "img1",
-                                "title": "Test Title",
-                                "wikitext": "Test Wikitext",
-                            }
-                        ],
-                        "handler": "mapillary",
-                    },
-                }
-            )
+        websocket.send_json(
+            {
+                "type": "UPLOAD",
+                "data": {
+                    "items": [
+                        {
+                            "input": "test",
+                            "id": "img1",
+                            "title": "Test Title",
+                            "wikitext": "Test Wikitext",
+                        }
+                    ],
+                    "handler": "mapillary",
+                },
+            }
+        )
 
-            data = websocket.receive_json()
-            assert data["type"] == "UPLOAD_CREATED"
-            items = data["data"]
-            assert len(items) == 1
-            assert items[0]["id"] == 1
-            assert items[0]["batch_id"] == 100
+        data = websocket.receive_json()
+        assert data["type"] == "UPLOAD_CREATED"
+        items = data["data"]
+        assert len(items) == 1
+        assert items[0]["id"] == 1
+        assert items[0]["batch_id"] == 100
 
         # Verify worker was called
         mock_worker.enqueue_many.assert_called_once()
@@ -185,26 +182,28 @@ async def test_stream_uploads_completion(mock_dal, mock_session):
     mock_count.return_value = 1
 
     # Mock asyncio.sleep to avoid waiting
-    with patch("asyncio.sleep", new_callable=MagicMock) as mock_sleep:
+    with (
+        patch("asyncio.sleep", new_callable=MagicMock) as mock_sleep,
+        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
+    ):
         mock_sleep.return_value = asyncio.Future()
         mock_sleep.return_value.set_result(None)
 
-        with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-            # Send subscribe
-            websocket.send_json({"type": "SUBSCRIBE_BATCH", "data": 123})
+        # Send subscribe
+        websocket.send_json({"type": "SUBSCRIBE_BATCH", "data": 123})
 
-            # Expect SUBSCRIBED
-            msg = websocket.receive_json()
-            assert msg["type"] == "SUBSCRIBED"
-            assert msg["data"] == 123
+        # Expect SUBSCRIBED
+        msg = websocket.receive_json()
+        assert msg["type"] == "SUBSCRIBED"
+        assert msg["data"] == 123
 
-            # Expect UPLOADS_UPDATE
-            msg = websocket.receive_json()
-            assert msg["type"] == "UPLOADS_UPDATE"
-            assert len(msg["data"]) == 1
-            assert msg["data"][0]["status"] == "completed"
+        # Expect UPLOADS_UPDATE
+        msg = websocket.receive_json()
+        assert msg["type"] == "UPLOADS_UPDATE"
+        assert len(msg["data"]) == 1
+        assert msg["data"][0]["status"] == "completed"
 
-            # Expect UPLOADS_COMPLETE
-            msg = websocket.receive_json()
-            assert msg["type"] == "UPLOADS_COMPLETE"
-            assert msg["data"] == 123
+        # Expect UPLOADS_COMPLETE
+        msg = websocket.receive_json()
+        assert msg["type"] == "UPLOADS_COMPLETE"
+        assert msg["data"] == 123

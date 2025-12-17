@@ -55,9 +55,6 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
     with patch("curator.app.handler.MapillaryHandler") as MockHandler:
         handler = MockHandler.return_value
 
-        # Create real objects
-        creator = Creator(id="c1", username="creator1", profile_url="http://profile")
-        dates = Dates(taken="2023-01-01", published="2023-01-02")
         image = MediaImage(
             id="img1",
             title="Image 1",
@@ -75,8 +72,8 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender):
             tags=["tag1"],
             location=GeoLocation(latitude=1.0, longitude=2.0, compass_angle=0),
             existing=[],
-            creator=creator,
-            dates=dates,
+            creator=Creator(id="c1", username="creator1", profile_url="http://profile"),
+            dates=Dates(taken="2023-01-01"),
         )
 
         handler.fetch_collection = AsyncMock(return_value={"img1": image})
@@ -110,7 +107,6 @@ async def test_handle_upload(handler_instance, mock_sender):
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
-
         session = MockSession.return_value.__enter__.return_value
 
         mock_req = MagicMock()
@@ -147,9 +143,7 @@ async def test_handle_subscribe_batch(handler_instance, mock_sender):
     # Mock stream_uploads to return a coroutine
     mock_stream = AsyncMock()
 
-    with patch.object(
-        handler_instance, "stream_uploads", side_effect=mock_stream
-    ) as mock_method:
+    with patch.object(handler_instance, "stream_uploads", side_effect=mock_stream):
         await handler_instance.subscribe_batch(123)
 
         mock_sender.send_subscribed.assert_called_once_with(123)
