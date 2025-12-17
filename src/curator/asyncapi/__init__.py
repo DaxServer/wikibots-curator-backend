@@ -28,8 +28,11 @@ from .GeoLocation import GeoLocation
 from .MediaImage import MediaImage
 from .RetryUploadsData import RetryUploadsData
 from .RetryUploadsPayload import RetryUploadsPayload
+from .SubscribeBatchesListData import SubscribeBatchesListData
+from .SubscribeBatchesListPayload import SubscribeBatchesListPayload
 from .SubscribeBatchPayload import SubscribeBatchPayload
 from .SubscribedPayload import SubscribedPayload
+from .UnsubscribeBatchesListPayload import UnsubscribeBatchesListPayload
 from .UnsubscribeBatchPayload import UnsubscribeBatchPayload
 from .UploadCreatedItem import UploadCreatedItem
 from .UploadCreatedPayload import UploadCreatedPayload

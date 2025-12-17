@@ -25,6 +25,7 @@ from curator.asyncapi import (
     FetchBatchesData,
     FetchBatchUploadsData,
     RetryUploadsData,
+    SubscribeBatchesListData,
     UploadCreatedItem,
     UploadData,
     UploadUpdateItem,
@@ -44,10 +45,13 @@ class Handler:
             request_obj  # Can be WebSocket or Request, needed for WcqsSession
         )
         self.uploads_task: Optional[asyncio.Task] = None
+        self.batches_list_task: Optional[asyncio.Task] = None
 
     def cancel_tasks(self):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
+        if self.batches_list_task and not self.batches_list_task.done():
+            self.batches_list_task.cancel()
 
     async def fetch_images(self, collection: str):
         handler = MapillaryHandler()
@@ -273,3 +277,61 @@ class Handler:
             return
         except Exception as e:
             logger.error(f"Error in stream_uploads: {e}")
+
+    async def subscribe_batches_list(self, data: SubscribeBatchesListData):
+        if self.batches_list_task and not self.batches_list_task.done():
+            self.batches_list_task.cancel()
+
+        self.batches_list_task = asyncio.create_task(
+            self.stream_batches_list(data.userid, data.filter)
+        )
+
+        logger.info(
+            f"[ws] [resp] Subscribed to batches list for {self.user.get('username')}"
+        )
+
+    async def unsubscribe_batches_list(self):
+        if self.batches_list_task and not self.batches_list_task.done():
+            self.batches_list_task.cancel()
+
+        logger.info(
+            f"[ws] [resp] Unsubscribed from batches list for {self.user.get('username')}"
+        )
+
+    async def stream_batches_list(
+        self, userid: Optional[str] = None, filter_text: Optional[str] = None
+    ):
+        last_batch_items = None
+        try:
+            while True:
+                # We want to check for updates every 5 seconds or so
+                await asyncio.sleep(5)
+
+                # Default pagination parameters (page 1)
+                page = 1
+                limit = 100
+                offset = (page - 1) * limit
+
+                with Session(engine) as session:
+                    batch_items = get_batches(
+                        session, userid, offset, limit, filter_text
+                    )
+                    total = count_batches(session, userid, filter_text)
+
+                    current_data = BatchesListData(items=batch_items, total=total)
+
+                    if (
+                        last_batch_items is None
+                        or current_data.model_dump() != last_batch_items.model_dump()
+                    ):
+                        logger.info(
+                            f"[ws] [resp] Sending batches list update for {self.user.get('username')}"
+                        )
+                        await self.socket.send_batches_list(current_data)
+
+                    last_batch_items = current_data
+
+        except (asyncio.CancelledError, WebSocketDisconnect):
+            return
+        except Exception as e:
+            logger.error(f"Error in stream_batches_list: {e}")
