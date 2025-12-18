@@ -1,4 +1,4 @@
-name: Black Formatter Check
+name: Ruff Check
 
 on:
   pull_request:
@@ -25,5 +25,5 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --with dev
 
-      - name: Run Black
-        run: poetry run black --check .
+      - name: Run Ruff check
+        run: poetry run ruff check --exclude src/curator/asyncapi src
