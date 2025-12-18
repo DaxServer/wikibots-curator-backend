@@ -61,7 +61,7 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 continue
 
             if isinstance(message, UnsubscribeBatchPayload):
-                await handler.unsubscribe_batch(message.data)
+                await handler.unsubscribe_batch()
                 continue
 
             if isinstance(message, SubscribeBatchesListPayload):
