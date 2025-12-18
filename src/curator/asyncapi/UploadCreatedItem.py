@@ -13,7 +13,7 @@ class UploadCreatedItem(BaseModel):
     status: str = Field()
     image_id: str = Field()
     input: str = Field()
-    batch_id: int = Field()
+    batchid: int = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -42,7 +42,7 @@ class UploadCreatedItem(BaseModel):
             "status",
             "image_id",
             "input",
-            "batch_id",
+            "batchid",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -59,7 +59,7 @@ class UploadCreatedItem(BaseModel):
             "status",
             "image_id",
             "input",
-            "batch_id",
+            "batchid",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

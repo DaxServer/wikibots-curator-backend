@@ -150,7 +150,7 @@ def test_ws_upload(mock_dal, mock_worker, mock_session):
         items = data["data"]
         assert len(items) == 1
         assert items[0]["id"] == 1
-        assert items[0]["batch_id"] == 100
+        assert items[0]["batchid"] == 100
 
         # Verify worker was called
         mock_worker.enqueue_many.assert_called_once()

@@ -7,14 +7,14 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .BatchUploadItem import BatchUploadItem
+from .BatchUploadsListData import BatchUploadsListData
 
 
 class BatchUploadsListPayload(BaseModel):
     type: Literal["BATCH_UPLOADS_LIST"] = Field(
         default="BATCH_UPLOADS_LIST", frozen=True
     )
-    data: List[BatchUploadItem] = Field()
+    data: BatchUploadsListData = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")

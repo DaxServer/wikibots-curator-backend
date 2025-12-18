@@ -70,11 +70,11 @@ def test_fetch_batches_payload():
 
 
 def test_fetch_batch_uploads_payload():
-    data = {"type": "FETCH_BATCH_UPLOADS", "data": {"batch_id": 456}}
+    data = {"type": "FETCH_BATCH_UPLOADS", "data": {"batchid": 456}}
     obj = adapter.validate_python(data)
     assert isinstance(obj, FetchBatchUploadsPayload)
     assert obj.type == "FETCH_BATCH_UPLOADS"
-    assert obj.data.batch_id == 456
+    assert obj.data.batchid == 456
 
 
 def test_invalid_payload_type():

@@ -117,22 +117,22 @@ def create_batch(session: Session, userid: str) -> Batch:
 def count_open_uploads_for_batch(
     session: Session,
     userid: str,
-    batch_id: int,
+    batchid: int,
 ) -> int:
     """Count uploads for a batch_id that are not yet completed or errored."""
     logger.info(
-        f"[dal] count_open_uploads_for_batch: userid={userid} batch_id={batch_id}"
+        f"[dal] count_open_uploads_for_batch: userid={userid} batchid={batchid}"
     )
     result = session.exec(
         select(UploadRequest).where(
             UploadRequest.userid == userid,
-            UploadRequest.batchid == batch_id,
+            UploadRequest.batchid == batchid,
             UploadRequest.status.in_(["queued", "in_progress"]),
         )
     )
     count = len(result.all())
     logger.info(
-        f"[dal] count_open_uploads_for_batch: open_count={count} userid={userid} batch_id={batch_id}"
+        f"[dal] count_open_uploads_for_batch: open_count={count} userid={userid} batchid={batchid}"
     )
     return count
 
@@ -272,19 +272,42 @@ def get_batches(
     ]
 
 
-def count_uploads_in_batch(session: Session, batch_id: int) -> int:
+def get_batch(session: Session, batch_id: int) -> Optional[BatchItem]:
+    """Fetch a single batch by ID."""
+    batch = session.exec(
+        select(Batch).options(selectinload(Batch.user)).where(Batch.id == batch_id)
+    ).first()
+
+    if not batch:
+        return None
+
+    stats = get_batches_stats(session, [batch.id])
+
+    return BatchItem(
+        id=batch.id,
+        created_at=batch.created_at.isoformat(),
+        username=batch.user.username,
+        userid=batch.userid,
+        stats=stats.get(
+            batch.id,
+            BatchStats(),
+        ),
+    )
+
+
+def count_uploads_in_batch(session: Session, batchid: int) -> int:
     return session.exec(
-        select(func.count(UploadRequest.id)).where(UploadRequest.batchid == batch_id)
+        select(func.count(UploadRequest.id)).where(UploadRequest.batchid == batchid)
     ).one()
 
 
 def get_upload_request(
     session: Session,
-    batch_id: int,
+    batchid: int,
 ) -> List[BatchUploadItem]:
     query = (
         select(UploadRequest)
-        .where(UploadRequest.batchid == batch_id)
+        .where(UploadRequest.batchid == batchid)
         .order_by(UploadRequest.id.asc())
     )
 
