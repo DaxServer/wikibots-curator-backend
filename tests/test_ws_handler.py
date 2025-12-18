@@ -169,7 +169,6 @@ async def test_stream_uploads(handler_instance, mock_sender):
         patch("curator.app.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-
         session = MockSession.return_value.__enter__.return_value
 
         mock_req = MagicMock()
@@ -243,10 +242,19 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
 async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.get_batch") as mock_get_batch,
         patch("curator.app.handler.get_upload_request") as mock_get_uploads,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count_uploads,
     ):
         session = MockSession.return_value.__enter__.return_value
+
+        batch = BatchItem(
+            id=1,
+            created_at="2024-01-01T00:00:00",
+            username="testuser",
+            userid="user123",
+            stats=BatchStats(),
+        )
 
         upload = BatchUploadItem(
             id=1,
@@ -261,16 +269,18 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
             handler="mapillary",
         )
 
+        mock_get_batch.return_value = batch
         mock_get_uploads.return_value = [upload]
         mock_count_uploads.return_value = 1
 
-        await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batch_id=1))
+        await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batchid=1))
 
         mock_sender.send_batch_uploads_list.assert_called_once()
         call_args = mock_sender.send_batch_uploads_list.call_args[0][0]
-        # call_args is List[BatchUploadItem]
-        assert len(call_args) == 1
-        assert call_args[0].id == 1
+        # call_args is BatchUploadsListData
+        assert call_args.batch.id == 1
+        assert len(call_args.uploads) == 1
+        assert call_args.uploads[0].id == 1
 
 
 @pytest.mark.asyncio
@@ -376,7 +386,7 @@ async def test_retry_uploads_success(handler_instance, mock_sender):
     ):
         mock_reset.return_value = [1, 2]
 
-        data = RetryUploadsData(batch_id=123)
+        data = RetryUploadsData(batchid=123)
         await handler_instance.retry_uploads(data)
 
         mock_reset.assert_called_once()
@@ -392,7 +402,7 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     ):
         mock_reset.return_value = []
 
-        data = RetryUploadsData(batch_id=123)
+        data = RetryUploadsData(batchid=123)
         await handler_instance.retry_uploads(data)
 
         mock_reset.assert_called_once()
@@ -409,7 +419,7 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
-        data = RetryUploadsData(batch_id=123)
+        data = RetryUploadsData(batchid=123)
         await handler_instance.retry_uploads(data)
 
         mock_reset.assert_called_once()
@@ -425,7 +435,7 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
-        data = RetryUploadsData(batch_id=123)
+        data = RetryUploadsData(batchid=123)
         await handler_instance.retry_uploads(data)
 
         mock_reset.assert_called_once()

@@ -9,6 +9,7 @@ from .BatchesListPayload import BatchesListPayload
 from .BatchItem import BatchItem
 from .BatchStats import BatchStats
 from .BatchUploadItem import BatchUploadItem
+from .BatchUploadsListData import BatchUploadsListData
 from .BatchUploadsListPayload import BatchUploadsListPayload
 from .CollectionImagesData import CollectionImagesData
 from .CollectionImagesPayload import CollectionImagesPayload

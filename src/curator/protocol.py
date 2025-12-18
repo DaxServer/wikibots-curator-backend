@@ -6,7 +6,7 @@ from pydantic import Field, TypeAdapter
 from curator.asyncapi import (
     BatchesListData,
     BatchesListPayload,
-    BatchUploadItem,
+    BatchUploadsListData,
     BatchUploadsListPayload,
     CollectionImagesData,
     CollectionImagesPayload,
@@ -85,7 +85,7 @@ class AsyncAPIWebSocket(WebSocket):
     async def send_batches_list(self, data: BatchesListData) -> None:
         await self.send_json(BatchesListPayload(data=data))
 
-    async def send_batch_uploads_list(self, data: List[BatchUploadItem]) -> None:
+    async def send_batch_uploads_list(self, data: BatchUploadsListData) -> None:
         await self.send_json(BatchUploadsListPayload(data=data))
 
     async def send_subscribed(self, data: int) -> None:

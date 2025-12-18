@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class RetryUploadsData(BaseModel):
-    batch_id: int = Field(description="""Batch identifier""")
+    batchid: int = Field(description="""Batch identifier""")
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -33,7 +33,7 @@ class RetryUploadsData(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["batch_id", "additional_properties"]
+        known_object_properties = ["batchid", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -43,7 +43,7 @@ class RetryUploadsData(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["batch_id", "additionalProperties"]
+        known_json_properties = ["batchid", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

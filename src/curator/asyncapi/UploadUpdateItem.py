@@ -13,6 +13,7 @@ from .GenericError import GenericError
 
 class UploadUpdateItem(BaseModel):
     id: int = Field()
+    batchid: int = Field()
     status: str = Field()
     key: str = Field()
     error: Optional[Union[DuplicateError, GenericError]] = Field(default=None)
@@ -43,6 +44,7 @@ class UploadUpdateItem(BaseModel):
         json_properties = list(data.keys())
         known_object_properties = [
             "id",
+            "batchid",
             "status",
             "key",
             "error",
@@ -61,6 +63,7 @@ class UploadUpdateItem(BaseModel):
 
         known_json_properties = [
             "id",
+            "batchid",
             "status",
             "key",
             "error",

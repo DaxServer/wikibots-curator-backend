@@ -81,7 +81,7 @@ async def process_one(upload_id: int) -> bool:
         access_token = decrypt_access_token(item.access_token)
         username = item.user.username
 
-        edit_summary = f"Uploaded via Curator from Mapillary image {image.id}"
+        edit_summary = f"Uploaded via Curator from Mapillary image {image.id} (batch {item.batchid})"
         upload_result = upload_file_chunked(
             file_name=item.filename,
             file_url=image_url,

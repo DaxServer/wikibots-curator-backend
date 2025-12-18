@@ -13,6 +13,7 @@ from curator.app.dal import (
     count_batches,
     count_uploads_in_batch,
     create_upload_request,
+    get_batch,
     get_batches,
     get_upload_request,
     reset_failed_uploads,
@@ -21,6 +22,7 @@ from curator.app.db import engine
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
 from curator.asyncapi import (
     BatchesListData,
+    BatchUploadsListData,
     CollectionImagesData,
     FetchBatchesData,
     FetchBatchUploadsData,
@@ -140,7 +142,7 @@ class Handler:
                     status=u["status"],
                     image_id=u["key"],
                     input=u["input"],
-                    batch_id=u["batchid"],
+                    batchid=u["batchid"],
                 )
                 for u in prepared_uploads
             ]
@@ -165,21 +167,28 @@ class Handler:
         )
 
     async def fetch_batch_uploads(self, data: FetchBatchUploadsData):
-        batch_id = data.batch_id
+        batchid = data.batchid
 
         with Session(engine) as session:
+            batch = get_batch(session, batchid)
+            if not batch:
+                await self.socket.send_error(f"Batch {batchid} not found")
+                return
+
             serialized_uploads = get_upload_request(
                 session,
-                batch_id,
+                batchid,
             )
 
         logger.info(
-            f"[ws] [resp] Sending {len(serialized_uploads)} uploads for batch {batch_id} for {self.user.get('username')}"
+            f"[ws] [resp] Sending batch {batchid} and {len(serialized_uploads)} uploads for {self.user.get('username')}"
         )
-        await self.socket.send_batch_uploads_list(serialized_uploads)
+        await self.socket.send_batch_uploads_list(
+            BatchUploadsListData(batch=batch, uploads=serialized_uploads)
+        )
 
     async def retry_uploads(self, data: RetryUploadsData):
-        batch_id = data.batch_id
+        batchid = data.batchid
         username = self.user["username"]
         userid = self.user["userid"]
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
@@ -187,10 +196,10 @@ class Handler:
         try:
             with Session(engine) as session:
                 retried_ids = reset_failed_uploads(
-                    session, batch_id, userid, encrypted_access_token
+                    session, batchid, userid, encrypted_access_token
                 )
         except ValueError:
-            await self.socket.send_error(f"Batch {batch_id} not found")
+            await self.socket.send_error(f"Batch {batchid} not found")
             return
         except PermissionError:
             await self.socket.send_error("Permission denied")
@@ -198,7 +207,7 @@ class Handler:
 
         if not retried_ids:
             logger.info(
-                f"[ws] [resp] No failed uploads to retry for batch {batch_id} for {username}"
+                f"[ws] [resp] No failed uploads to retry for batch {batchid} for {username}"
             )
             await self.socket.send_error("No failed uploads to retry")
             return
@@ -208,29 +217,29 @@ class Handler:
         )
 
         logger.info(
-            f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batch_id} for {username}"
+            f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {username}"
         )
 
-    async def subscribe_batch(self, batch_id: int):
+    async def subscribe_batch(self, batchid: int):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
 
-        self.uploads_task = asyncio.create_task(self.stream_uploads(batch_id))
+        self.uploads_task = asyncio.create_task(self.stream_uploads(batchid))
 
         logger.info(
-            f"[ws] [resp] Subscribed to batch {batch_id} for {self.user.get('username')}"
+            f"[ws] [resp] Subscribed to batch {batchid} for {self.user.get('username')}"
         )
-        await self.socket.send_subscribed(batch_id)
+        await self.socket.send_subscribed(batchid)
 
-    async def unsubscribe_batch(self, batch_id: int):
+    async def unsubscribe_batch(self, batchid: int):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
 
         logger.info(
-            f"[ws] [resp] Unsubscribed from batch {batch_id} for {self.user.get('username')}"
+            f"[ws] [resp] Unsubscribed from batch {batchid} for {self.user.get('username')}"
         )
 
-    async def stream_uploads(self, batch_id: int):
+    async def stream_uploads(self, batchid: int):
         last_update_items = None
         try:
             while True:
@@ -238,12 +247,13 @@ class Handler:
                 with Session(engine) as session:
                     items = get_upload_request(
                         session,
-                        batch_id=batch_id,
+                        batchid=batchid,
                     )
 
                     update_items = [
                         UploadUpdateItem(
                             id=item.id,
+                            batchid=batchid,
                             status=item.status,
                             key=item.key,
                             handler=item.handler,
@@ -255,12 +265,12 @@ class Handler:
 
                     if update_items != last_update_items:
                         logger.info(
-                            f"[ws] [resp] Sending batch {batch_id} update for {self.user.get('username')}"
+                            f"[ws] [resp] Sending batch {batchid} update for {self.user.get('username')}"
                         )
                         await self.socket.send_uploads_update(update_items)
                         last_update_items = update_items
 
-                    total = count_uploads_in_batch(session, batch_id=batch_id)
+                    total = count_uploads_in_batch(session, batchid=batchid)
                     completed = sum(
                         1
                         for r in items
@@ -268,9 +278,9 @@ class Handler:
                     )
                     if completed >= total:
                         logger.info(
-                            f"[ws] [resp] Batch {batch_id} completed for {self.user.get('username')}"
+                            f"[ws] [resp] Batch {batchid} completed for {self.user.get('username')}"
                         )
-                        await self.socket.send_uploads_complete(batch_id)
+                        await self.socket.send_uploads_complete(batchid)
                         break
         except (asyncio.CancelledError, WebSocketDisconnect):
             # Task cancelled or client disconnected, just exit
