@@ -119,7 +119,7 @@ def count_open_uploads_for_batch(
     userid: str,
     batchid: int,
 ) -> int:
-    """Count uploads for a batch_id that are not yet completed or errored."""
+    """Count uploads for a batchid that are not yet completed or errored."""
     logger.info(
         f"[dal] count_open_uploads_for_batch: userid={userid} batchid={batchid}"
     )
@@ -272,10 +272,10 @@ def get_batches(
     ]
 
 
-def get_batch(session: Session, batch_id: int) -> Optional[BatchItem]:
+def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
     """Fetch a single batch by ID."""
     batch = session.exec(
-        select(Batch).options(selectinload(Batch.user)).where(Batch.id == batch_id)
+        select(Batch).options(selectinload(Batch.user)).where(Batch.id == batchid)
     ).first()
 
     if not batch:
@@ -397,14 +397,14 @@ def clear_upload_access_token(session: Session, upload_id: int) -> None:
 
 
 def reset_failed_uploads(
-    session: Session, batch_id: int, userid: str, encrypted_access_token: str
+    session: Session, batchid: int, userid: str, encrypted_access_token: str
 ) -> List[int]:
     """
     Reset status of failed uploads in a batch to 'queued'.
     Only if the batch belongs to the userid.
     Updates the access token for the retry.
     """
-    batch = session.get(Batch, batch_id)
+    batch = session.get(Batch, batchid)
     if not batch:
         raise ValueError("Batch not found")
 
@@ -412,7 +412,7 @@ def reset_failed_uploads(
         raise PermissionError("Permission denied")
 
     statement = select(UploadRequest).where(
-        UploadRequest.batchid == batch_id, UploadRequest.status == "failed"
+        UploadRequest.batchid == batchid, UploadRequest.status == "failed"
     )
     failed_uploads = session.exec(statement).all()
 
