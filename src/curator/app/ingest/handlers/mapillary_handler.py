@@ -62,7 +62,7 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"https://graph.mapillary.com/images",
+            "https://graph.mapillary.com/images",
             params={
                 "access_token": MAPILLARY_API_TOKEN,
                 "sequence_ids": sequence_id,
@@ -135,7 +135,7 @@ class MapillaryHandler(Handler):
         """
         query = f"""
             SELECT ?file ?id WHERE {{
-              VALUES ?id {{ { " ".join([f'"{i}"' for i in image_ids]) } }}
+              VALUES ?id {{ {" ".join([f'"{i}"' for i in image_ids])} }}
               ?file wdt:{WikidataProperty.MapillaryPhotoID} ?id.
             }}
             """
