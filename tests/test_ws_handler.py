@@ -155,7 +155,7 @@ async def test_handle_unsubscribe_batch(handler_instance):
     # Create a dummy task
     handler_instance.uploads_task = asyncio.create_task(asyncio.sleep(1))
 
-    await handler_instance.unsubscribe_batch(123)
+    await handler_instance.unsubscribe_batch()
 
     await asyncio.sleep(0)
     assert handler_instance.uploads_task.cancelled()
