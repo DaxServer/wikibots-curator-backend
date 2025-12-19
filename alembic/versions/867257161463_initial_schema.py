@@ -11,7 +11,6 @@ from typing import Sequence, Union
 from sqlmodel import SQLModel
 
 from alembic import op
-from curator.app.db import engine
 
 # revision identifiers, used by Alembic.
 revision: str = "867257161463"
