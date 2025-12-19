@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
@@ -24,7 +24,7 @@ class BatchUploadsListPayload(BaseModel):
         if additional_properties is not None:
             for key, value in additional_properties.items():
                 # Never overwrite existing values, to avoid clashes
-                if not key in serialized_self:
+                if key not in serialized_self:
                     serialized_self[key] = value
 
         return serialized_self

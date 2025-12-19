@@ -103,12 +103,10 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_handle_upload(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
-        session = MockSession.return_value.__enter__.return_value
-
         mock_req = MagicMock()
         mock_req.id = 1
         mock_req.status = "pending"
@@ -164,13 +162,11 @@ async def test_handle_unsubscribe_batch(handler_instance):
 @pytest.mark.asyncio
 async def test_stream_uploads(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.get_upload_request") as mock_get,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        session = MockSession.return_value.__enter__.return_value
-
         mock_req = MagicMock()
         mock_req.id = 1
         mock_req.status = "completed"
@@ -241,13 +237,11 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.get_batch") as mock_get_batch,
         patch("curator.app.handler.get_upload_request") as mock_get_uploads,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count_uploads,
     ):
-        session = MockSession.return_value.__enter__.return_value
-
         batch = BatchItem(
             id=1,
             created_at="2024-01-01T00:00:00",
@@ -311,13 +305,11 @@ async def test_handle_fetch_images_api_error(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.get_upload_request") as mock_get,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        session = MockSession.return_value.__enter__.return_value
-
         # Define items for different states
         # 1. Initial state
         item_v1 = MagicMock()
@@ -380,7 +372,7 @@ async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender
 @pytest.mark.asyncio
 async def test_retry_uploads_success(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
         patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
@@ -396,7 +388,7 @@ async def test_retry_uploads_success(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
         patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
@@ -413,9 +405,9 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.ingest_queue") as mock_worker,
+        patch("curator.app.handler.ingest_queue"),
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
@@ -429,9 +421,9 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_retry_uploads_not_found(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.Session") as MockSession,
+        patch("curator.app.handler.Session"),
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.ingest_queue") as mock_worker,
+        patch("curator.app.handler.ingest_queue"),
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
