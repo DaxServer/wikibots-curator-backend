@@ -72,7 +72,7 @@ class UploadRequest(SQLModel, table=True):
     )
     filename: str = Field(index=True, max_length=255)
     wikitext: Optional[str] = Field(default=None, sa_column=Column(Text))
-    sdc: Optional[str] = Field(default=None, sa_column=Column(Text))
+    sdc: Optional[list[dict]] = Field(default=None, sa_column=Column(JSON))
     labels: Optional[dict[str, str]] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
     error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))

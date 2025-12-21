@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class GenericError(BaseModel):
-    type: Literal["error"] = Field(default="error", frozen=True)
     message: str = Field()
+    type: Literal["error"] = Field(default="error", frozen=True)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -34,7 +34,7 @@ class GenericError(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "message", "additional_properties"]
+        known_object_properties = ["message", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -44,7 +44,7 @@ class GenericError(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "message", "additionalProperties"]
+        known_json_properties = ["message", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

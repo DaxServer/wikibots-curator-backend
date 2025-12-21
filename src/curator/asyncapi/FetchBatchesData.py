@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class FetchBatchesData(BaseModel):
-    page: Optional[int] = Field(default=1)
-    limit: Optional[int] = Field(default=100)
+    page: int = Field(default=1)
+    limit: int = Field(default=100)
     userid: Optional[str] = Field(
         description="""Optional user id to filter batches""", default=None
     )

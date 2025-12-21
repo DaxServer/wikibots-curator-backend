@@ -2,13 +2,13 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from curator.asyncapi import (
-    FetchBatchesPayload,
-    FetchBatchUploadsPayload,
-    FetchImagesPayload,
-    SubscribeBatchPayload,
+    FetchBatches,
+    FetchBatchUploads,
+    FetchImages,
+    SubscribeBatch,
+    Upload,
     UploadData,
     UploadItem,
-    UploadPayload,
 )
 from curator.protocol import ClientMessage
 
@@ -18,7 +18,7 @@ adapter = TypeAdapter(ClientMessage)
 def test_fetch_images_payload():
     data = {"type": "FETCH_IMAGES", "data": "Q42"}
     obj = adapter.validate_python(data)
-    assert isinstance(obj, FetchImagesPayload)
+    assert isinstance(obj, FetchImages)
     assert obj.type == "FETCH_IMAGES"
     assert obj.data == "Q42"
 
@@ -39,7 +39,7 @@ def test_upload_payload():
         },
     }
     obj = adapter.validate_python(data)
-    assert isinstance(obj, UploadPayload)
+    assert isinstance(obj, Upload)
     assert obj.type == "UPLOAD"
     assert isinstance(obj.data, UploadData)
     assert len(obj.data.items) == 1
@@ -51,7 +51,7 @@ def test_upload_payload():
 def test_subscribe_batch_payload():
     data = {"type": "SUBSCRIBE_BATCH", "data": 123}
     obj = adapter.validate_python(data)
-    assert isinstance(obj, SubscribeBatchPayload)
+    assert isinstance(obj, SubscribeBatch)
     assert obj.type == "SUBSCRIBE_BATCH"
     assert obj.data == 123
 
@@ -62,7 +62,7 @@ def test_fetch_batches_payload():
         "data": {"page": 1, "limit": 10, "userid": "user123"},
     }
     obj = adapter.validate_python(data)
-    assert isinstance(obj, FetchBatchesPayload)
+    assert isinstance(obj, FetchBatches)
     assert obj.type == "FETCH_BATCHES"
     assert obj.data.page == 1
     assert obj.data.limit == 10
@@ -70,11 +70,11 @@ def test_fetch_batches_payload():
 
 
 def test_fetch_batch_uploads_payload():
-    data = {"type": "FETCH_BATCH_UPLOADS", "data": {"batchid": 456}}
+    data = {"type": "FETCH_BATCH_UPLOADS", "data": 456}
     obj = adapter.validate_python(data)
-    assert isinstance(obj, FetchBatchUploadsPayload)
+    assert isinstance(obj, FetchBatchUploads)
     assert obj.type == "FETCH_BATCH_UPLOADS"
-    assert obj.data.batchid == 456
+    assert obj.data == 456
 
 
 def test_invalid_payload_type():
@@ -86,7 +86,7 @@ def test_invalid_payload_type():
 def test_fetch_batches_default_values():
     data = {"type": "FETCH_BATCHES", "data": {}}
     obj = adapter.validate_python(data)
-    assert isinstance(obj, FetchBatchesPayload)
+    assert isinstance(obj, FetchBatches)
     assert obj.data.page == 1
     assert obj.data.limit == 100
     assert obj.data.userid is None

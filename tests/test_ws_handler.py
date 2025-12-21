@@ -13,10 +13,10 @@ from curator.asyncapi import (
     Creator,
     Dates,
     FetchBatchesData,
-    FetchBatchUploadsData,
+    FetchBatchUploads,
     GeoLocation,
     MediaImage,
-    RetryUploadsData,
+    RetryUploads,
     UploadData,
 )
 from curator.protocol import AsyncAPIWebSocket
@@ -119,7 +119,7 @@ async def test_handle_upload(handler_instance, mock_sender):
             items=[
                 UploadItem(
                     input="test",
-                    id="img1",
+                    id="1",
                     title="Test Title",
                     wikitext="Test Wikitext",
                 )
@@ -267,7 +267,7 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         mock_get_uploads.return_value = [upload]
         mock_count_uploads.return_value = 1
 
-        await handler_instance.fetch_batch_uploads(FetchBatchUploadsData(batchid=1))
+        await handler_instance.fetch_batch_uploads(FetchBatchUploads(data=1))
 
         mock_sender.send_batch_uploads_list.assert_called_once()
         call_args = mock_sender.send_batch_uploads_list.call_args[0][0]
@@ -378,8 +378,8 @@ async def test_retry_uploads_success(handler_instance, mock_sender):
     ):
         mock_reset.return_value = [1, 2]
 
-        data = RetryUploadsData(batchid=123)
-        await handler_instance.retry_uploads(data)
+        data = RetryUploads(data=123)
+        await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
         mock_worker.enqueue_many.assert_called_once()
@@ -394,8 +394,8 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     ):
         mock_reset.return_value = []
 
-        data = RetryUploadsData(batchid=123)
-        await handler_instance.retry_uploads(data)
+        data = RetryUploads(data=123)
+        await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
         mock_worker.enqueue_many.assert_not_called()
@@ -411,8 +411,8 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
-        data = RetryUploadsData(batchid=123)
-        await handler_instance.retry_uploads(data)
+        data = RetryUploads(data=123)
+        await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
         mock_sender.send_error.assert_called_once_with("Permission denied")
@@ -427,8 +427,8 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
-        data = RetryUploadsData(batchid=123)
-        await handler_instance.retry_uploads(data)
+        data = RetryUploads(data=123)
+        await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
         mock_sender.send_error.assert_called_once_with("Batch 123 not found")

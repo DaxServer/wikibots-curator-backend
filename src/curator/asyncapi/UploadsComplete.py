@@ -7,12 +7,10 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .RetryUploadsData import RetryUploadsData
 
-
-class RetryUploadsPayload(BaseModel):
-    type: Literal["RETRY_UPLOADS"] = Field(default="RETRY_UPLOADS", frozen=True)
-    data: RetryUploadsData = Field()
+class UploadsComplete(BaseModel):
+    data: int = Field(description="""Completed batch identifier""")
+    type: Literal["UPLOADS_COMPLETE"] = Field(default="UPLOADS_COMPLETE", frozen=True)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -36,7 +34,7 @@ class RetryUploadsPayload(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "data", "additional_properties"]
+        known_object_properties = ["data", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -46,7 +44,7 @@ class RetryUploadsPayload(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "data", "additionalProperties"]
+        known_json_properties = ["data", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

@@ -8,9 +8,9 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
-class SubscribedPayload(BaseModel):
-    type: Literal["SUBSCRIBED"] = Field(default="SUBSCRIBED", frozen=True)
+class Subscribed(BaseModel):
     data: int = Field(description="""Subscribed batch identifier""")
+    type: Literal["SUBSCRIBED"] = Field(default="SUBSCRIBED", frozen=True)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -34,7 +34,7 @@ class SubscribedPayload(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "data", "additional_properties"]
+        known_object_properties = ["data", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -44,7 +44,7 @@ class SubscribedPayload(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "data", "additionalProperties"]
+        known_json_properties = ["data", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

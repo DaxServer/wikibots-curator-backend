@@ -11,9 +11,9 @@ from .ErrorLink import ErrorLink
 
 
 class DuplicateError(BaseModel):
-    type: Literal["duplicate"] = Field(default="duplicate", frozen=True)
-    message: str = Field()
     links: List[ErrorLink] = Field()
+    message: str = Field()
+    type: Literal["duplicate"] = Field(default="duplicate", frozen=True)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -37,7 +37,7 @@ class DuplicateError(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "message", "links", "additional_properties"]
+        known_object_properties = ["links", "message", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -47,7 +47,7 @@ class DuplicateError(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "message", "links", "additionalProperties"]
+        known_json_properties = ["links", "message", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 from .CollectionImagesData import CollectionImagesData
 
 
-class CollectionImagesPayload(BaseModel):
+class CollectionImages(BaseModel):
     type: Literal["COLLECTION_IMAGES"] = Field(default="COLLECTION_IMAGES", frozen=True)
     data: CollectionImagesData = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)

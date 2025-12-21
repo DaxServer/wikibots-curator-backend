@@ -3,16 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .UploadData import UploadData
+from .UploadUpdateItem import UploadUpdateItem
 
 
-class UploadPayload(BaseModel):
-    type: Literal["UPLOAD"] = Field(default="UPLOAD", frozen=True)
-    data: UploadData = Field()
+class UploadsUpdate(BaseModel):
+    type: Literal["UPLOADS_UPDATE"] = Field(default="UPLOADS_UPDATE", frozen=True)
+    data: List[UploadUpdateItem] = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")

@@ -9,12 +9,12 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class BatchStats(BaseModel):
-    total: int = Field(default=0)
-    queued: int = Field(default=0)
-    in_progress: int = Field(default=0)
     completed: int = Field(default=0)
-    failed: int = Field(default=0)
     duplicate: int = Field(default=0)
+    failed: int = Field(default=0)
+    in_progress: int = Field(default=0)
+    queued: int = Field(default=0)
+    total: int = Field(default=0)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -39,12 +39,12 @@ class BatchStats(BaseModel):
                 return data
         json_properties = list(data.keys())
         known_object_properties = [
-            "total",
-            "queued",
-            "in_progress",
             "completed",
-            "failed",
             "duplicate",
+            "failed",
+            "in_progress",
+            "queued",
+            "total",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -57,12 +57,12 @@ class BatchStats(BaseModel):
             return data
 
         known_json_properties = [
-            "total",
-            "queued",
-            "in_progress",
             "completed",
-            "failed",
             "duplicate",
+            "failed",
+            "in_progress",
+            "queued",
+            "total",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

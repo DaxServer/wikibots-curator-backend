@@ -14,24 +14,24 @@ from .GeoLocation import GeoLocation
 
 
 class MediaImage(BaseModel):
-    id: str = Field()
-    title: str = Field()
-    description: Optional[str] = Field(default=None)
-    dates: Dates = Field()
-    creator: Creator = Field()
-    location: GeoLocation = Field()
-    url_original: str = Field()
-    thumbnail_url: str = Field()
-    preview_url: str = Field()
-    url: str = Field()
-    width: int = Field()
-    height: int = Field()
     camera_make: Optional[str] = Field(default=None)
     camera_model: Optional[str] = Field(default=None)
+    creator: Creator = Field()
+    dates: Dates = Field()
+    description: Optional[str] = Field(default=None)
+    existing: List[ExistingPage] = Field()
+    height: int = Field()
+    id: str = Field()
     is_pano: Optional[bool] = Field(default=None)
     license: Optional[str] = Field(default=None)
+    location: GeoLocation = Field()
+    preview_url: str = Field()
     tags: Optional[List[str]] = Field(default=None)
-    existing: List[ExistingPage] = Field()
+    thumbnail_url: str = Field()
+    title: str = Field()
+    url: str = Field()
+    url_original: str = Field()
+    width: int = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -56,24 +56,24 @@ class MediaImage(BaseModel):
                 return data
         json_properties = list(data.keys())
         known_object_properties = [
-            "id",
-            "title",
-            "description",
-            "dates",
-            "creator",
-            "location",
-            "url_original",
-            "thumbnail_url",
-            "preview_url",
-            "url",
-            "width",
-            "height",
             "camera_make",
             "camera_model",
+            "creator",
+            "dates",
+            "description",
+            "existing",
+            "height",
+            "id",
             "is_pano",
             "license",
+            "location",
+            "preview_url",
             "tags",
-            "existing",
+            "thumbnail_url",
+            "title",
+            "url",
+            "url_original",
+            "width",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -86,24 +86,24 @@ class MediaImage(BaseModel):
             return data
 
         known_json_properties = [
-            "id",
-            "title",
-            "description",
-            "dates",
-            "creator",
-            "location",
-            "url_original",
-            "thumbnail_url",
-            "preview_url",
-            "url",
-            "width",
-            "height",
             "camera_make",
             "camera_model",
+            "creator",
+            "dates",
+            "description",
+            "existing",
+            "height",
+            "id",
             "is_pano",
             "license",
+            "location",
+            "preview_url",
             "tags",
-            "existing",
+            "thumbnail_url",
+            "title",
+            "url",
+            "url_original",
+            "width",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

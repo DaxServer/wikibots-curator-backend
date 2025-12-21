@@ -7,12 +7,11 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .BatchesListData import BatchesListData
 
-
-class BatchesListPayload(BaseModel):
-    type: Literal["BATCHES_LIST"] = Field(default="BATCHES_LIST", frozen=True)
-    data: BatchesListData = Field()
+class UnsubscribeBatchesList(BaseModel):
+    type: Literal["UNSUBSCRIBE_BATCHES_LIST"] = Field(
+        default="UNSUBSCRIBE_BATCHES_LIST", frozen=True
+    )
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -36,7 +35,7 @@ class BatchesListPayload(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "data", "additional_properties"]
+        known_object_properties = ["type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -46,7 +45,7 @@ class BatchesListPayload(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "data", "additionalProperties"]
+        known_json_properties = ["type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):
