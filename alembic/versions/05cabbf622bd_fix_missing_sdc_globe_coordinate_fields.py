@@ -41,6 +41,7 @@ def upgrade() -> None:
     for ur_id in upload_request_ids:
         ur = session.query(UploadRequest).get(ur_id)
         if not ur or not ur.sdc:
+            print(f"Invalid UploadRequest {ur_id} ?")
             continue
 
         sdc = ur.sdc
@@ -61,6 +62,7 @@ def upgrade() -> None:
 
         for statement in new_sdc:
             if not isinstance(statement, dict):
+                print(f"Error: SDC statement for UploadRequest {ur_id} is not a dict")
                 continue
 
             # Ensure 'rank' is present
@@ -75,6 +77,7 @@ def upgrade() -> None:
 
             mainsnak = statement.get("mainsnak")
             if not isinstance(mainsnak, dict):
+                print(f"Error: SDC mainsnak for UploadRequest {ur_id} is not a dict")
                 continue
 
             # Ensure 'snaktype' is present in mainsnak
