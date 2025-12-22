@@ -44,7 +44,7 @@ def upgrade() -> None:
             continue
 
         sdc = ur.sdc
-        
+
         if isinstance(sdc, str):
             try:
                 sdc = json.loads(sdc)
@@ -104,11 +104,13 @@ def upgrade() -> None:
                                 modified = True
 
         if modified:
-            print(f"Updating UploadRequest {ur_id} with modified SDC")
+            print(f"'{ur_id}'", end='', sep='', flush=True)
             ur.sdc = new_sdc
             flag_modified(ur, "sdc")
             session.add(ur)
             session.commit()
+        else:
+            print('.', end='', sep='', flush=True)
 
 
 def downgrade() -> None:
