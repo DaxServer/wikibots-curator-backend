@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -21,7 +20,7 @@ async def test_process_one_runs_async(mocker):
     mock_item.key = "img-1"
     mock_item.filename = "Test.jpg"
     mock_item.wikitext = "== Summary =="
-    mock_item.sdc = json.dumps([{"P180": "Q42"}])
+    mock_item.sdc = [{"P180": "Q42"}]
     mock_item.labels = {"en": "Test"}
     mock_item.collection = "seq-1"
     mock_item.access_token = "cipher"

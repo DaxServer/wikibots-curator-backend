@@ -6,6 +6,6 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class ErrorLink(BaseModel):
-    title: str = Field()
-    url: str = Field()
+class Label(BaseModel):
+    language: str = Field()
+    value: str = Field()

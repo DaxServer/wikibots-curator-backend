@@ -5,7 +5,6 @@ import httpx
 import pytest
 
 from curator.app.handler import Handler
-from curator.app.models import UploadItem
 from curator.asyncapi import (
     BatchItem,
     BatchStats,
@@ -13,11 +12,11 @@ from curator.asyncapi import (
     Creator,
     Dates,
     FetchBatchesData,
-    FetchBatchUploads,
     GeoLocation,
     MediaImage,
     RetryUploads,
     UploadData,
+    UploadItem,
 )
 from curator.protocol import AsyncAPIWebSocket
 

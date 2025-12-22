@@ -1,4 +1,3 @@
-import json
 from typing import Literal
 
 from curator.app.commons import DuplicateUploadError, upload_file_chunked
@@ -62,11 +61,6 @@ async def process_one(upload_id: int) -> bool:
 
         handler = MapillaryHandler()
         image = await handler.fetch_image_metadata(item.key, item.collection)
-        sdc_json = (
-            (json.loads(item.sdc) if isinstance(item.sdc, str) else item.sdc)
-            if item.sdc
-            else None
-        )
         image_url = image.url_original
 
         if not item.access_token:
@@ -93,7 +87,7 @@ async def process_one(upload_id: int) -> bool:
             edit_summary=edit_summary,
             access_token=access_token,
             username=username,
-            sdc=sdc_json,
+            sdc=item.sdc,
             labels=item.labels,
         )
 
