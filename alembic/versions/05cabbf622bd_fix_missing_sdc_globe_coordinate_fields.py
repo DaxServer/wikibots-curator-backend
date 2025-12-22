@@ -39,6 +39,8 @@ def upgrade() -> None:
     print(upload_request_ids)
 
     for ur_id in upload_request_ids:
+        print(f"Processing UploadRequest {ur_id}")
+        
         ur = session.query(UploadRequest).get(ur_id)
         if not ur or not ur.sdc:
             print(f"Invalid UploadRequest {ur_id} ?")
