@@ -29,22 +29,31 @@ def upgrade() -> None:
     bind = op.get_bind()
     session = Session(bind=bind)
 
-    upload_requests = (
-        session.query(UploadRequest).filter(UploadRequest.sdc != sa.null()).all()
-    )
+    # Gather IDs first to avoid keeping a large number of objects in memory
+    # and to allow committing individually.
+    upload_request_ids = [
+        r[0]
+        for r in session.query(UploadRequest.id).filter(UploadRequest.sdc != sa.null()).all()
+    ]
 
-    for ur in upload_requests:
-        sdc = ur.sdc
-        if not sdc:
+    print(upload_request_ids)
+
+    for ur_id in upload_request_ids:
+        ur = session.query(UploadRequest).get(ur_id)
+        if not ur or not ur.sdc:
             continue
 
+        sdc = ur.sdc
+        
         if isinstance(sdc, str):
             try:
                 sdc = json.loads(sdc)
             except json.JSONDecodeError:
+                print(f"Error decoding JSON for UploadRequest {ur_id}")
                 continue
 
         if not isinstance(sdc, list):
+            print(f"Error: SDC for UploadRequest {ur_id} is not a list")
             continue
 
         modified = False
@@ -95,11 +104,11 @@ def upgrade() -> None:
                                 modified = True
 
         if modified:
+            print(f"Updating UploadRequest {ur_id} with modified SDC")
             ur.sdc = new_sdc
             flag_modified(ur, "sdc")
             session.add(ur)
-
-    session.commit()
+            session.commit()
 
 
 def downgrade() -> None:
