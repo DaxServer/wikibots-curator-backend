@@ -1,11 +1,11 @@
 from pydantic import TypeAdapter
 
-from curator.protocol import (
-    ClientMessage,
-    PatchedUpload,
-    PatchedUploadData,
-    PatchedUploadItem,
+from curator.asyncapi import (
+    Upload,
+    UploadData,
+    UploadItem,
 )
+from curator.protocol import ClientMessage
 
 adapter = TypeAdapter(ClientMessage)
 
@@ -41,31 +41,9 @@ def test_upload_with_structured_sdc():
         },
     }
     obj = adapter.validate_python(data)
-    assert isinstance(obj, PatchedUpload)
+    assert isinstance(obj, Upload)
     assert obj.type == "UPLOAD"
-    assert isinstance(obj.data, PatchedUploadData)
+    assert isinstance(obj.data, UploadData)
     assert len(obj.data.items) == 1
-    assert isinstance(obj.data.items[0], PatchedUploadItem)
-    assert obj.data.items[0].sdc == sdc_data
-
-
-def test_upload_with_string_sdc():
-    sdc_data = "some string sdc"
-    data = {
-        "type": "UPLOAD",
-        "data": {
-            "items": [
-                {
-                    "id": "1",
-                    "input": "test.jpg",
-                    "title": "Test Image",
-                    "wikitext": "Some wikitext",
-                    "sdc": sdc_data,
-                }
-            ],
-            "handler": "mapillary",
-        },
-    }
-    obj = adapter.validate_python(data)
-    assert isinstance(obj, PatchedUpload)
+    assert isinstance(obj.data.items[0], UploadItem)
     assert obj.data.items[0].sdc == sdc_data

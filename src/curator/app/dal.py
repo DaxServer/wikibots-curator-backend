@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any, Dict, List, Optional, Union
 
@@ -88,9 +87,7 @@ def get_all_upload_requests(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=json.dumps(
-                _fix_sdc_keys(json.loads(u.sdc) if isinstance(u.sdc, str) else u.sdc)
-            ),
+            sdc=_fix_sdc_keys(u.sdc),
             labels=u.labels,
             result=u.result,
             error=_convert_error(u.error),
@@ -191,7 +188,7 @@ def create_upload_request(
             filename=item.title,
             wikitext=item.wikitext,
             sdc=sdc_data,
-            labels=item.labels,
+            labels=item.labels.model_dump(mode="json") if item.labels else None,
         )
         session.add(req)
         reqs.append(req)
@@ -352,9 +349,7 @@ def get_upload_request(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=json.dumps(
-                _fix_sdc_keys(json.loads(u.sdc) if isinstance(u.sdc, str) else u.sdc)
-            ),
+            sdc=_fix_sdc_keys(u.sdc),
             labels=u.labels,
             result=u.result,
             error=_convert_error(u.error),

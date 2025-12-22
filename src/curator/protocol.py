@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import Annotated, List, Union
 
 from fastapi import WebSocket
 from pydantic import Field, TypeAdapter
@@ -6,7 +6,6 @@ from pydantic import Field, TypeAdapter
 from curator.asyncapi import (
     BatchesList,
     BatchesListData,
-    BatchUploadItem,
     BatchUploadsList,
     BatchUploadsListData,
     CollectionImages,
@@ -24,39 +23,12 @@ from curator.asyncapi import (
     Upload,
     UploadCreated,
     UploadCreatedItem,
-    UploadData,
-    UploadItem,
     UploadsComplete,
     UploadsUpdate,
     UploadUpdateItem,
 )
 
 WS_CHANNEL_ADDRESS: str = "/ws"
-
-
-class PatchedUploadItem(UploadItem):
-    sdc: Optional[Union[str, List[Dict[str, Any]]]] = Field(default=None)
-
-
-class PatchedUploadData(UploadData):
-    items: List[PatchedUploadItem] = Field()
-
-
-class PatchedUpload(Upload):
-    type: Literal["UPLOAD"] = Field(default="UPLOAD", frozen=True)
-    data: PatchedUploadData = Field()
-
-
-class PatchedBatchUploadItem(BatchUploadItem):
-    sdc: Optional[Union[str, List[Dict[str, Any]]]] = Field(default=None)
-
-
-class PatchedBatchUploadsListData(BatchUploadsListData):
-    uploads: List[PatchedBatchUploadItem] = Field()
-
-
-class PatchedBatchUploadsList(BatchUploadsList):
-    data: PatchedBatchUploadsListData = Field()
 
 
 ClientMessage = Annotated[
@@ -69,20 +41,23 @@ ClientMessage = Annotated[
         SubscribeBatchesList,
         UnsubscribeBatch,
         UnsubscribeBatchesList,
-        PatchedUpload,
+        Upload,
     ],
     Field(discriminator="type"),
 ]
 
-ServerMessage = Union[
-    BatchesList,
-    PatchedBatchUploadsList,
-    CollectionImages,
-    Error,
-    Subscribed,
-    UploadCreated,
-    UploadsComplete,
-    UploadsUpdate,
+ServerMessage = Annotated[
+    Union[
+        BatchesList,
+        BatchUploadsList,
+        CollectionImages,
+        Error,
+        Subscribed,
+        UploadCreated,
+        UploadsComplete,
+        UploadsUpdate,
+    ],
+    Field(discriminator="type"),
 ]
 
 _ClientMessageAdapter = TypeAdapter(ClientMessage)
