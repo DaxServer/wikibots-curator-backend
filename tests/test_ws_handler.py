@@ -267,7 +267,7 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
         mock_get_uploads.return_value = [upload]
         mock_count_uploads.return_value = 1
 
-        await handler_instance.fetch_batch_uploads(FetchBatchUploads(data=1))
+        await handler_instance.fetch_batch_uploads(1)
 
         mock_sender.send_batch_uploads_list.assert_called_once()
         call_args = mock_sender.send_batch_uploads_list.call_args[0][0]
