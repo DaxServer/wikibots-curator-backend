@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import selectinload
@@ -40,6 +40,24 @@ def _convert_error(
     return None
 
 
+def _fix_sdc_keys(data: Any) -> Any:
+    """Recursively fix SDC keys that have aliases in Pydantic models."""
+    if isinstance(data, list):
+        return [_fix_sdc_keys(item) for item in data]
+    if isinstance(data, dict):
+        # Map of snake_case to the alias used in auto-generated models
+        mapping = {
+            "entity_type": "entity-type",
+            "numeric_id": "numeric-id",
+            "qualifiers_order": "qualifiers-order",
+            "snaks_order": "snaks-order",
+            "upper_bound": "upperBound",
+            "lower_bound": "lowerBound",
+        }
+        return {mapping.get(k, k): _fix_sdc_keys(v) for k, v in data.items()}
+    return data
+
+
 def get_users(session: Session, offset: int = 0, limit: int = 100) -> List[User]:
     """Fetch all users."""
     return session.exec(select(User).offset(offset).limit(limit)).all()
@@ -70,7 +88,9 @@ def get_all_upload_requests(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=u.sdc,
+            sdc=json.dumps(
+                _fix_sdc_keys(json.loads(u.sdc) if isinstance(u.sdc, str) else u.sdc)
+            ),
             labels=u.labels,
             result=u.result,
             error=_convert_error(u.error),
@@ -151,6 +171,15 @@ def create_upload_request(
 
     reqs = []
     for item in payload:
+        # item.sdc might contain Pydantic models (Statement) that need to be serialized to dicts
+        # before being saved to the JSON column in the database.
+        sdc_data = None
+        if item.sdc:
+            sdc_data = [
+                s.model_dump(mode="json") if hasattr(s, "model_dump") else s
+                for s in item.sdc
+            ]
+
         req = UploadRequest(
             userid=userid,
             batchid=batch.id,
@@ -161,7 +190,7 @@ def create_upload_request(
             access_token=encrypted_access_token,
             filename=item.title,
             wikitext=item.wikitext,
-            sdc=json.dumps(item.sdc) if item.sdc else None,
+            sdc=sdc_data,
             labels=item.labels,
         )
         session.add(req)
@@ -323,7 +352,9 @@ def get_upload_request(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=u.sdc,
+            sdc=json.dumps(
+                _fix_sdc_keys(json.loads(u.sdc) if isinstance(u.sdc, str) else u.sdc)
+            ),
             labels=u.labels,
             result=u.result,
             error=_convert_error(u.error),

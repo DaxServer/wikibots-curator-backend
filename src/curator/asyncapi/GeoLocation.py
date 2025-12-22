@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class GeoLocation(BaseModel):
-    latitude: float = Field()
-    longitude: float = Field()
     accuracy: Optional[int] = Field(default=None)
     compass_angle: float = Field()
+    latitude: float = Field()
+    longitude: float = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -37,10 +37,10 @@ class GeoLocation(BaseModel):
                 return data
         json_properties = list(data.keys())
         known_object_properties = [
-            "latitude",
-            "longitude",
             "accuracy",
             "compass_angle",
+            "latitude",
+            "longitude",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -53,10 +53,10 @@ class GeoLocation(BaseModel):
             return data
 
         known_json_properties = [
-            "latitude",
-            "longitude",
             "accuracy",
             "compass_angle",
+            "latitude",
+            "longitude",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

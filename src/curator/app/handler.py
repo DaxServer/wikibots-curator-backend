@@ -25,8 +25,6 @@ from curator.asyncapi import (
     BatchUploadsListData,
     CollectionImagesData,
     FetchBatchesData,
-    FetchBatchUploadsData,
-    RetryUploadsData,
     SubscribeBatchesListData,
     UploadCreatedItem,
     UploadData,
@@ -166,9 +164,7 @@ class Handler:
             BatchesListData(items=batch_items, total=total)
         )
 
-    async def fetch_batch_uploads(self, data: FetchBatchUploadsData):
-        batchid = data.batchid
-
+    async def fetch_batch_uploads(self, batchid: int):
         with Session(engine) as session:
             batch = get_batch(session, batchid)
             if not batch:
@@ -187,8 +183,7 @@ class Handler:
             BatchUploadsListData(batch=batch, uploads=serialized_uploads)
         )
 
-    async def retry_uploads(self, data: RetryUploadsData):
-        batchid = data.batchid
+    async def retry_uploads(self, batchid: int):
         username = self.user["username"]
         userid = self.user["userid"]
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))

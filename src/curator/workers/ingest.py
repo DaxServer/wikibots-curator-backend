@@ -62,7 +62,11 @@ async def process_one(upload_id: int) -> bool:
 
         handler = MapillaryHandler()
         image = await handler.fetch_image_metadata(item.key, item.collection)
-        sdc_json = json.loads(item.sdc) if item.sdc else None
+        sdc_json = (
+            (json.loads(item.sdc) if isinstance(item.sdc, str) else item.sdc)
+            if item.sdc
+            else None
+        )
         image_url = image.url_original
 
         if not item.access_token:

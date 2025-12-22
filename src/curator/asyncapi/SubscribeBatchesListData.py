@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field, model_serializer, model_validator
 
 
 class SubscribeBatchesListData(BaseModel):
-    userid: Optional[str] = Field(
-        description="""Optional user id to filter batches""", default=None
-    )
     filter: Optional[str] = Field(
-        description="""Optional filter text for batches""", default=None
+        description="""Filter text for batches""", default=None
+    )
+    userid: Optional[str] = Field(
+        description="""User id to filter batches""", default=None
     )
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
@@ -38,7 +38,7 @@ class SubscribeBatchesListData(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["userid", "filter", "additional_properties"]
+        known_object_properties = ["filter", "userid", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -48,7 +48,7 @@ class SubscribeBatchesListData(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["userid", "filter", "additionalProperties"]
+        known_json_properties = ["filter", "userid", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

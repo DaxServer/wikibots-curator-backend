@@ -3,16 +3,18 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .UploadUpdateItem import UploadUpdateItem
+from .SubscribeBatchesListData import SubscribeBatchesListData
 
 
-class UploadsUpdatePayload(BaseModel):
-    type: Literal["UPLOADS_UPDATE"] = Field(default="UPLOADS_UPDATE", frozen=True)
-    data: List[UploadUpdateItem] = Field()
+class SubscribeBatchesList(BaseModel):
+    data: SubscribeBatchesListData = Field()
+    type: Literal["SUBSCRIBE_BATCHES_LIST"] = Field(
+        default="SUBSCRIBE_BATCHES_LIST", frozen=True
+    )
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -36,7 +38,7 @@ class UploadsUpdatePayload(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "data", "additional_properties"]
+        known_object_properties = ["data", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -46,7 +48,7 @@ class UploadsUpdatePayload(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "data", "additionalProperties"]
+        known_json_properties = ["data", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

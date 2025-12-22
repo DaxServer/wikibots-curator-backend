@@ -12,10 +12,7 @@ from .UploadItem import UploadItem
 
 class UploadData(BaseModel):
     items: List[UploadItem] = Field()
-    handler: Optional[str] = Field(
-        description="""Optional handler identifier (for example, mapillary)""",
-        default=None,
-    )
+    handler: Optional[str] = Field(default=None)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")

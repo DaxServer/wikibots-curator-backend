@@ -44,6 +44,89 @@ def test_get_upload_request_by_id_not_found():
     assert result is None
 
 
+def test_get_upload_request_sdc_parsing():
+    """Test that get_upload_request correctly parses sdc from both string and list"""
+    import json
+
+    from curator.app.dal import get_upload_request
+
+    mock_session = Mock()
+
+    # Case 1: sdc is a list
+    mock_upload_list = Mock(spec=UploadRequest)
+    mock_upload_list.id = 1
+    mock_upload_list.status = "queued"
+    mock_upload_list.filename = "test1.jpg"
+    mock_upload_list.wikitext = "text1"
+    mock_upload_list.batchid = 123
+    mock_upload_list.userid = "user1"
+    mock_upload_list.key = "key1"
+    mock_upload_list.handler = "mapillary"
+    mock_upload_list.sdc = [
+        {
+            "mainsnak": {
+                "snaktype": "value",
+                "property": "P123",
+                "datatype": "string",
+                "datavalue": {"type": "string", "value": "test"},
+            },
+            "type": "statement",
+            "rank": "normal",
+        }
+    ]
+    mock_upload_list.labels = {"en": "label1"}
+    mock_upload_list.result = None
+    mock_upload_list.error = None
+    mock_upload_list.success = None
+    mock_upload_list.created_at = None
+    mock_upload_list.updated_at = None
+
+    # Case 2: sdc is a JSON string
+    mock_upload_str = Mock(spec=UploadRequest)
+    mock_upload_str.id = 2
+    mock_upload_str.status = "queued"
+    mock_upload_str.filename = "test2.jpg"
+    mock_upload_str.wikitext = "text2"
+    mock_upload_str.batchid = 123
+    mock_upload_str.userid = "user1"
+    mock_upload_str.key = "key2"
+    mock_upload_str.handler = "mapillary"
+    mock_upload_str.sdc = json.dumps(
+        [
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P123",
+                    "datatype": "string",
+                    "datavalue": {"type": "string", "value": "test"},
+                },
+                "type": "statement",
+                "rank": "normal",
+            }
+        ]
+    )
+    mock_upload_str.labels = {"en": "label2"}
+    mock_upload_str.result = None
+    mock_upload_str.error = None
+    mock_upload_str.success = None
+    mock_upload_str.created_at = None
+    mock_upload_str.updated_at = None
+
+    mock_session.exec.return_value.all.return_value = [
+        mock_upload_list,
+        mock_upload_str,
+    ]
+
+    results = get_upload_request(mock_session, 123)
+
+    assert len(results) == 2
+    # Both should be lists now
+    assert isinstance(results[0].sdc, str)
+    assert isinstance(results[1].sdc, str)
+    assert results[0].sdc == results[1].sdc
+    assert "statement" in results[0].sdc
+
+
 def test_get_upload_request_by_id_with_wrong_type():
     """Test that get_upload_request_by_id returns None when passed invalid input (fixed behavior)"""
     # Create a mock session

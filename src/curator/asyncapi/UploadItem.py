@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
@@ -14,7 +14,7 @@ class UploadItem(BaseModel):
     title: str = Field()
     wikitext: str = Field()
     labels: Optional[dict[str, str]] = Field(default=None)
-    sdc: Optional[List[dict[str, Any]]] = Field(default=None)
+    sdc: Optional[str] = Field(default=None)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")

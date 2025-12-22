@@ -3,14 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
+from .UploadCreatedItem import UploadCreatedItem
 
-class UploadsCompletePayload(BaseModel):
-    type: Literal["UPLOADS_COMPLETE"] = Field(default="UPLOADS_COMPLETE", frozen=True)
-    data: int = Field(description="""Completed batch identifier""")
+
+class UploadCreated(BaseModel):
+    type: Literal["UPLOAD_CREATED"] = Field(default="UPLOAD_CREATED", frozen=True)
+    data: List[UploadCreatedItem] = Field()
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")

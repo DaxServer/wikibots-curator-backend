@@ -1,59 +1,88 @@
-from typing import Annotated, List, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from fastapi import WebSocket
 from pydantic import Field, TypeAdapter
 
 from curator.asyncapi import (
+    BatchesList,
     BatchesListData,
-    BatchesListPayload,
+    BatchUploadItem,
+    BatchUploadsList,
     BatchUploadsListData,
-    BatchUploadsListPayload,
+    CollectionImages,
     CollectionImagesData,
-    CollectionImagesPayload,
-    ErrorPayload,
-    FetchBatchesPayload,
-    FetchBatchUploadsPayload,
-    FetchImagesPayload,
-    RetryUploadsPayload,
-    SubscribeBatchesListPayload,
-    SubscribeBatchPayload,
-    SubscribedPayload,
-    UnsubscribeBatchesListPayload,
-    UnsubscribeBatchPayload,
+    Error,
+    FetchBatches,
+    FetchBatchUploads,
+    FetchImages,
+    RetryUploads,
+    SubscribeBatch,
+    SubscribeBatchesList,
+    Subscribed,
+    UnsubscribeBatch,
+    UnsubscribeBatchesList,
+    Upload,
+    UploadCreated,
     UploadCreatedItem,
-    UploadCreatedPayload,
-    UploadPayload,
-    UploadsCompletePayload,
-    UploadsUpdatePayload,
+    UploadData,
+    UploadItem,
+    UploadsComplete,
+    UploadsUpdate,
     UploadUpdateItem,
 )
 
 WS_CHANNEL_ADDRESS: str = "/ws"
 
+
+class PatchedUploadItem(UploadItem):
+    sdc: Optional[Union[str, List[Dict[str, Any]]]] = Field(default=None)
+
+
+class PatchedUploadData(UploadData):
+    items: List[PatchedUploadItem] = Field()
+
+
+class PatchedUpload(Upload):
+    type: Literal["UPLOAD"] = Field(default="UPLOAD", frozen=True)
+    data: PatchedUploadData = Field()
+
+
+class PatchedBatchUploadItem(BatchUploadItem):
+    sdc: Optional[Union[str, List[Dict[str, Any]]]] = Field(default=None)
+
+
+class PatchedBatchUploadsListData(BatchUploadsListData):
+    uploads: List[PatchedBatchUploadItem] = Field()
+
+
+class PatchedBatchUploadsList(BatchUploadsList):
+    data: PatchedBatchUploadsListData = Field()
+
+
 ClientMessage = Annotated[
     Union[
-        FetchImagesPayload,
-        UploadPayload,
-        SubscribeBatchPayload,
-        UnsubscribeBatchPayload,
-        SubscribeBatchesListPayload,
-        UnsubscribeBatchesListPayload,
-        FetchBatchesPayload,
-        FetchBatchUploadsPayload,
-        RetryUploadsPayload,
+        FetchBatches,
+        FetchBatchUploads,
+        FetchImages,
+        RetryUploads,
+        SubscribeBatch,
+        SubscribeBatchesList,
+        UnsubscribeBatch,
+        UnsubscribeBatchesList,
+        PatchedUpload,
     ],
     Field(discriminator="type"),
 ]
 
 ServerMessage = Union[
-    ErrorPayload,
-    CollectionImagesPayload,
-    UploadCreatedPayload,
-    BatchesListPayload,
-    BatchUploadsListPayload,
-    SubscribedPayload,
-    UploadsUpdatePayload,
-    UploadsCompletePayload,
+    BatchesList,
+    PatchedBatchUploadsList,
+    CollectionImages,
+    Error,
+    Subscribed,
+    UploadCreated,
+    UploadsComplete,
+    UploadsUpdate,
 ]
 
 _ClientMessageAdapter = TypeAdapter(ClientMessage)
@@ -74,25 +103,25 @@ class AsyncAPIWebSocket(WebSocket):
         )
 
     async def send_error(self, data: str) -> None:
-        await self.send_json(ErrorPayload(data=data))
+        await self.send_json(Error(data=data))
 
     async def send_collection_images(self, data: CollectionImagesData) -> None:
-        await self.send_json(CollectionImagesPayload(data=data))
+        await self.send_json(CollectionImages(data=data))
 
     async def send_upload_created(self, data: List[UploadCreatedItem]) -> None:
-        await self.send_json(UploadCreatedPayload(data=data))
+        await self.send_json(UploadCreated(data=data))
 
     async def send_batches_list(self, data: BatchesListData) -> None:
-        await self.send_json(BatchesListPayload(data=data))
+        await self.send_json(BatchesList(data=data))
 
     async def send_batch_uploads_list(self, data: BatchUploadsListData) -> None:
-        await self.send_json(BatchUploadsListPayload(data=data))
+        await self.send_json(BatchUploadsList(data=data))
 
     async def send_subscribed(self, data: int) -> None:
-        await self.send_json(SubscribedPayload(data=data))
+        await self.send_json(Subscribed(data=data))
 
     async def send_uploads_update(self, data: List[UploadUpdateItem]) -> None:
-        await self.send_json(UploadsUpdatePayload(data=data))
+        await self.send_json(UploadsUpdate(data=data))
 
     async def send_uploads_complete(self, data: int) -> None:
-        await self.send_json(UploadsCompletePayload(data=data))
+        await self.send_json(UploadsComplete(data=data))

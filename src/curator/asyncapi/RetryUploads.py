@@ -7,14 +7,10 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-from .BatchUploadsListData import BatchUploadsListData
 
-
-class BatchUploadsListPayload(BaseModel):
-    type: Literal["BATCH_UPLOADS_LIST"] = Field(
-        default="BATCH_UPLOADS_LIST", frozen=True
-    )
-    data: BatchUploadsListData = Field()
+class RetryUploads(BaseModel):
+    data: int = Field(description="""Batch identifier""")
+    type: Literal["RETRY_UPLOADS"] = Field(default="RETRY_UPLOADS", frozen=True)
     additional_properties: Optional[dict[str, Any]] = Field(default=None, exclude=True)
 
     @model_serializer(mode="wrap")
@@ -38,7 +34,7 @@ class BatchUploadsListPayload(BaseModel):
             except AttributeError:
                 return data
         json_properties = list(data.keys())
-        known_object_properties = ["type", "data", "additional_properties"]
+        known_object_properties = ["data", "type", "additional_properties"]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -48,7 +44,7 @@ class BatchUploadsListPayload(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["type", "data", "additionalProperties"]
+        known_json_properties = ["data", "type", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):
