@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FetchBatchesData(BaseModel):
@@ -18,3 +18,5 @@ class FetchBatchesData(BaseModel):
         description="""Optional filter text for batches (id or username)""",
         default=None,
     )
+
+    model_config = ConfigDict(populate_by_name=True)

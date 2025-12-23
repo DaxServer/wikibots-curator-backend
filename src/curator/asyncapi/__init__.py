@@ -11,24 +11,44 @@ from .BatchUploadsListData import BatchUploadsListData
 from .CollectionImages import CollectionImages
 from .CollectionImagesData import CollectionImagesData
 from .Creator import Creator
+from .DataValueEntityId import DataValueEntityId
+from .DataValueGlobeCoordinate import DataValueGlobeCoordinate
+from .DataValueQuantity import DataValueQuantity
+from .DataValueTime import DataValueTime
 from .Dates import Dates
 from .DuplicateError import DuplicateError
+from .EntityIdDataValue import EntityIdDataValue
+from .EntityIdValueSnak import EntityIdValueSnak
 from .Error import Error
 from .ErrorLink import ErrorLink
 from .ExistingPage import ExistingPage
+from .ExternalIdValueSnak import ExternalIdValueSnak
 from .FetchBatches import FetchBatches
 from .FetchBatchesData import FetchBatchesData
 from .FetchBatchUploads import FetchBatchUploads
 from .FetchImages import FetchImages
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
+from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
+from .GlobeCoordinateValueSnak import GlobeCoordinateValueSnak
 from .Label import Label
 from .MediaImage import MediaImage
+from .NoValueSnak import NoValueSnak
+from .QuantityDataValue import QuantityDataValue
+from .QuantityValueSnak import QuantityValueSnak
+from .Rank import Rank
+from .Reference import Reference
 from .RetryUploads import RetryUploads
+from .SomeValueSnak import SomeValueSnak
+from .Statement import Statement
+from .StringDataValue import StringDataValue
+from .StringValueSnak import StringValueSnak
 from .SubscribeBatch import SubscribeBatch
 from .SubscribeBatchesList import SubscribeBatchesList
 from .SubscribeBatchesListData import SubscribeBatchesListData
 from .Subscribed import Subscribed
+from .TimeDataValue import TimeDataValue
+from .TimeValueSnak import TimeValueSnak
 from .UnsubscribeBatch import UnsubscribeBatch
 from .UnsubscribeBatchesList import UnsubscribeBatchesList
 from .Upload import Upload
@@ -39,6 +59,9 @@ from .UploadItem import UploadItem
 from .UploadsComplete import UploadsComplete
 from .UploadsUpdate import UploadsUpdate
 from .UploadUpdateItem import UploadUpdateItem
+from .UrlDataValue import UrlDataValue
+from .UrlValueSnak import UrlValueSnak
+from .WikibaseEntityType import WikibaseEntityType
 
 __all__ = [
     "FetchBatches",
@@ -55,6 +78,29 @@ __all__ = [
     "UploadData",
     "UploadItem",
     "Label",
+    "Statement",
+    "NoValueSnak",
+    "SomeValueSnak",
+    "EntityIdValueSnak",
+    "EntityIdDataValue",
+    "DataValueEntityId",
+    "WikibaseEntityType",
+    "ExternalIdValueSnak",
+    "StringDataValue",
+    "GlobeCoordinateValueSnak",
+    "GlobeCoordinateDataValue",
+    "DataValueGlobeCoordinate",
+    "QuantityValueSnak",
+    "QuantityDataValue",
+    "DataValueQuantity",
+    "StringValueSnak",
+    "TimeValueSnak",
+    "TimeDataValue",
+    "DataValueTime",
+    "UrlValueSnak",
+    "UrlDataValue",
+    "Rank",
+    "Reference",
     "BatchesList",
     "BatchesListData",
     "BatchItem",

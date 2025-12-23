@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .BatchStats import BatchStats
 
@@ -14,3 +14,5 @@ class BatchItem(BaseModel):
     username: str = Field()
     userid: str = Field()
     stats: BatchStats = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

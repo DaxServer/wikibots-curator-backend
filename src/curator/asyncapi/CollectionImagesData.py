@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .Creator import Creator
 from .MediaImage import MediaImage
@@ -12,3 +12,5 @@ from .MediaImage import MediaImage
 class CollectionImagesData(BaseModel):
     images: dict[str, MediaImage] = Field()
     creator: Creator = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

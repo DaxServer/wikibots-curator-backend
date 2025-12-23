@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .CollectionImagesData import CollectionImagesData
 
@@ -13,3 +13,5 @@ from .CollectionImagesData import CollectionImagesData
 class CollectionImages(BaseModel):
     type: Literal["COLLECTION_IMAGES"] = Field(default="COLLECTION_IMAGES", frozen=True)
     data: CollectionImagesData = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

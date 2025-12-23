@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .SubscribeBatchesListData import SubscribeBatchesListData
 
@@ -15,3 +15,5 @@ class SubscribeBatchesList(BaseModel):
     type: Literal["SUBSCRIBE_BATCHES_LIST"] = Field(
         default="SUBSCRIBE_BATCHES_LIST", frozen=True
     )
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -5,9 +5,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GenericError(BaseModel):
     message: str = Field()
     type: Literal["error"] = Field(default="error", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

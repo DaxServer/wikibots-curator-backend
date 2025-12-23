@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional
 
 from sqlalchemy import String
 from sqlalchemy import cast as sqlalchemy_cast
@@ -12,37 +12,9 @@ from curator.asyncapi import (
     BatchItem,
     BatchStats,
     BatchUploadItem,
-    DuplicateError,
-    ErrorLink,
-    GenericError,
-    Label,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _convert_error(
-    error: Optional[StructuredError],
-) -> Optional[Union[DuplicateError, GenericError]]:
-    if not error:
-        return None
-
-    error_type = error["type"]
-
-    if error_type == "duplicate":
-        links_data = error.get("links", [])
-        links = cast(
-            list[ErrorLink],
-            [
-                ErrorLink(**link) if isinstance(link, dict) else link
-                for link in links_data
-            ],
-        )
-        return DuplicateError(type=error["type"], message=error["message"], links=links)
-    elif error_type == "error":
-        return GenericError(type=error["type"], message=error["message"])
-
-    return None
 
 
 def _fix_sdc_keys(data: Any) -> Any:
@@ -94,9 +66,9 @@ def get_all_upload_requests(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
-            labels=Label(**u.labels) if u.labels else None,
+            labels=u.labels,
             result=u.result,
-            error=_convert_error(u.error),
+            error=u.error,
             success=u.success,
             created_at=u.created_at.isoformat() if u.created_at else None,
             updated_at=u.updated_at.isoformat() if u.updated_at else None,
@@ -182,7 +154,7 @@ def create_upload_request(
             for s in item.sdc:
                 model_dump = getattr(s, "model_dump", None)
                 if callable(model_dump):
-                    sdc_data.append(model_dump(mode="json"))
+                    sdc_data.append(model_dump(mode="json", exclude_none=True))
                 else:
                     sdc_data.append(s)
 
@@ -367,9 +339,9 @@ def get_upload_request(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
-            labels=Label(**u.labels) if u.labels else None,
+            labels=u.labels,
             result=u.result,
-            error=_convert_error(u.error),
+            error=u.error,
             success=u.success,
             created_at=u.created_at.isoformat() if u.created_at else None,
             updated_at=u.updated_at.isoformat() if u.updated_at else None,
@@ -394,12 +366,26 @@ def update_upload_status(
     success: Optional[str] = None,
 ) -> None:
     """Update status (and optional error) of an UploadRequest by id."""
+    error_type = None
+    if error:
+        if isinstance(error, dict):
+            error_type = error.get("type")
+        else:
+            error_type = getattr(error, "type", None)
+
     logger.info(
-        f"[dal] update_upload_status: upload_id={upload_id} status={status} error={error} success={success}"
+        f"[dal] update_upload_status: upload_id={upload_id} status={status} error={error_type} success={success}"
     )
-    values: dict = {
+
+    error_data = error
+    if error is not None:
+        model_dump = getattr(error, "model_dump", None)
+        if callable(model_dump):
+            error_data = model_dump(mode="json", exclude_none=True)
+
+    values = {
         "status": status,
-        "error": error,
+        "error": error_data,
         "success": success,
     }
     session.exec(

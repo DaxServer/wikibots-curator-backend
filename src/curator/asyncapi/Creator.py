@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Creator(BaseModel):
     id: str = Field()
     username: str = Field()
     profile_url: str = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .BatchItem import BatchItem
 
@@ -13,3 +13,5 @@ from .BatchItem import BatchItem
 class BatchesListData(BaseModel):
     items: List[BatchItem] = Field()
     total: int = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

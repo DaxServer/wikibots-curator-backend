@@ -5,9 +5,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Error(BaseModel):
     data: str = Field(description="""Error data""")
     type: Literal["ERROR"] = Field(default="ERROR", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

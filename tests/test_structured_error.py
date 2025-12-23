@@ -1,16 +1,18 @@
+from typing import Any, cast
 from unittest.mock import Mock, patch
 
 from curator.app.dal import update_upload_status
-from curator.app.models import DuplicateError, GenericError, UploadRequest
+from curator.app.models import UploadRequest
+from curator.asyncapi import DuplicateError, ErrorLink, GenericError
 
 
 def test_upload_request_model_validation():
     """Test that UploadRequest model accepts structured error data."""
-    error_data: DuplicateError = {
-        "type": "duplicate",
-        "message": "File already exists",
-        "links": [{"title": "Existing File", "url": "http://example.com"}],
-    }
+    error_data = DuplicateError(
+        type="duplicate",
+        message="File already exists",
+        links=[ErrorLink(title="Existing File", url="http://example.com")],
+    )
 
     req = UploadRequest(
         userid="testuser",
@@ -21,9 +23,14 @@ def test_upload_request_model_validation():
         error=error_data,
     )
 
-    assert req.error == error_data
+    # In SQLModel with JSON column, the data is returned as a dict if passed as a dict
     assert req.error is not None
-    assert req.error["type"] == "duplicate"
+    assert isinstance(req.error, DuplicateError)
+    assert req.error.type == "duplicate"
+    assert req.error.message == "File already exists"
+    assert len(req.error.links) == 1
+    assert req.error.links[0].title == "Existing File"
+    assert req.error.links[0].url == "http://example.com"
 
 
 @patch("curator.app.dal.update")
@@ -31,7 +38,7 @@ def test_update_upload_status_with_error(mock_update):
     """Test update_upload_status calls session.exec with correct update statement."""
     mock_session = Mock()
 
-    error_data: GenericError = {"type": "error", "message": "Something went wrong"}
+    error_model = GenericError(type="error", message="Something went wrong")
 
     # Setup the mock update chain
     # update(UploadRequest) -> .where(...) -> .values(...)
@@ -46,7 +53,7 @@ def test_update_upload_status_with_error(mock_update):
     upload_id = 123
 
     update_upload_status(
-        session=mock_session, upload_id=upload_id, status="failed", error=error_data
+        session=mock_session, upload_id=upload_id, status="failed", error=error_model
     )
 
     # Verify update was called with correct model
@@ -60,8 +67,42 @@ def test_update_upload_status_with_error(mock_update):
     call_kwargs = mock_where_clause.values.call_args.kwargs
 
     assert call_kwargs["status"] == "failed"
-    assert call_kwargs["error"] == error_data
+    # Should be converted to dict
+    assert call_kwargs["error"] == error_model.model_dump(
+        mode="json", exclude_none=True
+    )
 
     # Verify session.exec was called with the result of values()
     mock_session.exec.assert_called_once_with(mock_values_clause)
     mock_session.commit.assert_called_once()
+
+
+@patch("curator.app.dal.update")
+def test_update_upload_status_with_dict_error(mock_update):
+    """Test update_upload_status works when error is already a dict."""
+    mock_session = Mock()
+
+    error_dict = {"type": "error", "message": "Something went wrong"}
+
+    # Setup the mock update chain
+    mock_update_stmt = Mock()
+    mock_where_clause = Mock()
+    mock_values_clause = Mock()
+
+    mock_update.return_value = mock_update_stmt
+    mock_update_stmt.where.return_value = mock_where_clause
+    mock_where_clause.values.return_value = mock_values_clause
+
+    upload_id = 456
+
+    update_upload_status(
+        session=mock_session,
+        upload_id=upload_id,
+        status="failed",
+        error=cast(Any, error_dict),
+    )
+
+    # Verify values was called with the dict as is
+    call_kwargs = mock_where_clause.values.call_args.kwargs
+    assert call_kwargs["error"] == error_dict
+    assert call_kwargs["status"] == "failed"

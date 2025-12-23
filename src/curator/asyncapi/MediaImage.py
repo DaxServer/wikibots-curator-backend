@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .Creator import Creator
 from .Dates import Dates
@@ -26,9 +26,18 @@ class MediaImage(BaseModel):
     license: Optional[str] = Field(default=None)
     location: GeoLocation = Field()
     preview_url: str = Field()
-    tags: Optional[List[str]] = Field(default=None)
+    tags: List[str] = Field(default=[])
     thumbnail_url: str = Field()
     title: str = Field()
     url: str = Field()
     url_original: str = Field()
     width: int = Field()
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_empty_list(cls, v):
+        if v is None:
+            return []
+        return v

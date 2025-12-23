@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .DuplicateError import DuplicateError
 from .GenericError import GenericError
@@ -19,3 +19,5 @@ class UploadUpdateItem(BaseModel):
     error: Optional[Union[DuplicateError, GenericError]] = Field(default=None)
     success: Optional[str] = Field(default=None)
     handler: str = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

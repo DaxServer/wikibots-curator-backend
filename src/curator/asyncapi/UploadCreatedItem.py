@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UploadCreatedItem(BaseModel):
@@ -12,3 +12,5 @@ class UploadCreatedItem(BaseModel):
     image_id: str = Field()
     input: str = Field()
     batchid: int = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

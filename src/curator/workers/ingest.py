@@ -10,11 +10,10 @@ from curator.app.dal import (
 from curator.app.db import get_session
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
-    DuplicateError,
-    GenericError,
     StructuredError,
     UploadRequest,
 )
+from curator.asyncapi import DuplicateError, GenericError
 
 
 def _cleanup(session, item: UploadRequest | None = None):
@@ -64,16 +63,15 @@ async def process_one(upload_id: int) -> bool:
         image_url = image.url_original
 
         if not item.access_token:
-            structured_error: GenericError = {
-                "type": "error",
-                "message": "Missing access token",
-            }
             return _fail(
                 session=session,
                 upload_id=item.id,
                 status="failed",
                 item=item,
-                structured_error=structured_error,
+                structured_error=GenericError(
+                    type="error",
+                    message="Missing access token",
+                ),
             )
 
         access_token = decrypt_access_token(item.access_token)
@@ -95,12 +93,22 @@ async def process_one(upload_id: int) -> bool:
 
         return _success(session, item, upload_result.get("url"))
     except DuplicateUploadError as e:
-        structured_error: DuplicateError = {
-            "type": "duplicate",
-            "message": str(e),
-            "links": e.duplicates,
-        }
-        return _fail(session, upload_id, "duplicate", item, structured_error)
+        return _fail(
+            session,
+            upload_id,
+            "duplicate",
+            item,
+            DuplicateError(
+                type="duplicate",
+                message=str(e),
+                links=e.duplicates,
+            ),
+        )
     except Exception as e:
-        structured_error: GenericError = {"type": "error", "message": str(e)}
-        return _fail(session, upload_id, "failed", item, structured_error)
+        return _fail(
+            session,
+            upload_id,
+            "failed",
+            item,
+            GenericError(type="error", message=str(e)),
+        )

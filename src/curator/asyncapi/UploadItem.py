@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .Label import Label
+from .Statement import Statement
 
 
 class UploadItem(BaseModel):
@@ -16,4 +17,13 @@ class UploadItem(BaseModel):
     title: str = Field()
     wikitext: str = Field()
     labels: Optional[Label] = Field(default=None)
-    sdc: Optional[List[Any]] = Field(default=None)
+    sdc: List[Statement] = Field(default=[])
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("sdc", mode="before")
+    @classmethod
+    def parse_empty_list(cls, v):
+        if v is None:
+            return []
+        return v

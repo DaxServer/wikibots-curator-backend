@@ -1,25 +1,10 @@
 from datetime import datetime
-from typing import Literal, Optional, TypedDict, Union
+from typing import Optional, Union
 
 from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, Relationship, SQLModel
 
-
-class ErrorLink(TypedDict):
-    title: str
-    url: str
-
-
-class DuplicateError(TypedDict):
-    type: Literal["duplicate"]
-    message: str
-    links: list[ErrorLink]
-
-
-class GenericError(TypedDict):
-    type: Literal["error"]
-    message: str
-
+from curator.asyncapi import DuplicateError, GenericError, Label, Statement
 
 StructuredError = Union[DuplicateError, GenericError]
 
@@ -72,8 +57,8 @@ class UploadRequest(SQLModel, table=True):
     )
     filename: str = Field(index=True, max_length=255)
     wikitext: Optional[str] = Field(default=None, sa_column=Column(Text))
-    sdc: Optional[list[dict]] = Field(default=None, sa_column=Column(JSON))
-    labels: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    sdc: Optional[list[Statement]] = Field(default=None, sa_column=Column(JSON))
+    labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
     error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -91,5 +76,5 @@ class UploadItem(SQLModel):
     input: str
     title: str
     wikitext: str
-    labels: Optional[dict] = None
-    sdc: Optional[list[dict]] = None
+    labels: Optional[Label] = None
+    sdc: Optional[list[Statement]] = None
