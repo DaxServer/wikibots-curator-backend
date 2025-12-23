@@ -1,17 +1,19 @@
-from typing import Dict, List, Protocol
+from typing import Optional, Protocol, Union
 
-from fastapi import Request
+from fastapi import Request, WebSocket
 
-from curator.app.image_models import ExistingPage, Image
+from curator.asyncapi import ExistingPage, MediaImage
 
 
 class Handler(Protocol):
     name: str
 
-    async def fetch_collection(self, input: str) -> Dict[str, Image]: ...
+    async def fetch_collection(self, input: str) -> dict[str, MediaImage]: ...
 
-    async def fetch_image_metadata(self, image_id: str, input: str) -> Image: ...
+    async def fetch_image_metadata(
+        self, image_id: str, input: Optional[str] = None
+    ) -> MediaImage: ...
 
     def fetch_existing_pages(
-        self, image_ids: List[str], request: Request
-    ) -> Dict[str, List[ExistingPage]]: ...
+        self, image_ids: list[str], request: Union[Request, WebSocket]
+    ) -> dict[str, list[ExistingPage]]: ...

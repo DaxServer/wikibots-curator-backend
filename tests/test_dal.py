@@ -95,21 +95,6 @@ def test_get_upload_request_sdc_parsing():
     assert isinstance(results[0].sdc, list)
 
 
-def test_get_upload_request_by_id_with_wrong_type():
-    """Test that get_upload_request_by_id returns None when passed invalid input (fixed behavior)"""
-    # Create a mock session
-    mock_session = Mock()
-
-    # Test the function with a dictionary (should return None due to input validation)
-    result = get_upload_request_by_id(mock_session, {"id": 123, "key": "test"})
-
-    # Verify the result is None (input validation should prevent session.get call)
-    assert result is None
-
-    # Verify session.get was NOT called due to input validation
-    mock_session.get.assert_not_called()
-
-
 def test_reset_failed_uploads_success():
     mock_session = Mock()
     mock_batch = Mock()

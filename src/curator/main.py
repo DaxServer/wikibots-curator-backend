@@ -18,8 +18,6 @@ from curator.app.config import TOKEN_ENCRYPTION_KEY
 from curator.app.db import DB_URL
 from curator.auth import router as auth_router
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
-from curator.harbor import router as harbor_router
-from curator.toolforge import router as toolforge_router
 from curator.ws import router as ws_router
 
 
@@ -58,9 +56,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(SessionAutoloadMiddleware)
+app.add_middleware(SessionAutoloadMiddleware)  # ty: ignore
 app.add_middleware(
-    SessionMiddleware,
+    SessionMiddleware,  # ty: ignore
     store=CookieStore(TOKEN_ENCRYPTION_KEY),
 )
 
@@ -90,8 +88,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include the routers
 app.include_router(auth_router)
-app.include_router(harbor_router)
-app.include_router(toolforge_router)
 app.include_router(admin_router)
 app.include_router(ws_router)
 

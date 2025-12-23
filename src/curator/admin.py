@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from curator.app.dal import (
     count_all_upload_requests,

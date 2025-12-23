@@ -80,7 +80,7 @@ def test_apply_sdc_invokes_simple_request_and_null_edit():
     site.simple_request.return_value = req
     fp = MagicMock()
     fp.title.return_value = "File:x.jpg"
-    apply_sdc(site, fp, [{"x": 1}], "summary")
+    apply_sdc(site, fp, sdc=[{"x": 1}], edit_summary="summary", labels=None)
     site.simple_request.assert_called()
     fp.save.assert_called()
 

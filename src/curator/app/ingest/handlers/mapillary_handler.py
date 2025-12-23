@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Union
+from typing import Any, Optional, Union
 
 import httpx
 from fastapi import Request, WebSocket
@@ -17,20 +17,33 @@ from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaIma
 logger = logging.getLogger(__name__)
 
 
-def from_mapillary(image: Dict[str, Any]) -> MediaImage:
-    coords = image.get("geometry").get("coordinates")
+def from_mapillary(image: dict[str, Any]) -> MediaImage:
+    geometry = image.get("geometry")
+    if not geometry:
+        raise ValueError(f"Image {image.get('id')} has no geometry")
+    coords = geometry.get("coordinates")
+    if not coords or len(coords) < 2:
+        raise ValueError(f"Image {image.get('id')} has invalid coordinates")
+
     owner = image.get("creator")
+    if not owner:
+        raise ValueError(f"Image {image.get('id')} has no creator")
+
     creator = Creator(
         id=str(owner.get("id")),
-        username=owner.get("username"),
-        profile_url=f"https://www.mapillary.com/app/user/{owner.get('username')}",
+        username=str(owner.get("username", "Unknown")),
+        profile_url=f"https://www.mapillary.com/app/user/{owner.get('username', 'unknown')}",
     )
     loc = GeoLocation(
-        latitude=coords[1],
-        longitude=coords[0],
-        compass_angle=image.get("compass_angle"),
+        latitude=float(coords[1]),
+        longitude=float(coords[0]),
+        compass_angle=float(image.get("compass_angle", 0.0)),
     )
-    dt = datetime.fromtimestamp(image.get("captured_at") / 1000.0)
+    captured_at = image.get("captured_at")
+    if captured_at is None:
+        raise ValueError(f"Image {image.get('id')} has no captured_at")
+
+    dt = datetime.fromtimestamp(captured_at / 1000.0)
     date = dt.date().isoformat()
     return MediaImage(
         id=str(image.get("id")),
@@ -38,18 +51,16 @@ def from_mapillary(image: Dict[str, Any]) -> MediaImage:
         dates=Dates(taken=dt.isoformat()),
         creator=creator,
         location=loc,
-        url_original=image.get("thumb_original_url"),
+        url_original=str(image.get("thumb_original_url", "")),
         url=f"https://www.mapillary.com/app/?pKey={image.get('id')}&focus=photo",
-        thumbnail_url=image.get("thumb_256_url"),
-        preview_url=image.get("thumb_1024_url"),
-        width=image.get("width"),
-        height=image.get("height"),
+        thumbnail_url=str(image.get("thumb_256_url", "")),
+        preview_url=str(image.get("thumb_1024_url", "")),
+        width=int(image.get("width", 0)),
+        height=int(image.get("height", 0)),
         camera_make=image.get("make"),
         camera_model=image.get("model"),
         is_pano=image.get("is_pano"),
         existing=[],
-        tags=[],
-        description="",
     )
 
 
@@ -102,22 +113,22 @@ async def _fetch_single_image(image_id: str) -> dict:
 class MapillaryHandler(Handler):
     name = "mapillary"
 
-    async def fetch_collection(self, input: str) -> Dict[str, MediaImage]:
+    async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
 
     async def fetch_image_metadata(
-        self, image_id: str, collection_id: str | None = None
+        self, image_id: str, input: Optional[str] = None
     ) -> MediaImage:
-        if collection_id:
-            collection = await _fetch_sequence_data(collection_id)
+        if input:
+            collection = await _fetch_sequence_data(input)
             image = collection.get(image_id)
         else:
             # Fallback for legacy uploads where collection/sequence ID is missing
             image = await _fetch_single_image(image_id)
 
         if not image:
-            context = "sequence" if collection_id else "Mapillary API"
+            context = "sequence" if input else "Mapillary API"
             raise ValueError(
                 f"Image data not found in {context} for image_id={image_id}"
             )
@@ -125,8 +136,8 @@ class MapillaryHandler(Handler):
         return from_mapillary(image)
 
     def fetch_existing_pages(
-        self, image_ids: List[str], request: Union[Request, WebSocket]
-    ) -> Dict[str, List[ExistingPage]]:
+        self, image_ids: list[str], request: Union[Request, WebSocket]
+    ) -> dict[str, list[ExistingPage]]:
         """
         Fetch existing Wikimedia Commons pages for the given Mapillary image IDs.
 

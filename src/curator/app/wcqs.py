@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Union
+from typing import Union, cast
 from urllib.parse import quote_plus
 
 import requests
@@ -96,7 +96,12 @@ class WcqsSession:
         retry_after = redis_client.get(f"{REDIS_PREFIX}:wcqs:retry-after")
 
         if retry_after:
-            retry_after_ts = datetime.fromisoformat(retry_after)
+            retry_after_str = (
+                retry_after.decode("utf-8")
+                if isinstance(retry_after, bytes)
+                else cast(str, retry_after)
+            )
+            retry_after_ts = datetime.fromisoformat(retry_after_str)
             if retry_after_ts > datetime.now(timezone.utc):
                 return retry_after_ts
 

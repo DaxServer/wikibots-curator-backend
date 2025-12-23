@@ -77,13 +77,15 @@ async def process_one(upload_id: int) -> bool:
             )
 
         access_token = decrypt_access_token(item.access_token)
+        if not item.user:
+            raise ValueError(f"User not found for upload {upload_id}")
         username = item.user.username
 
         edit_summary = f"Uploaded via Curator from Mapillary image {image.id} (batch {item.batchid})"
         upload_result = upload_file_chunked(
             file_name=item.filename,
             file_url=image_url,
-            wikitext=item.wikitext,
+            wikitext=item.wikitext or "",
             edit_summary=edit_summary,
             access_token=access_token,
             username=username,
