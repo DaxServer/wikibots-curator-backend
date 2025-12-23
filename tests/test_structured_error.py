@@ -22,6 +22,7 @@ def test_upload_request_model_validation():
     )
 
     assert req.error == error_data
+    assert req.error is not None
     assert req.error["type"] == "duplicate"
 
 

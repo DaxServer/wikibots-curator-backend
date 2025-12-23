@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import httpx
 from fastapi import WebSocketDisconnect
@@ -20,6 +20,7 @@ from curator.app.dal import (
 )
 from curator.app.db import engine
 from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.models import UploadItem
 from curator.asyncapi import (
     BatchesListData,
     BatchUploadsListData,
@@ -103,8 +104,8 @@ class Handler:
                 session=session,
                 username=self.user["username"],
                 userid=self.user["userid"],
-                payload=items,
-                handler=handler_name,
+                payload=cast(list[UploadItem], items),
+                handler=handler_name or "unknown",
                 encrypted_access_token=encrypted_access_token,
             )
             session.commit()
@@ -250,8 +251,8 @@ class Handler:
                             id=item.id,
                             batchid=batchid,
                             status=item.status,
-                            key=item.key,
-                            handler=item.handler,
+                            key=item.key or "unknown",
+                            handler=item.handler or "unknown",
                             error=item.error,
                             success=item.success,
                         )

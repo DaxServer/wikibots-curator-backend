@@ -1,4 +1,4 @@
-from typing import Annotated, List, Union
+from typing import Annotated, Union
 
 from fastapi import WebSocket
 from pydantic import Field, TypeAdapter
@@ -83,7 +83,7 @@ class AsyncAPIWebSocket(WebSocket):
     async def send_collection_images(self, data: CollectionImagesData) -> None:
         await self.send_json(CollectionImages(data=data))
 
-    async def send_upload_created(self, data: List[UploadCreatedItem]) -> None:
+    async def send_upload_created(self, data: list[UploadCreatedItem]) -> None:
         await self.send_json(UploadCreated(data=data))
 
     async def send_batches_list(self, data: BatchesListData) -> None:
@@ -95,7 +95,7 @@ class AsyncAPIWebSocket(WebSocket):
     async def send_subscribed(self, data: int) -> None:
         await self.send_json(Subscribed(data=data))
 
-    async def send_uploads_update(self, data: List[UploadUpdateItem]) -> None:
+    async def send_uploads_update(self, data: list[UploadUpdateItem]) -> None:
         await self.send_json(UploadsUpdate(data=data))
 
     async def send_uploads_complete(self, data: int) -> None:

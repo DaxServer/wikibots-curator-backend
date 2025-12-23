@@ -1,12 +1,13 @@
 import json
 import logging
 from tempfile import NamedTemporaryFile
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import httpx
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
+from curator.app.models import ErrorLink
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def _ensure_pywikibot() -> None:
 
 
 class DuplicateUploadError(Exception):
-    def __init__(self, duplicates: List[dict], message: str):
+    def __init__(self, duplicates: list[ErrorLink], message: str):
         super().__init__(message)
         self.duplicates = duplicates
 
@@ -57,8 +58,8 @@ def upload_file_chunked(
     edit_summary: str,
     access_token: AccessToken,
     username: str,
-    sdc: Optional[List[dict]] = None,
-    labels: Optional[dict[str, str]] = None,
+    sdc: Optional[list[dict]] = None,
+    labels: Optional[dict] = None,
 ) -> dict:
     """
     Upload a file to Commons using Pywikibot's UploadRobot, with optional user OAuth authentication.
@@ -68,6 +69,7 @@ def upload_file_chunked(
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
     _ensure_pywikibot()
+    assert compute_file_hash
 
     site = get_commons_site(access_token, username)
 
@@ -100,6 +102,8 @@ def upload_file_chunked(
 
 def get_commons_site(access_token: AccessToken, username: str):
     _ensure_pywikibot()
+    assert config
+    assert pywikibot
 
     config.authenticate["commons.wikimedia.org"] = (OAUTH_KEY, OAUTH_SECRET) + tuple(
         access_token
@@ -119,15 +123,17 @@ def download_file(file_url: str) -> bytes:
     return resp.content
 
 
-def find_duplicates(site, sha1: str) -> List[dict]:
+def find_duplicates(site, sha1: str) -> list[ErrorLink]:
     return [
-        {"title": p.title(with_ns=False), "url": p.full_url()}
+        ErrorLink(title=p.title(with_ns=False), url=p.full_url())
         for p in site.allimages(sha1=sha1)
     ]
 
 
 def build_file_page(site, file_name: str):
     _ensure_pywikibot()
+    assert FilePage
+    assert Page
 
     return FilePage(Page(site, title=file_name, ns=6))
 
@@ -155,11 +161,11 @@ def ensure_uploaded(file_page, uploaded: bool, file_name: str):
 def apply_sdc(
     site,
     file_page,
-    sdc: Optional[List[dict]],
-    edit_summary: str,
-    labels: Optional[dict[str, str]] = None,
+    sdc: Optional[list[dict]] = None,
+    edit_summary: str = "",
+    labels: Optional[dict[str, Any]] = None,
 ):
-    data = {}
+    data: dict[str, Any] = {}
     if sdc:
         data["claims"] = sdc
     if labels:

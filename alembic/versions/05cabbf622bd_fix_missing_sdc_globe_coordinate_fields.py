@@ -13,6 +13,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
+from sqlmodel import col
 
 from alembic import op
 from curator.app.models import UploadRequest
@@ -31,19 +32,14 @@ def upgrade() -> None:
 
     # Gather IDs first to avoid keeping a large number of objects in memory
     # and to allow committing individually.
+    stmt = sa.select(UploadRequest).where(col(UploadRequest.sdc).is_not(None))
     upload_request_ids = [
-        r[0]
-        for r in session.query(UploadRequest.id).filter(UploadRequest.sdc != sa.null()).all()
+        ur.id for ur in session.scalars(stmt).all() if ur.id is not None
     ]
 
-    print(upload_request_ids)
-
     for ur_id in upload_request_ids:
-        print(f"Processing UploadRequest {ur_id}")
-        
-        ur = session.query(UploadRequest).get(ur_id)
+        ur = session.get(UploadRequest, ur_id)
         if not ur or not ur.sdc:
-            print(f"Invalid UploadRequest {ur_id} ?")
             continue
 
         sdc = ur.sdc
@@ -52,11 +48,9 @@ def upgrade() -> None:
             try:
                 sdc = json.loads(sdc)
             except json.JSONDecodeError:
-                print(f"Error decoding JSON for UploadRequest {ur_id}")
                 continue
 
         if not isinstance(sdc, list):
-            print(f"Error: SDC for UploadRequest {ur_id} is not a list")
             continue
 
         modified = False
@@ -64,7 +58,6 @@ def upgrade() -> None:
 
         for statement in new_sdc:
             if not isinstance(statement, dict):
-                print(f"Error: SDC statement for UploadRequest {ur_id} is not a dict")
                 continue
 
             # Ensure 'rank' is present
@@ -79,7 +72,6 @@ def upgrade() -> None:
 
             mainsnak = statement.get("mainsnak")
             if not isinstance(mainsnak, dict):
-                print(f"Error: SDC mainsnak for UploadRequest {ur_id} is not a dict")
                 continue
 
             # Ensure 'snaktype' is present in mainsnak
@@ -109,13 +101,10 @@ def upgrade() -> None:
                                 modified = True
 
         if modified:
-            print(f"'{ur_id}'", end='', sep='', flush=True)
             ur.sdc = new_sdc
             flag_modified(ur, "sdc")
             session.add(ur)
             session.commit()
-        else:
-            print('.', end='', sep='', flush=True)
 
 
 def downgrade() -> None:
