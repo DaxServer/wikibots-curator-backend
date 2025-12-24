@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .UploadItem import UploadItem
 
@@ -13,3 +13,5 @@ from .UploadItem import UploadItem
 class UploadData(BaseModel):
     items: List[UploadItem] = Field()
     handler: Optional[str] = Field(default=None)
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -8,6 +8,7 @@ from cryptography.fernet import Fernet
 import curator.workers.ingest as worker
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadRequest
+from curator.asyncapi import ErrorLink
 
 
 @pytest.mark.asyncio
@@ -103,7 +104,9 @@ async def test_worker_process_one_duplicate_status():
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=worker.DuplicateUploadError(
-                duplicates=[{"title": "File:Existing.jpg", "url": "http://commons..."}],
+                duplicates=[
+                    ErrorLink(title="File:Existing.jpg", url="http://commons...")
+                ],
                 message="Duplicate file",
             ),
         ),
@@ -120,7 +123,7 @@ async def test_worker_process_one_duplicate_status():
         ok = await worker.process_one(1)
         assert ok is False
         assert captured_status["status"] == "duplicate"
-        assert captured_status["error"]["type"] == "duplicate"
+        assert captured_status["error"].type == "duplicate"
 
 
 def test_upload_request_access_token_excluded_from_model_dump():

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
+from curator.asyncapi import GenericError
 from curator.workers import ingest as mod
 
 
@@ -147,7 +148,7 @@ async def test_process_one_missing_access_token(mocker):
                 mock_session,
                 upload_id=1,
                 status="failed",
-                error={"type": "error", "message": "Missing access token"},
+                error=GenericError(type="error", message="Missing access token"),
             ),
         ]
     )

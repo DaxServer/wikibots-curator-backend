@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GeoLocation(BaseModel):
@@ -13,3 +13,5 @@ class GeoLocation(BaseModel):
     compass_angle: float = Field()
     latitude: float = Field()
     longitude: float = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

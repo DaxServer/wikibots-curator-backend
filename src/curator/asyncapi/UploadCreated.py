@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .UploadCreatedItem import UploadCreatedItem
 
@@ -13,3 +13,5 @@ from .UploadCreatedItem import UploadCreatedItem
 class UploadCreated(BaseModel):
     type: Literal["UPLOAD_CREATED"] = Field(default="UPLOAD_CREATED", frozen=True)
     data: List[UploadCreatedItem] = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

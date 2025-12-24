@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .BatchUploadsListData import BatchUploadsListData
 
@@ -15,3 +15,5 @@ class BatchUploadsList(BaseModel):
     type: Literal["BATCH_UPLOADS_LIST"] = Field(
         default="BATCH_UPLOADS_LIST", frozen=True
     )
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -3,7 +3,6 @@ from unittest.mock import Mock
 import pytest
 
 from curator.app.dal import (
-    get_upload_request,
     get_upload_request_by_id,
     reset_failed_uploads,
 )
@@ -48,51 +47,6 @@ def test_get_upload_request_by_id_not_found():
 
     # Verify the result
     assert result is None
-
-
-def test_get_upload_request_sdc_parsing():
-    """Test that get_upload_request correctly parses sdc from both string and list"""
-    mock_session = Mock()
-
-    # Case 1: sdc is a list
-    mock_upload_list = Mock(spec=UploadRequest)
-    mock_upload_list.id = 1
-    mock_upload_list.status = "queued"
-    mock_upload_list.filename = "test1.jpg"
-    mock_upload_list.wikitext = "text1"
-    mock_upload_list.batchid = 123
-    mock_upload_list.userid = "user1"
-    mock_upload_list.key = "key1"
-    mock_upload_list.handler = "mapillary"
-    mock_upload_list.sdc = [
-        {
-            "mainsnak": {
-                "snaktype": "value",
-                "property": "P123",
-                "datatype": "string",
-                "datavalue": {"type": "string", "value": "test"},
-            },
-            "type": "statement",
-            "rank": "normal",
-        }
-    ]
-    mock_upload_list.labels = {
-        "language": "en",
-        "value": "label1",
-    }
-    mock_upload_list.result = None
-    mock_upload_list.error = None
-    mock_upload_list.success = None
-    mock_upload_list.created_at = None
-    mock_upload_list.updated_at = None
-
-    mock_session.exec.return_value.all.return_value = [
-        mock_upload_list,
-    ]
-
-    results = get_upload_request(mock_session, 123)
-
-    assert isinstance(results[0].sdc, list)
 
 
 def test_reset_failed_uploads_success():

@@ -5,9 +5,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SubscribeBatch(BaseModel):
     data: int = Field(description="""Batch identifier""")
     type: Literal["SUBSCRIBE_BATCH"] = Field(default="SUBSCRIBE_BATCH", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

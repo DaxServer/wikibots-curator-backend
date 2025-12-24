@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .BatchItem import BatchItem
 from .BatchUploadItem import BatchUploadItem
@@ -14,3 +14,5 @@ from .BatchUploadItem import BatchUploadItem
 class BatchUploadsListData(BaseModel):
     batch: BatchItem = Field()
     uploads: List[BatchUploadItem] = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

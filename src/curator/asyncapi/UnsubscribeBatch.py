@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UnsubscribeBatch(BaseModel):
     type: Literal["UNSUBSCRIBE_BATCH"] = Field(default="UNSUBSCRIBE_BATCH", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

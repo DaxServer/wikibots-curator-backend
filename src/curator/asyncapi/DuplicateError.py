@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import List, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .ErrorLink import ErrorLink
 
@@ -14,3 +14,5 @@ class DuplicateError(BaseModel):
     links: List[ErrorLink] = Field()
     message: str = Field()
     type: Literal["duplicate"] = Field(default="duplicate", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

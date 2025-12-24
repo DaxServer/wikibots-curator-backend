@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BatchStats(BaseModel):
@@ -13,3 +13,5 @@ class BatchStats(BaseModel):
     in_progress: int = Field(default=0)
     queued: int = Field(default=0)
     total: int = Field(default=0)
+
+    model_config = ConfigDict(populate_by_name=True)

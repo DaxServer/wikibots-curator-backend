@@ -48,30 +48,6 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             logger.info(f"[ws] {message.type} from {user.get('username')}")
 
-            if isinstance(message, FetchImages):
-                await handler.fetch_images(message.data)
-                continue
-
-            if isinstance(message, Upload):
-                await handler.upload(message.data)
-                continue
-
-            if isinstance(message, SubscribeBatch):
-                await handler.subscribe_batch(message.data)
-                continue
-
-            if isinstance(message, UnsubscribeBatch):
-                await handler.unsubscribe_batch()
-                continue
-
-            if isinstance(message, SubscribeBatchesList):
-                await handler.subscribe_batches_list(message.data)
-                continue
-
-            if isinstance(message, UnsubscribeBatchesList):
-                await handler.unsubscribe_batches_list()
-                continue
-
             if isinstance(message, FetchBatches):
                 await handler.fetch_batches(message.data)
                 continue
@@ -80,8 +56,32 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 await handler.fetch_batch_uploads(message.data)
                 continue
 
+            if isinstance(message, FetchImages):
+                await handler.fetch_images(message.data)
+                continue
+
             if isinstance(message, RetryUploads):
                 await handler.retry_uploads(message.data)
+                continue
+
+            if isinstance(message, SubscribeBatch):
+                await handler.subscribe_batch(message.data)
+                continue
+
+            if isinstance(message, SubscribeBatchesList):
+                await handler.subscribe_batches_list(message.data)
+                continue
+
+            if isinstance(message, UnsubscribeBatch):
+                await handler.unsubscribe_batch()
+                continue
+
+            if isinstance(message, UnsubscribeBatchesList):
+                await handler.unsubscribe_batches_list()
+                continue
+
+            if isinstance(message, Upload):
+                await handler.upload(message.data)
                 continue
 
             logger.error(

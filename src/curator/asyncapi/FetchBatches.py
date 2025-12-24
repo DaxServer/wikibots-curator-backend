@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .FetchBatchesData import FetchBatchesData
 
@@ -13,3 +13,5 @@ from .FetchBatchesData import FetchBatchesData
 class FetchBatches(BaseModel):
     data: FetchBatchesData = Field()
     type: Literal["FETCH_BATCHES"] = Field(default="FETCH_BATCHES", frozen=True)
+
+    model_config = ConfigDict(populate_by_name=True)

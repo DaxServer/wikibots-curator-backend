@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .UploadData import UploadData
 
@@ -13,3 +13,5 @@ from .UploadData import UploadData
 class Upload(BaseModel):
     type: Literal["UPLOAD"] = Field(default="UPLOAD", frozen=True)
     data: UploadData = Field()
+
+    model_config = ConfigDict(populate_by_name=True)

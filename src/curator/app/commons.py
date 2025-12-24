@@ -7,7 +7,7 @@ import httpx
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
-from curator.app.models import ErrorLink
+from curator.asyncapi import ErrorLink, Label, Statement
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +58,8 @@ def upload_file_chunked(
     edit_summary: str,
     access_token: AccessToken,
     username: str,
-    sdc: Optional[list[dict]] = None,
-    labels: Optional[dict] = None,
+    sdc: Optional[list[Statement]] = None,
+    labels: Optional[Label] = None,
 ) -> dict:
     """
     Upload a file to Commons using Pywikibot's UploadRobot, with optional user OAuth authentication.
@@ -161,15 +161,26 @@ def ensure_uploaded(file_page, uploaded: bool, file_name: str):
 def apply_sdc(
     site,
     file_page,
-    sdc: Optional[list[dict]] = None,
+    sdc: Optional[list[Statement]] = None,
     edit_summary: str = "",
-    labels: Optional[dict[str, Any]] = None,
+    labels: Optional[Label] = None,
 ):
     data: dict[str, Any] = {}
     if sdc:
-        data["claims"] = sdc
+        data["claims"] = []
+        for s in sdc:
+            if not isinstance(s, Statement):
+                s = Statement.model_validate(s)
+            data["claims"].append(
+                s.model_dump(mode="json", by_alias=True, exclude_none=True)
+            )
+
     if labels:
-        data["labels"] = [labels]
+        if not isinstance(labels, Label):
+            labels = Label.model_validate(labels)
+        data["labels"] = [
+            labels.model_dump(mode="json", by_alias=True, exclude_none=True)
+        ]
 
     if not data:
         return
