@@ -105,7 +105,7 @@ class Handler:
                 username=self.user["username"],
                 userid=self.user["userid"],
                 payload=cast(list[UploadItem], items),
-                handler=handler_name or "unknown",
+                handler=handler_name,
                 encrypted_access_token=encrypted_access_token,
             )
             session.commit()

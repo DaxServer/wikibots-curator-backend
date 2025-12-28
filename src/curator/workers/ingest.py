@@ -69,7 +69,6 @@ async def process_one(upload_id: int) -> bool:
                 status="failed",
                 item=item,
                 structured_error=GenericError(
-                    type="error",
                     message="Missing access token",
                 ),
             )
@@ -83,7 +82,7 @@ async def process_one(upload_id: int) -> bool:
         upload_result = upload_file_chunked(
             file_name=item.filename,
             file_url=image_url,
-            wikitext=item.wikitext or "",
+            wikitext=item.wikitext,
             edit_summary=edit_summary,
             access_token=access_token,
             username=username,
@@ -99,7 +98,6 @@ async def process_one(upload_id: int) -> bool:
             "duplicate",
             item,
             DuplicateError(
-                type="duplicate",
                 message=str(e),
                 links=e.duplicates,
             ),
@@ -110,5 +108,5 @@ async def process_one(upload_id: int) -> bool:
             upload_id,
             "failed",
             item,
-            GenericError(type="error", message=str(e)),
+            GenericError(message=str(e)),
         )
