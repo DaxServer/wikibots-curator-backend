@@ -19,6 +19,7 @@ def test_upload_request_model_validation():
         handler="mapillary",
         filename="test.jpg",
         error=error_data,
+        wikitext="wikitext",
     )
 
     # In SQLModel with JSON column, the data is returned as a dict if passed as a dict
