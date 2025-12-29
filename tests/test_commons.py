@@ -5,6 +5,7 @@ import pytest
 from curator.app.commons import (
     apply_sdc,
     build_file_page,
+    check_title_blacklisted,
     download_file,
     ensure_uploaded,
     find_duplicates,
@@ -157,3 +158,105 @@ def test_upload_file_chunked():
             "url": "url",
         }
         mock_apply_sdc.assert_called_with(site, file_page, sdc, "s", labels)
+
+
+def test_check_title_blacklisted_returns_true_when_blacklisted():
+    """Test check_title_blacklisted when title is blacklisted."""
+    access_token = MagicMock()
+    username = "testuser"
+
+    # Mock get_commons_site
+    with patch("curator.app.commons.get_commons_site") as mock_get_site:
+        site = MagicMock()
+        req = MagicMock()
+        mock_get_site.return_value = site
+        site.simple_request.return_value = req
+
+        # Mock the API response for blacklisted title
+        req.submit.return_value = {
+            "titleblacklist": {
+                "result": "blacklisted",
+                "reason": "Title contains blacklisted pattern",
+            }
+        }
+
+        is_blacklisted, reason = check_title_blacklisted(
+            access_token, username, "test_file.jpg"
+        )
+
+        assert is_blacklisted is True
+        assert reason == "Title contains blacklisted pattern"
+        site.simple_request.assert_called_with(
+            action="titleblacklist",
+            tbaction="create",
+            tbtitle="File:test_file.jpg",
+            format="json",
+        )
+
+
+def test_check_title_blacklisted_returns_false_when_not_blacklisted():
+    """Test check_title_blacklisted when title is not blacklisted."""
+    access_token = MagicMock()
+    username = "testuser"
+
+    with patch("curator.app.commons.get_commons_site") as mock_get_site:
+        site = MagicMock()
+        req = MagicMock()
+        mock_get_site.return_value = site
+        site.simple_request.return_value = req
+
+        # Mock the API response for non-blacklisted title
+        req.submit.return_value = {"titleblacklist": {"result": "ok"}}
+
+        is_blacklisted, reason = check_title_blacklisted(
+            access_token, username, "test_file.jpg"
+        )
+
+        assert is_blacklisted is False
+        assert reason == ""
+        site.simple_request.assert_called_with(
+            action="titleblacklist",
+            tbaction="create",
+            tbtitle="File:test_file.jpg",
+            format="json",
+        )
+
+
+def test_check_title_blacklisted_returns_false_on_api_error():
+    """Test check_title_blacklisted when API call fails."""
+    access_token = MagicMock()
+    username = "testuser"
+
+    with patch("curator.app.commons.get_commons_site") as mock_get_site:
+        site = MagicMock()
+        mock_get_site.return_value = site
+        site.simple_request.side_effect = Exception("API Error")
+
+        is_blacklisted, reason = check_title_blacklisted(
+            access_token, username, "test_file.jpg"
+        )
+
+        assert is_blacklisted is False
+        assert reason == ""
+
+
+def test_check_title_blacklisted_uses_default_reason_when_missing():
+    """Test check_title_blacklisted uses default reason when not provided."""
+    access_token = MagicMock()
+    username = "testuser"
+
+    with patch("curator.app.commons.get_commons_site") as mock_get_site:
+        site = MagicMock()
+        req = MagicMock()
+        mock_get_site.return_value = site
+        site.simple_request.return_value = req
+
+        # Mock the API response for blacklisted title without reason
+        req.submit.return_value = {"titleblacklist": {"result": "blacklisted"}}
+
+        is_blacklisted, reason = check_title_blacklisted(
+            access_token, username, "test_file.jpg"
+        )
+
+        assert is_blacklisted is True
+        assert reason == "Title is blacklisted"

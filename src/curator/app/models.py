@@ -4,9 +4,15 @@ from typing import Optional, Union
 from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, Relationship, SQLModel
 
-from curator.asyncapi import DuplicateError, GenericError, Label, Statement
+from curator.asyncapi import (
+    DuplicateError,
+    GenericError,
+    Label,
+    Statement,
+    TitleBlacklistedError,
+)
 
-StructuredError = Union[DuplicateError, GenericError]
+StructuredError = Union[DuplicateError, GenericError, TitleBlacklistedError]
 
 
 class User(SQLModel, table=True):

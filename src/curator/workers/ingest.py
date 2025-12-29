@@ -1,6 +1,10 @@
 from typing import Literal
 
-from curator.app.commons import DuplicateUploadError, upload_file_chunked
+from curator.app.commons import (
+    DuplicateUploadError,
+    check_title_blacklisted,
+    upload_file_chunked,
+)
 from curator.app.crypto import decrypt_access_token
 from curator.app.dal import (
     clear_upload_access_token,
@@ -13,7 +17,7 @@ from curator.app.models import (
     StructuredError,
     UploadRequest,
 )
-from curator.asyncapi import DuplicateError, GenericError
+from curator.asyncapi import DuplicateError, GenericError, TitleBlacklistedError
 
 
 def _cleanup(session, item: UploadRequest | None = None):
@@ -58,10 +62,6 @@ async def process_one(upload_id: int) -> bool:
 
         update_upload_status(session, upload_id=item.id, status="in_progress")
 
-        handler = MapillaryHandler()
-        image = await handler.fetch_image_metadata(item.key, item.collection)
-        image_url = image.url_original
-
         if not item.access_token:
             return _fail(
                 session=session,
@@ -77,6 +77,25 @@ async def process_one(upload_id: int) -> bool:
         if not item.user:
             raise ValueError(f"User not found for upload {upload_id}")
         username = item.user.username
+
+        # Check if the title is blacklisted
+        is_blacklisted, reason = check_title_blacklisted(
+            access_token, username, item.filename
+        )
+        if is_blacklisted:
+            return _fail(
+                session=session,
+                upload_id=item.id,
+                status="failed",
+                item=item,
+                structured_error=TitleBlacklistedError(
+                    message=reason,
+                ),
+            )
+
+        handler = MapillaryHandler()
+        image = await handler.fetch_image_metadata(item.key, item.collection)
+        image_url = image.url_original
 
         edit_summary = f"Uploaded via Curator from Mapillary image {image.id} (batch {item.batchid})"
         upload_result = upload_file_chunked(

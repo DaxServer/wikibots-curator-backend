@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .DuplicateError import DuplicateError
 from .GenericError import GenericError
+from .TitleBlacklistedError import TitleBlacklistedError
 
 
 class UploadUpdateItem(BaseModel):
@@ -16,7 +17,9 @@ class UploadUpdateItem(BaseModel):
     batchid: int = Field()
     status: str = Field()
     key: str = Field()
-    error: Optional[Union[DuplicateError, GenericError]] = Field(default=None)
+    error: Optional[Union[DuplicateError, GenericError, TitleBlacklistedError]] = Field(
+        default=None
+    )
     success: Optional[str] = Field(default=None)
     handler: str = Field()
 

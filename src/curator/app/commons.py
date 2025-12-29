@@ -199,3 +199,46 @@ def apply_sdc(
     content = file_page.get(force=True) + "\n"
     file_page.text = content
     file_page.save(summary="null edit")
+
+
+def check_title_blacklisted(
+    access_token: AccessToken, username: str, filename: str
+) -> tuple[bool, str]:
+    """
+    Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API.
+
+    Args:
+        access_token: The OAuth access token for Commons API
+        username: The Commons username for authentication
+        filename: The filename to check (without "File:" prefix)
+
+    Returns:
+        tuple: (is_blacklisted, reason) where is_blacklisted is True if blacklisted,
+               and reason is the blacklist reason or empty string if not blacklisted
+    """
+    site = get_commons_site(access_token, username)
+
+    try:
+        response = site.simple_request(
+            action="titleblacklist",
+            tbaction="create",
+            tbtitle=f"File:{filename}",
+            format="json",
+        )
+
+        data = response.submit()
+
+        if (
+            "titleblacklist" in data
+            and data["titleblacklist"].get("result") == "blacklisted"
+        ):
+            reason = data["titleblacklist"].get("reason", "Title is blacklisted")
+            return True, reason
+
+        return False, ""
+
+    except Exception as e:
+        # Log the error but return False to allow the upload to continue
+        # We don't want to block uploads due to title blacklist API issues
+        logger.warning(f"Failed to check title blacklist for {filename}: {e}")
+        return False, ""
