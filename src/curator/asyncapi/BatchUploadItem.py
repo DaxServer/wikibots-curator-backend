@@ -11,6 +11,7 @@ from .DuplicateError import DuplicateError
 from .GenericError import GenericError
 from .Label import Label
 from .Statement import Statement
+from .TitleBlacklistedError import TitleBlacklistedError
 
 
 class BatchUploadItem(BaseModel):
@@ -25,7 +26,9 @@ class BatchUploadItem(BaseModel):
     sdc: List[Statement] = Field(default=[])
     labels: Optional[Label] = Field(default=None)
     result: Optional[str] = Field(default=None)
-    error: Optional[Union[DuplicateError, GenericError]] = Field(default=None)
+    error: Optional[Union[DuplicateError, GenericError, TitleBlacklistedError]] = Field(
+        default=None
+    )
     success: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None)
     updated_at: Optional[str] = Field(default=None)

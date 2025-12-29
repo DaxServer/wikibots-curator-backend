@@ -38,6 +38,7 @@ async def test_process_one_runs_without_event_loop_closed(runs):
         patch.object(ingest, "get_session", side_effect=fake_session_iter),
         patch.object(ingest, "get_upload_request_by_id") as mock_get,
         patch.object(ingest, "update_upload_status") as mock_update,
+        patch.object(ingest, "check_title_blacklisted", return_value=(False, "")),
         patch.object(ingest, "clear_upload_access_token") as mock_clear,
         patch.object(ingest, "upload_file_chunked") as mock_upload,
         patch.object(ingest.MapillaryHandler, "fetch_image_metadata") as mock_fetch,

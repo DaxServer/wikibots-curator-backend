@@ -49,6 +49,9 @@ async def test_process_one_runs_async(mocker):
         "curator.workers.ingest.decrypt_access_token", return_value=("token", "secret")
     )
     mocker.patch(
+        "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+    )
+    mocker.patch(
         "curator.workers.ingest.upload_file_chunked",
         return_value={"url": "https://commons.wikimedia.org/wiki/File:Test.jpg"},
     )

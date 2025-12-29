@@ -49,6 +49,7 @@ from .SubscribeBatchesListData import SubscribeBatchesListData
 from .Subscribed import Subscribed
 from .TimeDataValue import TimeDataValue
 from .TimeValueSnak import TimeValueSnak
+from .TitleBlacklistedError import TitleBlacklistedError
 from .UnsubscribeBatch import UnsubscribeBatch
 from .UnsubscribeBatchesList import UnsubscribeBatchesList
 from .Upload import Upload
@@ -111,6 +112,7 @@ __all__ = [
     "DuplicateError",
     "ErrorLink",
     "GenericError",
+    "TitleBlacklistedError",
     "CollectionImages",
     "CollectionImagesData",
     "MediaImage",
