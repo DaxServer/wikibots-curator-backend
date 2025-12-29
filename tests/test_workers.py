@@ -206,3 +206,210 @@ async def test_worker_process_one_fails_on_blacklisted_title():
         assert captured_status["status"] == "failed"
         assert captured_status["error"].type == "title_blacklisted"
         assert captured_status["error"].message == "Title contains blacklisted pattern"
+
+
+@pytest.mark.asyncio
+async def test_worker_process_one_uploadstash_retry_success():
+    """Test that process_one retries uploadstash-file-not-found errors and succeeds on retry."""
+    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    item = SimpleNamespace(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        filename="File.jpg",
+        wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
+        sdc=None,
+        collection="seq",
+        access_token=encrypt_access_token(("t", "s")),
+        user=SimpleNamespace(username="User"),
+    )
+
+    def fake_session_iter():
+        yield SimpleNamespace(close=lambda: None)
+
+    upload_attempts = []
+
+    def mock_upload_file_chunked(**kwargs):
+        upload_attempts.append(len(upload_attempts) + 1)
+        # Fail on first attempt with uploadstash-file-not-found error, succeed on second
+        if len(upload_attempts) == 1:
+            raise Exception(
+                'uploadstash-file-not-found: Key "1cbv2eph0ceg.op0el3.7498417.jpg" not found in stash. [servedby: mw-api-ext.codfw.main-6c9d649c6d-dfvpl; help: See https://commons.wikimedia.org/w/api.php for API usage.]'
+            )
+        return {
+            "result": "success",
+            "title": kwargs["file_name"],
+            "url": kwargs["file_url"],
+        }
+
+    with (
+        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch("curator.workers.ingest.update_upload_status"),
+        patch(
+            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+        ),
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=mock_upload_file_chunked,
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(
+                id="img1",
+                url_original="https://example.com/file.jpg",
+            ),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        ok = await worker.process_one(1)
+        assert ok is True
+        assert (
+            len(upload_attempts) == 2
+        )  # Should have tried 2 times (MAX_UPLOADSTASH_TRIES)
+
+
+@pytest.mark.asyncio
+async def test_worker_process_one_uploadstash_retry_max_attempts():
+    """Test that process_one tries uploadstash-file-not-found errors up to MAX_UPLOADSTASH_TRIES attempts."""
+    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    item = SimpleNamespace(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        filename="File.jpg",
+        wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
+        sdc=None,
+        collection="seq",
+        access_token=encrypt_access_token(("t", "s")),
+        user=SimpleNamespace(username="User"),
+    )
+
+    def fake_session_iter():
+        yield SimpleNamespace(close=lambda: None)
+
+    upload_attempts = []
+    captured_status = {}
+
+    def capture_status(session, upload_id, status, error=None, success=None):
+        captured_status["status"] = status
+        captured_status["error"] = error
+
+    def mock_upload_file_chunked(**kwargs):
+        upload_attempts.append(len(upload_attempts) + 1)
+        # Always fail with uploadstash-file-not-found error
+        raise Exception(
+            'uploadstash-file-not-found: Key "1cbv2eph0ceg.op0el3.7498417.jpg" not found in stash. [servedby: mw-api-ext.codfw.main-6c9d649c6d-dfvpl; help: See https://commons.wikimedia.org/w/api.php for API usage.]'
+        )
+
+    with (
+        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch(
+            "curator.workers.ingest.update_upload_status", side_effect=capture_status
+        ),
+        patch(
+            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+        ),
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=mock_upload_file_chunked,
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(
+                id="img1",
+                url_original="https://example.com/file.jpg",
+            ),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        ok = await worker.process_one(1)
+        assert ok is False
+        assert len(upload_attempts) == 2  # Should have tried 2 times
+        assert captured_status["status"] == "failed"
+        assert captured_status["error"].type == "error"
+        # The error message should contain the original uploadstash-file-not-found error
+        assert "uploadstash-file-not-found" in captured_status["error"].message
+
+
+@pytest.mark.asyncio
+async def test_worker_process_one_uploadstash_retry_different_error():
+    """Test that process_one doesn't retry non-uploadstash errors."""
+    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+
+    item = SimpleNamespace(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        filename="File.jpg",
+        wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
+        sdc=None,
+        collection="seq",
+        access_token=encrypt_access_token(("t", "s")),
+        user=SimpleNamespace(username="User"),
+    )
+
+    def fake_session_iter():
+        yield SimpleNamespace(close=lambda: None)
+
+    upload_attempts = []
+    captured_status = {}
+
+    def capture_status(session, upload_id, status, error=None, success=None):
+        captured_status["status"] = status
+        captured_status["error"] = error
+
+    def mock_upload_file_chunked(**kwargs):
+        upload_attempts.append(len(upload_attempts) + 1)
+        # Fail with a different error (not uploadstash-file-not-found)
+        raise Exception("Network timeout or some other error")
+
+    with (
+        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch(
+            "curator.workers.ingest.update_upload_status", side_effect=capture_status
+        ),
+        patch(
+            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+        ),
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=mock_upload_file_chunked,
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(
+                id="img1",
+                url_original="https://example.com/file.jpg",
+            ),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),  # Mock sleep to avoid delays
+    ):
+        ok = await worker.process_one(1)
+        assert ok is False
+        assert len(upload_attempts) == 1  # Should have tried only once (no retry)
+        assert captured_status["status"] == "failed"
+        assert captured_status["error"].type == "error"
+        assert "Network timeout or some other error" in captured_status["error"].message

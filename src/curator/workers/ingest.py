@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Literal
 
@@ -21,6 +22,9 @@ from curator.app.models import (
 from curator.asyncapi import DuplicateError, GenericError, TitleBlacklistedError
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of retries for uploadstash-file-not-found errors
+MAX_UPLOADSTASH_TRIES = 2
 
 
 def _cleanup(session, item: UploadRequest | None = None):
@@ -52,6 +56,76 @@ def _fail(
     )
     _cleanup(session, item)
     return False
+
+
+def _is_uploadstash_file_not_found_error(error_message: str) -> bool:
+    """Check if the error message indicates an uploadstash-file-not-found error."""
+    return (
+        "uploadstash-file-not-found" in error_message
+        and "not found in stash" in error_message
+    )
+
+
+async def _upload_with_retry(
+    item: UploadRequest,
+    access_token: str,
+    username: str,
+    image_url: str,
+):
+    """
+    Upload a file with retry logic for uploadstash-file-not-found errors.
+
+    Returns:
+        dict: Upload result on success
+
+    Raises:
+        DuplicateUploadError: For duplicate file detection (passes through)
+        Exception: For upload errors after retries are exhausted and other errors
+    """
+    for attempt in range(MAX_UPLOADSTASH_TRIES):
+        try:
+            logger.info(
+                f"[{item.id}/{item.batchid}] uploading file (attempt {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
+            )
+
+            return upload_file_chunked(
+                upload_id=item.id,
+                batch_id=item.batchid,
+                file_name=item.filename,
+                file_url=image_url,
+                wikitext=item.wikitext,
+                edit_summary=f"Uploaded via Curator from Mapillary image {item.key} (batch {item.batchid})",
+                access_token=access_token,
+                username=username,
+                sdc=item.sdc,
+                labels=item.labels,
+            )
+        except DuplicateUploadError:
+            # Let DuplicateUploadError pass through to be handled by the outer exception handler
+            raise
+        except Exception as upload_error:
+            error_message = str(upload_error)
+
+            # Check if this is an uploadstash-file-not-found error and we haven't exceeded max retries
+            if (
+                _is_uploadstash_file_not_found_error(error_message)
+                and attempt < MAX_UPLOADSTASH_TRIES - 1
+            ):
+                logger.warning(
+                    f"[{item.id}/{item.batchid}] uploadstash-file-not-found error on attempt {attempt + 1}, "
+                    f"retrying in 2 seconds... (retry {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
+                )
+                # Wait 2 seconds before retrying
+                await asyncio.sleep(2)
+                continue
+
+            # Either not an uploadstash error or we've exceeded max retries
+            if _is_uploadstash_file_not_found_error(error_message):
+                logger.error(
+                    f"[{item.id}/{item.batchid}] uploadstash-file-not-found error persisted after {MAX_UPLOADSTASH_TRIES} attempts"
+                )
+
+            raise
 
 
 async def process_one(upload_id: int) -> bool:
@@ -124,24 +198,18 @@ async def process_one(upload_id: int) -> bool:
         image = await handler.fetch_image_metadata(item.key, item.collection)
         image_url = image.url_original
 
-        logger.info(f"[{upload_id}/{item.batchid}] uploading file")
-        edit_summary = f"Uploaded via Curator from Mapillary image {image.id} (batch {item.batchid})"
-        upload_result = upload_file_chunked(
-            upload_id=item.id,
-            batch_id=item.batchid,
-            file_name=item.filename,
-            file_url=image_url,
-            wikitext=item.wikitext,
-            edit_summary=edit_summary,
+        # Upload with retry logic for uploadstash-file-not-found errors
+        upload_result = await _upload_with_retry(
+            item=item,
             access_token=access_token,
             username=username,
-            sdc=item.sdc,
-            labels=item.labels,
+            image_url=image_url,
         )
 
         logger.info(
             f"[{upload_id}/{item.batchid}] successfully uploaded to {upload_result.get('url')}"
         )
+
         return _success(session, item, upload_result.get("url"))
     except DuplicateUploadError as e:
         batchid = f"/{item.batchid}" if item else ""
