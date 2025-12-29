@@ -5,6 +5,8 @@ from typing import Any, Optional
 
 import httpx
 from mwoauth import AccessToken
+from pywikibot.page import FilePage, Page
+from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
 from curator.asyncapi import ErrorLink, Label, Statement
@@ -14,13 +16,10 @@ logger = logging.getLogger(__name__)
 
 pywikibot: Any | None = None
 config: Any | None = None
-Page: Any | None = None
-FilePage: Any | None = None
-compute_file_hash: Any | None = None
 
 
 def _ensure_pywikibot() -> None:
-    global pywikibot, config, Page, FilePage, compute_file_hash
+    global pywikibot, config
     if pywikibot is None or config is None:
         import pywikibot as _pywikibot
         import pywikibot.config as _config
@@ -29,20 +28,6 @@ def _ensure_pywikibot() -> None:
             pywikibot = _pywikibot
         if config is None:
             config = _config
-
-    if compute_file_hash is None:
-        from pywikibot.tools import compute_file_hash as _compute_file_hash
-
-        compute_file_hash = _compute_file_hash
-
-    if Page is None or FilePage is None:
-        from pywikibot import FilePage as _FilePage
-        from pywikibot import Page as _Page
-
-        if Page is None:
-            Page = _Page
-        if FilePage is None:
-            FilePage = _FilePage
 
 
 class DuplicateUploadError(Exception):
@@ -58,6 +43,8 @@ def upload_file_chunked(
     edit_summary: str,
     access_token: AccessToken,
     username: str,
+    upload_id: int,
+    batch_id: int,
     sdc: Optional[list[Statement]] = None,
     labels: Optional[Label] = None,
 ) -> dict:
@@ -69,17 +56,14 @@ def upload_file_chunked(
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
     _ensure_pywikibot()
-    assert compute_file_hash
 
     site = get_commons_site(access_token, username)
-
-    logger.info(f"Uploading file {file_name} from {file_url}")
 
     with NamedTemporaryFile() as temp_file:
         temp_file.write(download_file(file_url))
 
         file_hash = compute_file_hash(temp_file.name)
-        logger.info(f"File hash: {file_hash}")
+        logger.info(f"[{upload_id}/{batch_id}] file hash: {file_hash}")
 
         duplicates_list = find_duplicates(site, file_hash)
         if len(duplicates_list) > 0:
@@ -130,27 +114,25 @@ def find_duplicates(site, sha1: str) -> list[ErrorLink]:
     ]
 
 
-def build_file_page(site, file_name: str):
+def build_file_page(site, file_name: str) -> FilePage:
     _ensure_pywikibot()
-    assert FilePage
-    assert Page
 
     return FilePage(Page(site, title=file_name, ns=6))
 
 
 def perform_upload(
-    file_page, source_path: str, wikitext: str, edit_summary: str
+    file_page: FilePage, source_path: str, wikitext: str, edit_summary: str
 ) -> bool:
     return file_page.upload(
         source=source_path,
         text=wikitext,
         comment=edit_summary,
         ignore_warnings=False,
-        chunk_size=1024 * 1024 * 2,
+        chunk_size=1024 * 1024 * 1,
     )
 
 
-def ensure_uploaded(file_page, uploaded: bool, file_name: str):
+def ensure_uploaded(file_page: FilePage, uploaded: bool, file_name: str):
     if not uploaded and file_page.exists():
         raise ValueError(f"File {file_name} already exists on Commons")
 
@@ -160,7 +142,7 @@ def ensure_uploaded(file_page, uploaded: bool, file_name: str):
 
 def apply_sdc(
     site,
-    file_page,
+    file_page: FilePage,
     sdc: Optional[list[Statement]] = None,
     edit_summary: str = "",
     labels: Optional[Label] = None,
@@ -202,7 +184,11 @@ def apply_sdc(
 
 
 def check_title_blacklisted(
-    access_token: AccessToken, username: str, filename: str
+    access_token: AccessToken,
+    username: str,
+    filename: str,
+    upload_id: int,
+    batch_id: int,
 ) -> tuple[bool, str]:
     """
     Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API.
@@ -211,6 +197,8 @@ def check_title_blacklisted(
         access_token: The OAuth access token for Commons API
         username: The Commons username for authentication
         filename: The filename to check (without "File:" prefix)
+        upload_id: The upload ID for logging
+        batch_id: The batch ID for logging
 
     Returns:
         tuple: (is_blacklisted, reason) where is_blacklisted is True if blacklisted,
@@ -240,5 +228,7 @@ def check_title_blacklisted(
     except Exception as e:
         # Log the error but return False to allow the upload to continue
         # We don't want to block uploads due to title blacklist API issues
-        logger.warning(f"Failed to check title blacklist for {filename}: {e}")
+        logger.warning(
+            f"[{upload_id}/{batch_id}] Failed to check title blacklist for {filename}: {e}"
+        )
         return False, ""
