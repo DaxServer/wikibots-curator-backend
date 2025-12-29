@@ -124,14 +124,10 @@ def start(reload: bool = True):
             },
         },
         "loggers": {
-            "uvicorn": {"handlers": ["default"], "level": level, "propagate": False},
-            "uvicorn.error": {"level": level},
-            "uvicorn.access": {
-                "handlers": ["access"],
-                "level": level,
-                "propagate": False,
-            },
-            "curator": {"handlers": ["default"], "level": level, "propagate": True},
+            "curator": {"handlers": ["default"], "level": "INFO", "propagate": True},
+            "httpx": {"level": "WARNING", "propagate": True},
+            "uvicorn": {"level": "WARNING", "propagate": True},
+            "uvicorn.error": {"level": "ERROR"},
         },
     }
 

@@ -148,6 +148,8 @@ def test_upload_file_chunked():
             edit_summary="s",
             access_token=access_token,
             username=username,
+            upload_id=1,
+            batch_id=1,
             sdc=sdc,
             labels=labels,
         )
@@ -181,7 +183,7 @@ def test_check_title_blacklisted_returns_true_when_blacklisted():
         }
 
         is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, "test_file.jpg"
+            access_token, username, "test_file.jpg", 1, 1
         )
 
         assert is_blacklisted is True
@@ -209,7 +211,7 @@ def test_check_title_blacklisted_returns_false_when_not_blacklisted():
         req.submit.return_value = {"titleblacklist": {"result": "ok"}}
 
         is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, "test_file.jpg"
+            access_token, username, "test_file.jpg", 1, 1
         )
 
         assert is_blacklisted is False
@@ -233,7 +235,7 @@ def test_check_title_blacklisted_returns_false_on_api_error():
         site.simple_request.side_effect = Exception("API Error")
 
         is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, "test_file.jpg"
+            access_token, username, "test_file.jpg", 1, 1
         )
 
         assert is_blacklisted is False
@@ -255,7 +257,7 @@ def test_check_title_blacklisted_uses_default_reason_when_missing():
         req.submit.return_value = {"titleblacklist": {"result": "blacklisted"}}
 
         is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, "test_file.jpg"
+            access_token, username, "test_file.jpg", 1, 1
         )
 
         assert is_blacklisted is True
