@@ -78,10 +78,8 @@ def test_upload_request_model_validation_title_blacklisted_error():
 
 
 @patch("curator.app.dal.update")
-def test_update_upload_status_with_error(mock_update):
+def test_update_upload_status_with_error(mock_update, mock_session):
     """Test update_upload_status calls session.exec with correct update statement."""
-    mock_session = Mock()
-
     error_model = GenericError(message="Something went wrong")
 
     # Setup the mock update chain
@@ -122,10 +120,8 @@ def test_update_upload_status_with_error(mock_update):
 
 
 @patch("curator.app.dal.update")
-def test_update_upload_status_with_duplicate_error(mock_update):
+def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
     """Test update_upload_status with DuplicateError."""
-    mock_session = Mock()
-
     error_model = DuplicateError(
         message="File already exists",
         links=[ErrorLink(title="Existing File", url="http://example.com")],
@@ -168,10 +164,8 @@ def test_update_upload_status_with_duplicate_error(mock_update):
 
 
 @patch("curator.app.dal.update")
-def test_update_upload_status_with_title_blacklisted_error(mock_update):
+def test_update_upload_status_with_title_blacklisted_error(mock_update, mock_session):
     """Test update_upload_status with TitleBlacklistedError."""
-    mock_session = Mock()
-
     error_model = TitleBlacklistedError(message="Title contains blacklisted pattern")
 
     # Setup the mock update chain

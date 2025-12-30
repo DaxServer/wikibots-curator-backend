@@ -1,5 +1,5 @@
 from typing import cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from curator.app.dal import create_upload_request
 from curator.app.models import UploadItem as ModelUploadItem
@@ -8,16 +8,13 @@ from curator.asyncapi import Label
 from curator.asyncapi import UploadItem as AsyncUploadItem
 
 
-def test_create_upload_request_label_serialization():
-    # Setup
-    mock_session = MagicMock()
-
+def test_create_upload_request_label_serialization(mocker, mock_session):
     # Mock create_batch and ensure_user to avoid DB interactions
     with (
         patch("curator.app.dal.ensure_user"),
         patch("curator.app.dal.create_batch") as mock_create_batch,
     ):
-        mock_batch = MagicMock()
+        mock_batch = mocker.MagicMock()
         mock_batch.id = 123
         mock_create_batch.return_value = mock_batch
 

@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -110,11 +110,11 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         assert data["data"] == "Collection not found"
 
 
-def test_ws_upload(mock_dal, mock_worker, mock_session):
+def test_ws_upload(mocker, mock_dal, mock_worker, mock_session):
     mock_create, _, _ = mock_dal
 
     # Mock create_upload_request return value
-    mock_req = MagicMock()
+    mock_req = mocker.MagicMock()
     mock_req.id = 1
     mock_req.status = "pending"
     mock_req.key = "img1"
@@ -166,11 +166,11 @@ def test_ws_invalid_message():
 
 
 @pytest.mark.asyncio
-async def test_stream_uploads_completion(mock_dal, mock_session):
+async def test_stream_uploads_completion(mocker, mock_dal, mock_session):
     _, mock_get, mock_count = mock_dal
 
     # Setup mock data
-    mock_req = MagicMock()
+    mock_req = mocker.MagicMock()
     mock_req.id = 1
     mock_req.status = "completed"
     mock_req.key = "img1"
@@ -184,7 +184,7 @@ async def test_stream_uploads_completion(mock_dal, mock_session):
 
     # Mock asyncio.sleep to avoid waiting
     with (
-        patch("asyncio.sleep", new_callable=MagicMock) as mock_sleep,
+        patch("asyncio.sleep", new_callable=mocker.MagicMock) as mock_sleep,
         client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
     ):
         mock_sleep.return_value = asyncio.Future()

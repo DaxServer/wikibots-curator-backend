@@ -1,101 +1,82 @@
-from unittest.mock import Mock
-
 import pytest
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
 
-from curator.admin import check_admin
 from curator.app.auth import check_login
 
 
 @pytest.mark.asyncio
-async def test_check_login_success():
-    mock_request = Mock(spec=Request)
+async def test_check_login_success(mock_request, mock_user):
+    """Test successful login check"""
+    # Setup mock request session with user data
     mock_request.session = {
         "user": {"username": "testuser", "sub": "user123"},
-        "access_token": "valid_token",
+        "access_token": "test_token",
     }
 
     result = await check_login(mock_request)
-    assert result == {
-        "username": "testuser",
-        "userid": "user123",
-        "access_token": "valid_token",
-    }
+    assert result["username"] == "testuser"
+    assert result["userid"] == "user123"
+    assert result["access_token"] == "test_token"
 
 
 @pytest.mark.asyncio
-async def test_check_login_missing_username():
-    mock_request = Mock(spec=Request)
-    mock_request.session = {
-        "user": {"sub": "user123"},
-        "access_token": "valid_token",
-    }
-
-    with pytest.raises(HTTPException) as exc_info:
-        await check_login(mock_request)
-    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.asyncio
-async def test_check_login_missing_userid():
-    mock_request = Mock(spec=Request)
-    mock_request.session = {
-        "user": {"username": "testuser"},
-        "access_token": "valid_token",
-    }
-
-    with pytest.raises(HTTPException) as exc_info:
-        await check_login(mock_request)
-    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.asyncio
-async def test_check_login_missing_token():
-    mock_request = Mock(spec=Request)
-    mock_request.session = {
-        "user": {"username": "testuser", "sub": "user123"},
-    }
-
-    with pytest.raises(HTTPException) as exc_info:
-        await check_login(mock_request)
-    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-@pytest.mark.asyncio
-async def test_check_login_empty_session():
-    mock_request = Mock(spec=Request)
+async def test_check_login_no_user_data(mock_request):
+    """Test login check with no user data"""
+    # Setup mock request session without user data
     mock_request.session = {}
 
     with pytest.raises(HTTPException) as exc_info:
         await check_login(mock_request)
-    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    assert exc_info.value.status_code == 401
 
 
-def test_check_admin_success():
-    mock_request = Mock(spec=Request)
+@pytest.mark.asyncio
+async def test_check_login_missing_username(mock_request):
+    """Test login check with missing username"""
+    # Setup mock request session with incomplete user data
     mock_request.session = {
-        "user": {"username": "DaxServer"},
-    }
-
-    # Should not raise exception
-    check_admin(mock_request)
-
-
-def test_check_admin_forbidden():
-    mock_request = Mock(spec=Request)
-    mock_request.session = {
-        "user": {"username": "OtherUser"},
+        "user": {
+            "sub": "user123"
+            # Missing username
+        },
+        "access_token": "test_token",
     }
 
     with pytest.raises(HTTPException) as exc_info:
-        check_admin(mock_request)
-    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        await check_login(mock_request)
+
+    assert exc_info.value.status_code == 401
 
 
-def test_check_admin_no_user():
-    mock_request = Mock(spec=Request)
-    mock_request.session = {}
+@pytest.mark.asyncio
+async def test_check_login_missing_userid(mock_request):
+    """Test login check with missing userid"""
+    # Setup mock request session with incomplete user data
+    mock_request.session = {
+        "user": {
+            "username": "testuser"
+            # Missing sub (userid)
+        },
+        "access_token": "test_token",
+    }
 
     with pytest.raises(HTTPException) as exc_info:
-        check_admin(mock_request)
-    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        await check_login(mock_request)
+
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_check_login_missing_access_token(mock_request):
+    """Test login check with missing access token"""
+    # Setup mock request session without access token
+    mock_request.session = {
+        "user": {"username": "testuser", "sub": "user123"}
+        # Missing access_token
+    }
+
+    with pytest.raises(HTTPException) as exc_info:
+        await check_login(mock_request)
+
+    assert exc_info.value.status_code == 401

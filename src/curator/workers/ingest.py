@@ -14,7 +14,7 @@ from curator.app.dal import (
     update_upload_status,
 )
 from curator.app.db import get_session
-from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
     StructuredError,
     UploadRequest,

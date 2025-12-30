@@ -1,13 +1,8 @@
-from unittest.mock import MagicMock
-
-from sqlmodel import Session
-
 from curator.app.dal import get_batches_stats
 
 
-def test_get_batches_stats():
-    mock_session = MagicMock(spec=Session)
-    mock_exec_result = MagicMock()
+def test_get_batches_stats(mocker, mock_session):
+    mock_exec_result = mocker.MagicMock()
     mock_session.exec.return_value = mock_exec_result
 
     # Mock result: [(batch_id, status, count), ...]

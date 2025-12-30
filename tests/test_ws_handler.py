@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -22,8 +22,8 @@ from curator.protocol import AsyncAPIWebSocket
 
 
 @pytest.fixture
-def mock_sender():
-    sender = MagicMock(spec=AsyncAPIWebSocket)
+def mock_sender(mocker):
+    sender = mocker.MagicMock(spec=AsyncAPIWebSocket)
     sender.send_collection_images = AsyncMock()
     sender.send_error = AsyncMock()
     sender.send_upload_created = AsyncMock()
@@ -36,17 +36,8 @@ def mock_sender():
 
 
 @pytest.fixture
-def mock_user():
-    return {
-        "username": "testuser",
-        "userid": "user123",
-        "access_token": "token",
-    }
-
-
-@pytest.fixture
-def handler_instance(mock_user, mock_sender):
-    return Handler(mock_user, mock_sender, MagicMock())
+def handler_instance(mocker, mock_user, mock_sender):
+    return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
 @pytest.mark.asyncio
@@ -100,13 +91,13 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_handle_upload(handler_instance, mock_sender):
+async def test_handle_upload(mocker, handler_instance, mock_sender):
     with (
         patch("curator.app.handler.Session"),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.ingest_queue") as mock_worker,
     ):
-        mock_req = MagicMock()
+        mock_req = mocker.MagicMock()
         mock_req.id = 1
         mock_req.status = "pending"
         mock_req.key = "img1"
@@ -159,14 +150,14 @@ async def test_handle_unsubscribe_batch(handler_instance):
 
 
 @pytest.mark.asyncio
-async def test_stream_uploads(handler_instance, mock_sender):
+async def test_stream_uploads(mocker, handler_instance, mock_sender):
     with (
         patch("curator.app.handler.Session"),
         patch("curator.app.handler.get_upload_request") as mock_get,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        mock_req = MagicMock()
+        mock_req = mocker.MagicMock()
         mock_req.id = 1
         mock_req.status = "completed"
         mock_req.key = "img1"
@@ -277,18 +268,18 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_handle_fetch_images_api_error(handler_instance, mock_sender):
+async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_sender):
     with patch("curator.app.handler.MapillaryHandler") as MockHandler:
         handler = MockHandler.return_value
 
         # Create a mock response with a text property
-        mock_response = MagicMock()
+        mock_response = mocker.MagicMock()
         mock_response.status_code = 500
         mock_response.text = "500 error"
 
         # Raise HTTPStatusError
         error = httpx.HTTPStatusError(
-            "Error message", request=MagicMock(), response=mock_response
+            "Error message", request=mocker.MagicMock(), response=mock_response
         )
         handler.fetch_collection = AsyncMock(side_effect=error)
 
@@ -302,7 +293,9 @@ async def test_handle_fetch_images_api_error(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender):
+async def test_stream_uploads_only_sends_on_change(
+    mocker, handler_instance, mock_sender
+):
     with (
         patch("curator.app.handler.Session"),
         patch("curator.app.handler.get_upload_request") as mock_get,
@@ -311,7 +304,7 @@ async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender
     ):
         # Define items for different states
         # 1. Initial state
-        item_v1 = MagicMock()
+        item_v1 = mocker.MagicMock()
         item_v1.id = 1
         item_v1.status = "queued"
         item_v1.key = "img1"
@@ -320,7 +313,7 @@ async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender
         item_v1.success = None
 
         # 2. Changed state
-        item_v2 = MagicMock()
+        item_v2 = mocker.MagicMock()
         item_v2.id = 1
         item_v2.status = "in_progress"
         item_v2.key = "img1"
@@ -329,7 +322,7 @@ async def test_stream_uploads_only_sends_on_change(handler_instance, mock_sender
         item_v2.success = None
 
         # 3. Completed state
-        item_v3 = MagicMock()
+        item_v3 = mocker.MagicMock()
         item_v3.id = 1
         item_v3.status = "completed"
         item_v3.key = "img1"
