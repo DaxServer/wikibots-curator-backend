@@ -30,7 +30,7 @@ def start():
         os.environ.setdefault("NO_PROXY", "*")
 
     worker = Worker([queue], connection=redis_client)
-    worker.work(max_jobs=100, max_idle_time=900)
+    worker.work(max_jobs=100, max_idle_time=3600 * 4) # 4 hours
 
 
 if __name__ == "__main__":
