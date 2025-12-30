@@ -19,7 +19,7 @@ from curator.app.dal import (
     reset_failed_uploads,
 )
 from curator.app.db import engine
-from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import UploadItem
 from curator.asyncapi import (
     BatchesListData,

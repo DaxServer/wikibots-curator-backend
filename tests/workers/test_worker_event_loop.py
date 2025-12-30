@@ -1,13 +1,13 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
+from curator.app.image_models import Creator, Dates, Image, Location
 from curator.app.models import User
+from curator.workers import ingest
 
 
 def make_image():
-    from curator.app.image_models import Creator, Dates, Image, Location
-
     return Image(
         id="123",
         title="Test",
@@ -23,16 +23,11 @@ def make_image():
     )
 
 
-@pytest.mark.parametrize("runs", [1, 2])
 @pytest.mark.asyncio
-async def test_process_one_runs_without_event_loop_closed(runs):
-    from curator.workers import ingest
-
-    sess = MagicMock()
-    sess.close = MagicMock()
-
+@pytest.mark.parametrize("runs", [1, 2])
+async def test_process_one_runs_without_event_loop_closed(mocker, mock_session, runs):
     def fake_session_iter():
-        yield sess
+        yield mock_session
 
     with (
         patch.object(ingest, "get_session", side_effect=fake_session_iter),
@@ -44,8 +39,6 @@ async def test_process_one_runs_without_event_loop_closed(runs):
         patch.object(ingest.MapillaryHandler, "fetch_image_metadata") as mock_fetch,
         patch.object(ingest, "decrypt_access_token") as mock_decrypt,
     ):
-        mock_session = sess
-
         mock_decrypt.return_value = "token"
         mock_fetch.return_value = make_image()
         mock_item = ingest.UploadRequest(

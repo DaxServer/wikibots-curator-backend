@@ -1,20 +1,17 @@
-import os
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from cryptography.fernet import Fernet
 
-import curator.workers.ingest as worker
+from curator.app.commons import DuplicateUploadError
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadRequest
 from curator.asyncapi import ErrorLink
+from curator.workers.ingest import process_one
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_decrypts_token():
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
+async def test_worker_process_one_decrypts_token(mock_session):
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -32,7 +29,7 @@ async def test_worker_process_one_decrypts_token():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     captured = {}
 
@@ -64,15 +61,13 @@ async def test_worker_process_one_decrypts_token():
             ),
         ),
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is True
         assert tuple(captured["token"]) == ("t", "s")
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_duplicate_status():
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
+async def test_worker_process_one_duplicate_status(mock_session):
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -90,7 +85,7 @@ async def test_worker_process_one_duplicate_status():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     captured_status = {}
 
@@ -109,7 +104,7 @@ async def test_worker_process_one_duplicate_status():
         ),
         patch(
             "curator.workers.ingest.upload_file_chunked",
-            side_effect=worker.DuplicateUploadError(
+            side_effect=DuplicateUploadError(
                 duplicates=[
                     ErrorLink(title="File:Existing.jpg", url="http://commons...")
                 ],
@@ -126,7 +121,7 @@ async def test_worker_process_one_duplicate_status():
             ),
         ),
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is False
         assert captured_status["status"] == "duplicate"
         assert captured_status["error"].type == "duplicate"
@@ -152,10 +147,8 @@ def test_upload_request_access_token_excluded_from_model_dump():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_fails_on_blacklisted_title():
+async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
     """Test that process_one fails when title is blacklisted."""
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -173,7 +166,7 @@ async def test_worker_process_one_fails_on_blacklisted_title():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     captured_status = {}
 
@@ -201,7 +194,7 @@ async def test_worker_process_one_fails_on_blacklisted_title():
             ),
         ),
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is False
         assert captured_status["status"] == "failed"
         assert captured_status["error"].type == "title_blacklisted"
@@ -209,10 +202,8 @@ async def test_worker_process_one_fails_on_blacklisted_title():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_success():
+async def test_worker_process_one_uploadstash_retry_success(mock_session):
     """Test that process_one retries uploadstash-file-not-found errors and succeeds on retry."""
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -230,7 +221,7 @@ async def test_worker_process_one_uploadstash_retry_success():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     upload_attempts = []
 
@@ -269,7 +260,7 @@ async def test_worker_process_one_uploadstash_retry_success():
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is True
         assert (
             len(upload_attempts) == 2
@@ -277,10 +268,8 @@ async def test_worker_process_one_uploadstash_retry_success():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_max_attempts():
+async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
     """Test that process_one tries uploadstash-file-not-found errors up to MAX_UPLOADSTASH_TRIES attempts."""
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -298,7 +287,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     upload_attempts = []
     captured_status = {}
@@ -338,7 +327,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts():
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is False
         assert len(upload_attempts) == 2  # Should have tried 2 times
         assert captured_status["status"] == "failed"
@@ -348,10 +337,8 @@ async def test_worker_process_one_uploadstash_retry_max_attempts():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_different_error():
+async def test_worker_process_one_uploadstash_retry_different_error(mock_session):
     """Test that process_one doesn't retry non-uploadstash errors."""
-    os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -369,7 +356,7 @@ async def test_worker_process_one_uploadstash_retry_different_error():
     )
 
     def fake_session_iter():
-        yield SimpleNamespace(close=lambda: None)
+        yield mock_session
 
     upload_attempts = []
     captured_status = {}
@@ -407,7 +394,7 @@ async def test_worker_process_one_uploadstash_retry_different_error():
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),  # Mock sleep to avoid delays
     ):
-        ok = await worker.process_one(1)
+        ok = await process_one(1)
         assert ok is False
         assert len(upload_attempts) == 1  # Should have tried only once (no retry)
         assert captured_status["status"] == "failed"

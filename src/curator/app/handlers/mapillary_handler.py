@@ -10,7 +10,7 @@ from curator.app.config import (
     WikidataProperty,
     cache,
 )
-from curator.app.ingest.interfaces import Handler
+from curator.app.handlers.interfaces import Handler
 from curator.app.wcqs import WcqsSession
 from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaImage
 

@@ -2,14 +2,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from curator.app.ingest.handlers.mapillary_handler import MapillaryHandler
+from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.asyncapi import MediaImage
 
 
 @pytest.fixture
 def mock_fetch_sequence():
     with patch(
-        "curator.app.ingest.handlers.mapillary_handler._fetch_sequence_data",
+        "curator.app.handlers.mapillary_handler._fetch_sequence_data",
         new_callable=AsyncMock,
     ) as mock:
         yield mock
@@ -18,7 +18,7 @@ def mock_fetch_sequence():
 @pytest.fixture
 def mock_fetch_single():
     with patch(
-        "curator.app.ingest.handlers.mapillary_handler._fetch_single_image",
+        "curator.app.handlers.mapillary_handler._fetch_single_image",
         new_callable=AsyncMock,
     ) as mock:
         yield mock
