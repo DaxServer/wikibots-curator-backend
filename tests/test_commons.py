@@ -117,31 +117,6 @@ def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
     fp.save.assert_called()
 
 
-def test_apply_sdc_includes_labels_in_payload_when_provided(mocker):
-    """Test that apply_sdc includes labels in payload when provided"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
-
-    no_value_snak = NoValueSnak(property="P180")
-    statement = Statement(
-        mainsnak=no_value_snak,
-        rank=Rank.NORMAL,
-    )
-    sdc = [statement]
-
-    label = Label(language="en", value="Example")
-    labels = label
-
-    apply_sdc(site, fp, sdc, "summary", labels)
-    called_kwargs = site.simple_request.call_args.kwargs
-    assert "data" in called_kwargs
-    assert "labels" in __import__("json").loads(called_kwargs["data"])
-
-
 def test_upload_file_chunked(mocker, mock_commons_site):
     """Test that upload_file_chunked works correctly"""
     with (

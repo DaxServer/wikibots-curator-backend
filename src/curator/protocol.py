@@ -86,8 +86,10 @@ class AsyncAPIWebSocket(WebSocket):
     async def send_upload_created(self, data: list[UploadCreatedItem]) -> None:
         await self.send_json(UploadCreated(data=data))
 
-    async def send_batches_list(self, data: BatchesListData) -> None:
-        await self.send_json(BatchesList(data=data))
+    async def send_batches_list(
+        self, data: BatchesListData, partial: bool = False
+    ) -> None:
+        await self.send_json(BatchesList(data=data, partial=partial))
 
     async def send_batch_uploads_list(self, data: BatchUploadsListData) -> None:
         await self.send_json(BatchUploadsList(data=data))
