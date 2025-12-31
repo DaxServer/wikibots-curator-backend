@@ -151,9 +151,15 @@ class Handler:
         """Fetch batches and automatically subscribe to updates."""
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
+            try:
+                await self.batches_list_task
+            except asyncio.CancelledError:
+                pass
 
-        if self.batch_streamer:
-            await self.batch_streamer.stop_streaming()
+        # Reset the streamer state for a fresh fetch
+        self.batch_streamer = OptimizedBatchStreamer(
+            self.socket, self.user.get("username")
+        )
 
         # Start the optimized streamer which will send initial full sync and then partial updates
         self.batches_list_task = asyncio.create_task(
@@ -290,9 +296,14 @@ class Handler:
         """Deprecated: Subscription is now automatic in fetch_batches."""
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
+            try:
+                await self.batches_list_task
+            except asyncio.CancelledError:
+                pass
 
-        if self.batch_streamer:
-            await self.batch_streamer.stop_streaming()
+        self.batch_streamer = OptimizedBatchStreamer(
+            self.socket, self.user.get("username")
+        )
 
         self.batches_list_task = asyncio.create_task(
             self.batch_streamer.start_streaming(
@@ -307,6 +318,10 @@ class Handler:
     async def unsubscribe_batches_list(self):
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
+            try:
+                await self.batches_list_task
+            except asyncio.CancelledError:
+                pass
 
         if self.batch_streamer:
             await self.batch_streamer.stop_streaming()

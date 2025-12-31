@@ -2,6 +2,7 @@ from datetime import datetime
 
 from curator.app.dal_optimized import (
     count_batches_optimized,
+    get_batch_ids_with_recent_changes,
     get_batches_minimal,
     get_batches_optimized,
     get_latest_update_time,
@@ -145,4 +146,25 @@ def test_get_latest_update_time(mock_session, mocker):
 
     # Verify
     assert result == t2
+    assert mock_session.exec.call_count == 2
+
+
+def test_get_batch_ids_with_recent_changes(mock_session, mocker):
+    """Test get_batch_ids_with_recent_changes returns batch IDs correctly"""
+    last_update = datetime(2024, 1, 1, 0, 0, 0)
+
+    # Mock the two calls to session.exec().all()
+    # 1. From UploadRequest
+    mock_session.exec.return_value.all.side_effect = [
+        [(1,), (2,)],  # From UploadRequest
+        [(2,), (3,)],  # From Batch
+    ]
+
+    # Execute
+    result = get_batch_ids_with_recent_changes(
+        mock_session, last_update, userid="user123", filter_text="test"
+    )
+
+    # Verify
+    assert set(result) == {1, 2, 3}
     assert mock_session.exec.call_count == 2

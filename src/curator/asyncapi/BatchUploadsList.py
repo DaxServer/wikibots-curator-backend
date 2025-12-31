@@ -15,5 +15,6 @@ class BatchUploadsList(BaseModel):
     type: Literal["BATCH_UPLOADS_LIST"] = Field(
         default="BATCH_UPLOADS_LIST", frozen=True
     )
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

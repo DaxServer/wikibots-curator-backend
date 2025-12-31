@@ -11,5 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class Error(BaseModel):
     data: str = Field(description="""Error data""")
     type: Literal["ERROR"] = Field(default="ERROR", frozen=True)
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

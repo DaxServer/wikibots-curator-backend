@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Union
 
 from fastapi import WebSocket
@@ -77,28 +78,33 @@ class AsyncAPIWebSocket(WebSocket):
             mode=mode,
         )
 
+    def _get_nonce(self) -> str:
+        return datetime.now().isoformat()
+
     async def send_error(self, data: str) -> None:
-        await self.send_json(Error(data=data))
+        await self.send_json(Error(data=data, nonce=self._get_nonce()))
 
     async def send_collection_images(self, data: CollectionImagesData) -> None:
-        await self.send_json(CollectionImages(data=data))
+        await self.send_json(CollectionImages(data=data, nonce=self._get_nonce()))
 
     async def send_upload_created(self, data: list[UploadCreatedItem]) -> None:
-        await self.send_json(UploadCreated(data=data))
+        await self.send_json(UploadCreated(data=data, nonce=self._get_nonce()))
 
     async def send_batches_list(
         self, data: BatchesListData, partial: bool = False
     ) -> None:
-        await self.send_json(BatchesList(data=data, partial=partial))
+        await self.send_json(
+            BatchesList(data=data, partial=partial, nonce=self._get_nonce())
+        )
 
     async def send_batch_uploads_list(self, data: BatchUploadsListData) -> None:
-        await self.send_json(BatchUploadsList(data=data))
+        await self.send_json(BatchUploadsList(data=data, nonce=self._get_nonce()))
 
     async def send_subscribed(self, data: int) -> None:
-        await self.send_json(Subscribed(data=data))
+        await self.send_json(Subscribed(data=data, nonce=self._get_nonce()))
 
     async def send_uploads_update(self, data: list[UploadUpdateItem]) -> None:
-        await self.send_json(UploadsUpdate(data=data))
+        await self.send_json(UploadsUpdate(data=data, nonce=self._get_nonce()))
 
     async def send_uploads_complete(self, data: int) -> None:
-        await self.send_json(UploadsComplete(data=data))
+        await self.send_json(UploadsComplete(data=data, nonce=self._get_nonce()))

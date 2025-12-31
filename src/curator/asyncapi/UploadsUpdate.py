@@ -13,5 +13,6 @@ from .UploadUpdateItem import UploadUpdateItem
 class UploadsUpdate(BaseModel):
     type: Literal["UPLOADS_UPDATE"] = Field(default="UPLOADS_UPDATE", frozen=True)
     data: List[UploadUpdateItem] = Field()
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

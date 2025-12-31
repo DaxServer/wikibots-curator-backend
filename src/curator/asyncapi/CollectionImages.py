@@ -13,5 +13,6 @@ from .CollectionImagesData import CollectionImagesData
 class CollectionImages(BaseModel):
     type: Literal["COLLECTION_IMAGES"] = Field(default="COLLECTION_IMAGES", frozen=True)
     data: CollectionImagesData = Field()
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

@@ -34,9 +34,8 @@ async def test_handler_fetch_batches_starts_streamer(
     """Test that fetch_batches initiates the OptimizedBatchStreamer."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch.object(
-        handler.batch_streamer, "start_streaming", new_callable=AsyncMock
-    ) as mock_start:
+    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+        mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         data = FetchBatchesData(page=1, limit=50, userid="user123", filter="test")
         await handler.fetch_batches(data)
 
@@ -63,9 +62,8 @@ async def test_handler_fetch_batches_cancels_previous_task(
     """Test that multiple fetch_batches calls cancel the previous task."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch.object(
-        handler.batch_streamer, "start_streaming", new_callable=AsyncMock
-    ) as mock_start:
+    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+        mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         # First call
         await handler.fetch_batches(
             FetchBatchesData(page=1, limit=10, userid="u1", filter="f1")
@@ -112,9 +110,8 @@ async def test_handler_subscribe_batches_list_deprecated(
     """Test that the deprecated subscribe_batches_list still works and starts streaming."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch.object(
-        handler.batch_streamer, "start_streaming", new_callable=AsyncMock
-    ) as mock_start:
+    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+        mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         data = SubscribeBatchesListData(userid="user123", filter="test")
         await handler.subscribe_batches_list(data)
 

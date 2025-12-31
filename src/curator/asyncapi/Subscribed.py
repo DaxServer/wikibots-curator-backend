@@ -11,5 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class Subscribed(BaseModel):
     data: int = Field(description="""Subscribed batch identifier""")
     type: Literal["SUBSCRIBED"] = Field(default="SUBSCRIBED", frozen=True)
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

@@ -11,5 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class UploadsComplete(BaseModel):
     data: int = Field(description="""Completed batch identifier""")
     type: Literal["UPLOADS_COMPLETE"] = Field(default="UPLOADS_COMPLETE", frozen=True)
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

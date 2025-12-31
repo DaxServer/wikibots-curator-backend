@@ -13,5 +13,6 @@ from .UploadCreatedItem import UploadCreatedItem
 class UploadCreated(BaseModel):
     type: Literal["UPLOAD_CREATED"] = Field(default="UPLOAD_CREATED", frozen=True)
     data: List[UploadCreatedItem] = Field()
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)
