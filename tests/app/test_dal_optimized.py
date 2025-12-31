@@ -156,8 +156,8 @@ def test_get_batch_ids_with_recent_changes(mock_session, mocker):
     # Mock the two calls to session.exec().all()
     # 1. From UploadRequest
     mock_session.exec.return_value.all.side_effect = [
-        [1, 2],  # From UploadRequest
-        [2, 3],  # From Batch
+        [(1,), (2,)],  # From UploadRequest
+        [(2,), (3,)],  # From Batch
     ]
 
     # Execute
