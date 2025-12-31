@@ -5,24 +5,21 @@ from typing import Any, Optional, cast
 import httpx
 from fastapi import WebSocketDisconnect
 from rq import Queue
-from sqlmodel import Session
 
 from curator.app.auth import UserSession
 from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
-    count_batches,
     count_uploads_in_batch,
     create_upload_request,
     get_batch,
-    get_batches,
     get_upload_request,
     reset_failed_uploads,
 )
-from curator.app.db import engine
+from curator.app.db import get_session
+from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import UploadItem
 from curator.asyncapi import (
-    BatchesListData,
     BatchUploadsListData,
     CollectionImagesData,
     FetchBatchesData,
@@ -47,12 +44,15 @@ class Handler:
         )
         self.uploads_task: Optional[asyncio.Task] = None
         self.batches_list_task: Optional[asyncio.Task] = None
+        self.batch_streamer = OptimizedBatchStreamer(sender, user.get("username"))
 
     def cancel_tasks(self):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
+        if self.batch_streamer:
+            asyncio.create_task(self.batch_streamer.stop_streaming())
 
     async def fetch_images(self, collection: str):
         handler = MapillaryHandler()
@@ -99,7 +99,7 @@ class Handler:
         handler_name = data.handler
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
-        with Session(engine) as session:
+        with next(get_session()) as session:
             reqs = create_upload_request(
                 session=session,
                 username=self.user["username"],
@@ -148,25 +148,26 @@ class Handler:
         )
 
     async def fetch_batches(self, data: FetchBatchesData):
-        page = data.page
-        limit = data.limit
-        userid = data.userid
-        filter_text = data.filter
-        offset = (page - 1) * limit
+        """Fetch batches and automatically subscribe to updates."""
+        if self.batches_list_task and not self.batches_list_task.done():
+            self.batches_list_task.cancel()
 
-        with Session(engine) as session:
-            batch_items = get_batches(session, userid, offset, limit, filter_text)
-            total = count_batches(session, userid, filter_text)
+        if self.batch_streamer:
+            await self.batch_streamer.stop_streaming()
+
+        # Start the optimized streamer which will send initial full sync and then partial updates
+        self.batches_list_task = asyncio.create_task(
+            self.batch_streamer.start_streaming(
+                data.userid, data.filter, page=data.page, limit=data.limit
+            )
+        )
 
         logger.info(
-            f"[ws] [resp] Sending {len(batch_items)} batches for {self.user.get('username')}"
-        )
-        await self.socket.send_batches_list(
-            BatchesListData(items=batch_items, total=total)
+            f"[ws] [resp] FetchBatches and subscribed to batches list for {self.user.get('username')}"
         )
 
     async def fetch_batch_uploads(self, batchid: int):
-        with Session(engine) as session:
+        with next(get_session()) as session:
             batch = get_batch(session, batchid)
             if not batch:
                 await self.socket.send_error(f"Batch {batchid} not found")
@@ -190,7 +191,7 @@ class Handler:
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
         try:
-            with Session(engine) as session:
+            with next(get_session()) as session:
                 retried_ids = reset_failed_uploads(
                     session, batchid, userid, encrypted_access_token
                 )
@@ -240,7 +241,8 @@ class Handler:
         try:
             while True:
                 await asyncio.sleep(2)
-                with Session(engine) as session:
+
+                with next(get_session()) as session:
                     items = get_upload_request(
                         session,
                         batchid=batchid,
@@ -285,11 +287,17 @@ class Handler:
             logger.error(f"Error in stream_uploads: {e}")
 
     async def subscribe_batches_list(self, data: SubscribeBatchesListData):
+        """Deprecated: Subscription is now automatic in fetch_batches."""
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
 
+        if self.batch_streamer:
+            await self.batch_streamer.stop_streaming()
+
         self.batches_list_task = asyncio.create_task(
-            self.stream_batches_list(data.userid, data.filter)
+            self.batch_streamer.start_streaming(
+                data.userid, data.filter, page=1, limit=100
+            )
         )
 
         logger.info(
@@ -300,44 +308,9 @@ class Handler:
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
 
+        if self.batch_streamer:
+            await self.batch_streamer.stop_streaming()
+
         logger.info(
             f"[ws] [resp] Unsubscribed from batches list for {self.user.get('username')}"
         )
-
-    async def stream_batches_list(
-        self, userid: Optional[str] = None, filter_text: Optional[str] = None
-    ):
-        last_batch_items = None
-        try:
-            while True:
-                # We want to check for updates every 5 seconds or so
-                await asyncio.sleep(5)
-
-                # Default pagination parameters (page 1)
-                page = 1
-                limit = 100
-                offset = (page - 1) * limit
-
-                with Session(engine) as session:
-                    batch_items = get_batches(
-                        session, userid, offset, limit, filter_text
-                    )
-                    total = count_batches(session, userid, filter_text)
-
-                    current_data = BatchesListData(items=batch_items, total=total)
-
-                    if (
-                        last_batch_items is None
-                        or current_data.model_dump() != last_batch_items.model_dump()
-                    ):
-                        logger.info(
-                            f"[ws] [resp] Sending batches list update for {self.user.get('username')}"
-                        )
-                        await self.socket.send_batches_list(current_data)
-
-                    last_batch_items = current_data
-
-        except (asyncio.CancelledError, WebSocketDisconnect):
-            return
-        except Exception as e:
-            logger.error(f"Error in stream_batches_list: {e}")

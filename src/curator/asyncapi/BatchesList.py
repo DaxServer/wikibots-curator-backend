@@ -12,6 +12,7 @@ from .BatchesListData import BatchesListData
 
 class BatchesList(BaseModel):
     data: BatchesListData = Field()
+    partial: bool = Field()
     type: Literal["BATCHES_LIST"] = Field(default="BATCHES_LIST", frozen=True)
 
     model_config = ConfigDict(populate_by_name=True)

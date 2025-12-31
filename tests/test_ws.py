@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -48,7 +49,7 @@ def mock_worker():
 
 @pytest.fixture
 def mock_session():
-    with patch("curator.app.handler.Session") as mock:
+    with patch("curator.app.handler.get_session") as mock:
         session_instance = mock.return_value.__enter__.return_value
         yield session_instance
 
@@ -211,8 +212,16 @@ async def test_stream_uploads_completion(mocker, mock_dal, mock_session):
 
 def test_ws_subscribe_batches_list(mock_session):
     with (
-        patch("curator.app.handler.get_batches") as mock_get_batches,
-        patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch(
+            "curator.app.handler_optimized.get_batches_optimized"
+        ) as mock_get_batches,
+        patch(
+            "curator.app.handler_optimized.count_batches_optimized"
+        ) as mock_count_batches,
+        patch(
+            "curator.app.handler_optimized.get_latest_update_time",
+            return_value=datetime.now(),
+        ),
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
         client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
     ):
@@ -222,6 +231,39 @@ def test_ws_subscribe_batches_list(mock_session):
 
         websocket.send_json(
             {"type": "SUBSCRIBE_BATCHES_LIST", "data": {"userid": "u1", "filter": "f1"}}
+        )
+
+        # Should receive BATCHES_LIST
+        data = websocket.receive_json()
+        assert data["type"] == "BATCHES_LIST"
+        assert data["data"]["items"] == []
+        assert data["data"]["total"] == 0
+
+
+def test_ws_fetch_batches_auto_subscribe(mock_session):
+    with (
+        patch(
+            "curator.app.handler_optimized.get_batches_optimized"
+        ) as mock_get_batches,
+        patch(
+            "curator.app.handler_optimized.count_batches_optimized"
+        ) as mock_count_batches,
+        patch(
+            "curator.app.handler_optimized.get_latest_update_time",
+            return_value=datetime.now(),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
+    ):
+        mock_sleep.side_effect = [None, asyncio.CancelledError()]
+        mock_get_batches.return_value = []
+        mock_count_batches.return_value = 0
+
+        websocket.send_json(
+            {
+                "type": "FETCH_BATCHES",
+                "data": {"page": 1, "limit": 10, "userid": "u1", "filter": "f1"},
+            }
         )
 
         # Should receive BATCHES_LIST

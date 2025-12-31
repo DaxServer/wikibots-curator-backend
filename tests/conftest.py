@@ -145,6 +145,14 @@ def patch_get_session(mocker, mock_session):
 
 
 @pytest.fixture
+def patch_handler_optimized_get_session(mocker, mock_session):
+    """Patch get_session for handler_optimized tests to return mock session"""
+    return mocker.patch(
+        "curator.app.handler_optimized.get_session", return_value=iter([mock_session])
+    )
+
+
+@pytest.fixture
 def patch_get_upload_request_by_id(mocker, mock_upload_request):
     """Patch get_upload_request_by_id to return mock upload request"""
     return mocker.patch(

@@ -104,7 +104,6 @@ def start(reload: bool = True):
             "default": {
                 "()": "uvicorn.logging.DefaultFormatter",
                 "fmt": "%(levelprefix)s %(message)s",
-                "use_colors": None,
             },
             "access": {
                 "()": "uvicorn.logging.AccessFormatter",
