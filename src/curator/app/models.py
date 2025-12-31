@@ -52,7 +52,7 @@ class UploadRequest(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: int = Field(default=None, primary_key=True)
-    batchid: int = Field(default=None, foreign_key="batches.id", index=True)
+    batchid: int = Field(foreign_key="batches.id", index=True)
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     status: str = Field(index=True, max_length=50)
     key: str = Field(index=True, max_length=255)
