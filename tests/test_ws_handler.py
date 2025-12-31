@@ -185,15 +185,18 @@ async def test_stream_uploads(mocker, handler_instance, mock_sender, mock_sessio
 
 @pytest.mark.asyncio
 async def test_handle_fetch_batches(handler_instance, mock_sender):
-    with patch.object(
-        handler_instance.batch_streamer, "start_streaming", new_callable=AsyncMock
-    ) as mock_stream:
+    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+        mock_streamer_instance = MockStreamer.return_value
+        mock_streamer_instance.start_streaming = AsyncMock()
+
         # Mock send_subscribed
         data = FetchBatchesData(page=1, limit=100, userid="user123", filter="test")
         await handler_instance.fetch_batches(data)
 
-        # 1. Should start streaming with correct params
-        mock_stream.assert_called_once_with("user123", "test", page=1, limit=100)
+        # 1. Should start streaming with correct params on the NEW instance
+        mock_streamer_instance.start_streaming.assert_called_once_with(
+            "user123", "test", page=1, limit=100
+        )
 
         # 2. Should store the task
         assert handler_instance.batches_list_task is not None

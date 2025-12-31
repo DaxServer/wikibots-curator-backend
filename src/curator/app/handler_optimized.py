@@ -130,7 +130,7 @@ class OptimizedBatchStreamer:
         """Send only batches that have changed recently."""
         # Get batch IDs that had changes since last_update_time
         changed_batch_ids = get_batch_ids_with_recent_changes(
-            session, last_update_time, userid
+            session, last_update_time, userid, filter_text
         )
 
         if not changed_batch_ids:

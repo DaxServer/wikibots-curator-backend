@@ -14,5 +14,6 @@ class BatchesList(BaseModel):
     data: BatchesListData = Field()
     partial: bool = Field()
     type: Literal["BATCHES_LIST"] = Field(default="BATCHES_LIST", frozen=True)
+    nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)

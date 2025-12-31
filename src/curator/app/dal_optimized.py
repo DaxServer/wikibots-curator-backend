@@ -136,27 +136,55 @@ def count_batches_optimized(
 
 
 def get_batch_ids_with_recent_changes(
-    session: Session, last_update_time: datetime, userid: Optional[str] = None
+    session: Session,
+    last_update_time: datetime,
+    userid: Optional[str] = None,
+    filter_text: Optional[str] = None,
 ) -> list[int]:
     """Get batch IDs that have had upload status changes since last_update_time."""
 
+    # 1. Check for batches with updated uploads
     query = (
         select(col(UploadRequest.batchid))
+        .join(Batch, col(Batch.id) == col(UploadRequest.batchid))
+        .join(User, col(User.userid) == col(Batch.userid))
         .where(col(UploadRequest.updated_at) > last_update_time)
         .distinct()
     )
+
     if userid:
-        query = query.where(col(UploadRequest.userid) == userid)
+        query = query.where(col(Batch.userid) == userid)
+
+    if filter_text:
+        query = query.where(
+            or_(
+                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
+                col(User.username).ilike(f"%{filter_text}%"),
+            )
+        )
 
     results = session.exec(query).all()
-    batch_ids = [row for row in results]
+    batch_ids = list(results)
 
-    # Also check for newly created or updated batches themselves
-    batch_query = select(col(Batch.id)).where(col(Batch.updated_at) > last_update_time)
+    # 2. Check for newly created or updated batches themselves
+    batch_query = (
+        select(col(Batch.id)).join(User).where(col(Batch.updated_at) > last_update_time)
+    )
+
     if userid:
         batch_query = batch_query.where(col(Batch.userid) == userid)
+
+    if filter_text:
+        # Re-apply the same filters
+        batch_query = batch_query.where(
+            or_(
+                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
+                col(User.username).ilike(f"%{filter_text}%"),
+            )
+        )
+
     results = session.exec(batch_query).all()
-    batch_ids.extend([row for row in results])
+    batch_ids.extend(list(results))
 
     return list(set(batch_ids))
 
