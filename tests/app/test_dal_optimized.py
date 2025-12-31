@@ -59,13 +59,28 @@ def test_get_batches_optimized_basic(mock_session, mocker):
     created_at1 = datetime(2024, 1, 1, 1, 0, 0)
     created_at2 = datetime(2024, 1, 1, 2, 0, 0)
 
-    # Mock the execute result with proper row structure
-    mock_result = mocker.MagicMock()
-    mock_result.all.return_value = [
-        (1, created_at1, "user123", "user1", 10, 2, 1, 5, 1, 1),
-        (2, created_at2, "user123", "user2", 15, 3, 2, 7, 2, 1),
+    # 1. Mock the first call: base_query for batches and usernames
+    batch1 = mocker.MagicMock()
+    batch1.id = 1
+    batch1.created_at = created_at1
+    batch1.userid = "user123"
+
+    batch2 = mocker.MagicMock()
+    batch2.id = 2
+    batch2.created_at = created_at2
+    batch2.userid = "user123"
+
+    mock_session.exec.return_value.all.return_value = [
+        (batch1, "user1"),
+        (batch2, "user2"),
     ]
-    mock_session.execute.return_value = mock_result
+
+    # 2. Mock the second call: stats_query for these batches
+    # row format: (bid, total, queued, in_progress, completed, failed, duplicate)
+    mock_session.execute.return_value.all.return_value = [
+        (1, 10, 2, 1, 5, 1, 1),
+        (2, 15, 3, 2, 7, 2, 1),
+    ]
 
     # Execute
     result = get_batches_optimized(mock_session, userid="user123", filter_text=None)
@@ -78,19 +93,28 @@ def test_get_batches_optimized_basic(mock_session, mocker):
     assert result[1].id == 2
     assert result[1].username == "user2"
     assert result[1].stats.total == 15
-    mock_session.execute.assert_called_once()
+    assert mock_session.exec.called
+    assert mock_session.execute.called
 
 
 def test_get_batches_minimal(mock_session, mocker):
     """Test get_batches_minimal returns batches correctly"""
     created_at1 = datetime(2024, 1, 1, 1, 0, 0)
 
-    # Mock the execute result
-    mock_result = mocker.MagicMock()
-    mock_result.all.return_value = [
-        (1, created_at1, "user123", "user1", 10, 2, 1, 5, 1, 1),
+    # 1. Mock the first call: base_query
+    batch1 = mocker.MagicMock()
+    batch1.id = 1
+    batch1.created_at = created_at1
+    batch1.userid = "user123"
+
+    mock_session.exec.return_value.all.return_value = [
+        (batch1, "user1"),
     ]
-    mock_session.execute.return_value = mock_result
+
+    # 2. Mock the second call: stats_query
+    mock_session.execute.return_value.all.return_value = [
+        (1, 10, 2, 1, 5, 1, 1),
+    ]
 
     # Execute
     result = get_batches_minimal(mock_session, batch_ids=[1])
@@ -98,7 +122,9 @@ def test_get_batches_minimal(mock_session, mocker):
     # Verify
     assert len(result) == 1
     assert result[0].id == 1
-    mock_session.execute.assert_called_once()
+    assert result[0].stats.total == 10
+    assert mock_session.exec.called
+    assert mock_session.execute.called
 
 
 def test_get_latest_update_time(mock_session, mocker):

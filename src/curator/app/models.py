@@ -36,9 +36,11 @@ class Batch(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
-        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+        default_factory=datetime.now,
+        index=True,
+        sa_column_kwargs={"onupdate": datetime.now},
     )
 
     user: Optional[User] = Relationship(back_populates="batches")
@@ -50,7 +52,7 @@ class UploadRequest(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: int = Field(default=None, primary_key=True)
-    batchid: int = Field(default=None, foreign_key="batches.id")
+    batchid: int = Field(default=None, foreign_key="batches.id", index=True)
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     status: str = Field(index=True, max_length=50)
     key: str = Field(index=True, max_length=255)
@@ -68,9 +70,11 @@ class UploadRequest(SQLModel, table=True):
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
     error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
-        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+        default_factory=datetime.now,
+        index=True,
+        sa_column_kwargs={"onupdate": datetime.now},
     )
 
     user: Optional[User] = Relationship(back_populates="uploads")
