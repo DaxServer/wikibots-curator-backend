@@ -30,7 +30,7 @@ from curator.asyncapi import (
 )
 from curator.protocol import AsyncAPIWebSocket
 from curator.workers.ingest import process_one
-from curator.workers.rq import queue as ingest_queue
+from curator.workers.rq import QueuePriority, get_queue
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,9 @@ class Handler:
             CollectionImagesData(images=images, creator=creator)
         )
 
-    async def upload(self, data: UploadData):
+    async def upload(
+        self, data: UploadData, priority: Optional[QueuePriority] = QueuePriority.NORMAL
+    ):
         items = data.items
         handler_name = data.handler
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
@@ -124,7 +126,10 @@ class Handler:
                     }
                 )
 
-        ingest_queue.enqueue_many(
+        # Get the appropriate queue based on priority (defaults to normal)
+        selected_queue = get_queue(priority)
+
+        selected_queue.enqueue_many(
             [
                 Queue.prepare_data(process_one, (upload["id"],))
                 for upload in prepared_uploads
@@ -191,7 +196,9 @@ class Handler:
             BatchUploadsListData(batch=batch, uploads=serialized_uploads)
         )
 
-    async def retry_uploads(self, batchid: int):
+    async def retry_uploads(
+        self, batchid: int, priority: Optional[QueuePriority] = QueuePriority.NORMAL
+    ):
         username = self.user["username"]
         userid = self.user["userid"]
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
@@ -215,7 +222,10 @@ class Handler:
             await self.socket.send_error("No failed uploads to retry")
             return
 
-        ingest_queue.enqueue_many(
+        # Get the appropriate queue based on priority
+        selected_queue = get_queue(priority)
+
+        selected_queue.enqueue_many(
             [Queue.prepare_data(process_one, (uid,)) for uid in retried_ids]
         )
 

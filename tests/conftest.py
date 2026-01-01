@@ -18,6 +18,7 @@ if not os.environ.get("TOKEN_ENCRYPTION_KEY"):
 def mock_session():
     """Standard mock database session"""
     session = MagicMock()
+    session.refresh = MagicMock()
     session.get.return_value = None
     session.exec.return_value.all.return_value = []
     session.exec.return_value.first.return_value = None

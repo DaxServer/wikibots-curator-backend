@@ -42,9 +42,11 @@ def mock_dal():
 
 
 @pytest.fixture
-def mock_worker():
-    with patch("curator.app.handler.ingest_queue") as mock:
-        yield mock
+def mock_worker(mocker):
+    with patch("curator.app.handler.get_queue") as mock_get_queue:
+        mock_queue = mocker.MagicMock()
+        mock_get_queue.return_value = mock_queue
+        yield mock_queue
 
 
 @pytest.fixture
