@@ -164,7 +164,7 @@ def get_batch_ids_with_recent_changes(
         )
 
     results = session.exec(query).all()
-    batch_ids = [row[0] for row in results]
+    batch_ids = list(results)
 
     # 2. Check for newly created or updated batches themselves
     batch_query = (
@@ -184,7 +184,7 @@ def get_batch_ids_with_recent_changes(
         )
 
     results = session.exec(batch_query).all()
-    batch_ids.extend([row[0] for row in results])
+    batch_ids.extend(list(results))
 
     return list(set(batch_ids))
 
