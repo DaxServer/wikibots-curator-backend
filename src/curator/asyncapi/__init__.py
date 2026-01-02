@@ -117,6 +117,7 @@ __all__ = [
     "ErrorLink",
     "GenericError",
     "TitleBlacklistedError",
+    "CollectionImageIds",
     "CollectionImages",
     "CollectionImagesData",
     "MediaImage",
@@ -125,16 +126,15 @@ __all__ = [
     "ExistingPage",
     "GeoLocation",
     "Error",
+    "PartialCollectionImages",
+    "PartialCollectionImagesData",
     "Subscribed",
+    "TryBatchRetrieval",
     "UploadCreated",
     "UploadCreatedItem",
     "UploadsComplete",
     "UploadsUpdate",
     "UploadUpdateItem",
-    "TryBatchRetrieval",
-    "CollectionImageIds",
-    "PartialCollectionImages",
-    "PartialCollectionImagesData",
 ]
 
 # Rebuild models to resolve forward references

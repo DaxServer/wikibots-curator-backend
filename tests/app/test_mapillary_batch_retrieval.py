@@ -161,8 +161,4 @@ async def test_fetch_images_batch_empty_collection(
         await handler_instance.fetch_images("seq123")
 
         mock_sender.send_try_batch_retrieval.assert_called_once()
-        # It fails at `first_batch_ids = ids[:100]` which is empty, then `fetch_images_batch([])` returns `{}`
-        handler.fetch_images_batch = AsyncMock(return_value={})
-
-        await handler_instance.fetch_images("seq123")
         mock_sender.send_error.assert_called_with("Collection has no images")
