@@ -9,16 +9,20 @@ from curator.asyncapi import (
     BatchesListData,
     BatchUploadsList,
     BatchUploadsListData,
+    CollectionImageIds,
     CollectionImages,
     CollectionImagesData,
     Error,
     FetchBatches,
     FetchBatchUploads,
     FetchImages,
+    PartialCollectionImages,
+    PartialCollectionImagesData,
     RetryUploads,
     SubscribeBatch,
     SubscribeBatchesList,
     Subscribed,
+    TryBatchRetrieval,
     UnsubscribeBatch,
     UnsubscribeBatchesList,
     Upload,
@@ -57,6 +61,9 @@ ServerMessage = Annotated[
         UploadCreated,
         UploadsComplete,
         UploadsUpdate,
+        TryBatchRetrieval,
+        CollectionImageIds,
+        PartialCollectionImages,
     ],
     Field(discriminator="type"),
 ]
@@ -108,3 +115,16 @@ class AsyncAPIWebSocket(WebSocket):
 
     async def send_uploads_complete(self, data: int) -> None:
         await self.send_json(UploadsComplete(data=data, nonce=self._get_nonce()))
+
+    async def send_try_batch_retrieval(self, data: str) -> None:
+        await self.send_json(TryBatchRetrieval(data=data, nonce=self._get_nonce()))
+
+    async def send_collection_image_ids(self, data: list[str]) -> None:
+        await self.send_json(CollectionImageIds(data=data, nonce=self._get_nonce()))
+
+    async def send_partial_collection_images(
+        self, data: PartialCollectionImagesData
+    ) -> None:
+        await self.send_json(
+            PartialCollectionImages(data=data, nonce=self._get_nonce())
+        )

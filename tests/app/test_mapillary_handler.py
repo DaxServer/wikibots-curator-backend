@@ -1,8 +1,12 @@
+import hashlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from curator.app.handlers.mapillary_handler import MapillaryHandler
+from curator.app.handlers.mapillary_handler import (
+    MapillaryHandler,
+    _fetch_images_by_ids,
+)
 from curator.asyncapi import MediaImage
 
 
@@ -86,3 +90,32 @@ async def test_fetch_image_metadata_fallback_not_implemented(
 
     with pytest.raises(ValueError, match="Image data not found in sequence"):
         await handler.fetch_image_metadata(image_id, sequence_id)
+
+
+@pytest.mark.asyncio
+async def test_fetch_images_by_ids_hashing():
+    image_ids = ["b", "a", "c"]
+    sequence_id = "seq1"
+
+    expected_sorted = ["a", "b", "c"]
+    ids_str = ",".join(expected_sorted)
+    expected_hash = hashlib.sha256(ids_str.encode()).hexdigest()
+
+    with patch(
+        "curator.app.handlers.mapillary_handler._fetch_images_internal",
+        new_callable=AsyncMock,
+    ) as mock_internal:
+        mock_internal.return_value = {"a": {}, "b": {}, "c": {}}
+
+        result = await _fetch_images_by_ids(image_ids, sequence_id)
+
+        mock_internal.assert_called_once_with(
+            expected_sorted, sequence_id, expected_hash
+        )
+        assert result == {"a": {}, "b": {}, "c": {}}
+
+
+@pytest.mark.asyncio
+async def test_fetch_images_by_ids_empty():
+    result = await _fetch_images_by_ids([], "seq1")
+    assert result == {}
