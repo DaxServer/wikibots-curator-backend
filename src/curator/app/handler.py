@@ -23,6 +23,8 @@ from curator.asyncapi import (
     BatchUploadsListData,
     CollectionImagesData,
     FetchBatchesData,
+    MediaImage,
+    PartialCollectionImagesData,
     SubscribeBatchesListData,
     UploadCreatedItem,
     UploadData,
@@ -38,13 +40,14 @@ logger = logging.getLogger(__name__)
 class Handler:
     def __init__(self, user: UserSession, sender: AsyncAPIWebSocket, request_obj: Any):
         self.user = user
+        self.username = user.get("username")
         self.socket = sender
         self.request_obj = (
             request_obj  # Can be WebSocket or Request, needed for WcqsSession
         )
         self.uploads_task: Optional[asyncio.Task] = None
         self.batches_list_task: Optional[asyncio.Task] = None
-        self.batch_streamer = OptimizedBatchStreamer(sender, user.get("username"))
+        self.batch_streamer = OptimizedBatchStreamer(sender, self.username)
 
     def cancel_tasks(self):
         if self.uploads_task and not self.uploads_task.done():
@@ -60,19 +63,85 @@ class Handler:
         try:
             images = await handler.fetch_collection(collection)
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == 500:
+                await self._fetch_images_in_batches(collection, handler, loop)
+                return
+
             logger.error(
-                f"[ws] [resp] Mapillary API error for {collection} for {self.user.get('username')}: {e}"
+                f"[ws] [resp] Mapillary API error for {collection} for {self.username}: {e}"
             )
             await self.socket.send_error(f"Mapillary API Error: {e.response.text}")
             return
 
         if not images:
             logger.error(
-                f"[ws] [resp] Collection not found for {collection} for {self.user.get('username')}"
+                f"[ws] [resp] Collection not found for {collection} for {self.username}"
             )
             await self.socket.send_error("Collection not found")
             return
 
+        await self._send_full_collection(collection, images, handler, loop)
+
+    async def _fetch_images_in_batches(
+        self,
+        collection: str,
+        handler: MapillaryHandler,
+        loop: asyncio.AbstractEventLoop,
+    ):
+        logger.warning(
+            f"[ws] [resp] Mapillary 500 error for {collection}, attempting batch retrieval"
+        )
+        await self.socket.send_try_batch_retrieval(
+            "Large collection detected. Retrying in batches..."
+        )
+        try:
+            ids = await handler.fetch_collection_ids(collection)
+            logger.info(
+                f"[ws] [resp] Found {len(ids)} images in collection {collection} for {self.username}"
+            )
+
+            if not ids:
+                await self.socket.send_error("Collection has no images")
+                return
+
+            await self.socket.send_collection_image_ids(ids)
+
+            # Process in batches
+            for i in range(0, len(ids), 100):
+                batch_ids = ids[i : i + 100]
+                batch_images = await handler.fetch_images_batch(batch_ids, collection)
+
+                existing_pages = await loop.run_in_executor(
+                    None,
+                    handler.fetch_existing_pages,
+                    list(batch_images.keys()),
+                    self.request_obj,
+                )
+                for image_id, pages in existing_pages.items():
+                    batch_images[image_id].existing = pages
+
+                await self.socket.send_partial_collection_images(
+                    PartialCollectionImagesData(
+                        images=list(batch_images.values()),
+                        collection=collection,
+                    )
+                )
+        except WebSocketDisconnect:
+            logger.info(
+                f"[ws] [resp] User {self.username} disconnected during batch retrieval for {collection}"
+            )
+            pass
+        except Exception as ex:
+            logger.error(f"[ws] [resp] Batch retrieval failed for {collection}: {ex}")
+            await self.socket.send_error(f"Batch retrieval failed: {ex}")
+
+    async def _send_full_collection(
+        self,
+        collection: str,
+        images: dict[str, MediaImage],
+        handler: MapillaryHandler,
+        loop: asyncio.AbstractEventLoop,
+    ):
         first = next(iter(images.values()))
         creator = first.creator
 
@@ -88,7 +157,7 @@ class Handler:
             images[image_id].existing = pages
 
         logger.info(
-            f"[ws] [resp] Sending collection {collection} images for {self.user.get('username')}"
+            f"[ws] [resp] Sending collection {collection} images for {self.username}"
         )
         await self.socket.send_collection_images(
             CollectionImagesData(images=images, creator=creator)
@@ -104,7 +173,7 @@ class Handler:
         with next(get_session()) as session:
             reqs = create_upload_request(
                 session=session,
-                username=self.user["username"],
+                username=self.username,
                 userid=self.user["userid"],
                 payload=cast(list[UploadItem], items),
                 handler=handler_name,
@@ -137,7 +206,7 @@ class Handler:
         )
 
         logger.info(
-            f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.user.get('username')}"
+            f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.username}"
         )
         await self.socket.send_upload_created(
             [
@@ -162,9 +231,7 @@ class Handler:
                 pass
 
         # Reset the streamer state for a fresh fetch
-        self.batch_streamer = OptimizedBatchStreamer(
-            self.socket, self.user.get("username")
-        )
+        self.batch_streamer = OptimizedBatchStreamer(self.socket, self.username)
 
         # Start the optimized streamer which will send initial full sync and then partial updates
         self.batches_list_task = asyncio.create_task(
@@ -174,7 +241,7 @@ class Handler:
         )
 
         logger.info(
-            f"[ws] [resp] FetchBatches and subscribed to batches list for {self.user.get('username')}"
+            f"[ws] [resp] FetchBatches and subscribed to batches list for {self.username}"
         )
 
     async def fetch_batch_uploads(self, batchid: int):
@@ -190,7 +257,7 @@ class Handler:
             )
 
         logger.info(
-            f"[ws] [resp] Sending batch {batchid} and {len(serialized_uploads)} uploads for {self.user.get('username')}"
+            f"[ws] [resp] Sending batch {batchid} and {len(serialized_uploads)} uploads for {self.username}"
         )
         await self.socket.send_batch_uploads_list(
             BatchUploadsListData(batch=batch, uploads=serialized_uploads)
@@ -199,7 +266,6 @@ class Handler:
     async def retry_uploads(
         self, batchid: int, priority: Optional[QueuePriority] = QueuePriority.NORMAL
     ):
-        username = self.user["username"]
         userid = self.user["userid"]
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
@@ -217,7 +283,7 @@ class Handler:
 
         if not retried_ids:
             logger.info(
-                f"[ws] [resp] No failed uploads to retry for batch {batchid} for {username}"
+                f"[ws] [resp] No failed uploads to retry for batch {batchid} for {self.username}"
             )
             await self.socket.send_error("No failed uploads to retry")
             return
@@ -230,7 +296,7 @@ class Handler:
         )
 
         logger.info(
-            f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {username}"
+            f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"
         )
 
     async def subscribe_batch(self, batchid: int):
@@ -239,18 +305,14 @@ class Handler:
 
         self.uploads_task = asyncio.create_task(self.stream_uploads(batchid))
 
-        logger.info(
-            f"[ws] [resp] Subscribed to batch {batchid} for {self.user.get('username')}"
-        )
+        logger.info(f"[ws] [resp] Subscribed to batch {batchid} for {self.username}")
         await self.socket.send_subscribed(batchid)
 
     async def unsubscribe_batch(self):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
 
-        logger.info(
-            f"[ws] [resp] Unsubscribed from batch updates for {self.user.get('username')}"
-        )
+        logger.info(f"[ws] [resp] Unsubscribed from batch updates for {self.username}")
 
     async def stream_uploads(self, batchid: int):
         last_update_items = None
@@ -279,7 +341,7 @@ class Handler:
 
                     if update_items != last_update_items:
                         logger.info(
-                            f"[ws] [resp] Sending batch {batchid} update for {self.user.get('username')}"
+                            f"[ws] [resp] Sending batch {batchid} update for {self.username}"
                         )
                         await self.socket.send_uploads_update(update_items)
                         last_update_items = update_items
@@ -292,12 +354,14 @@ class Handler:
                     )
                     if completed >= total:
                         logger.info(
-                            f"[ws] [resp] Batch {batchid} completed for {self.user.get('username')}"
+                            f"[ws] [resp] Batch {batchid} completed for {self.username}"
                         )
                         await self.socket.send_uploads_complete(batchid)
                         break
         except (asyncio.CancelledError, WebSocketDisconnect):
-            # Task cancelled or client disconnected, just exit
+            logger.info(
+                f"[ws] [resp] Disconnected while streaming batch {batchid} for {self.username}"
+            )
             return
         except Exception as e:
             logger.error(f"Error in stream_uploads: {e}")
@@ -311,9 +375,7 @@ class Handler:
             except asyncio.CancelledError:
                 pass
 
-        self.batch_streamer = OptimizedBatchStreamer(
-            self.socket, self.user.get("username")
-        )
+        self.batch_streamer = OptimizedBatchStreamer(self.socket, self.username)
 
         self.batches_list_task = asyncio.create_task(
             self.batch_streamer.start_streaming(
@@ -321,9 +383,7 @@ class Handler:
             )
         )
 
-        logger.info(
-            f"[ws] [resp] Subscribed to batches list for {self.user.get('username')}"
-        )
+        logger.info(f"[ws] [resp] Subscribed to batches list for {self.username}")
 
     async def unsubscribe_batches_list(self):
         if self.batches_list_task and not self.batches_list_task.done():
@@ -336,6 +396,4 @@ class Handler:
         if self.batch_streamer:
             await self.batch_streamer.stop_streaming()
 
-        logger.info(
-            f"[ws] [resp] Unsubscribed from batches list for {self.user.get('username')}"
-        )
+        logger.info(f"[ws] [resp] Unsubscribed from batches list for {self.username}")

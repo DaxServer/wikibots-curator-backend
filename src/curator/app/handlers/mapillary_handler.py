@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
@@ -90,6 +91,71 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
     return {str(i["id"]): i for i in images}
 
 
+@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:ids:{sequence_id}")
+async def _fetch_sequence_ids(sequence_id: str) -> list[str]:
+    """
+    Fetch sequence image IDs from Mapillary API (no fields)
+    """
+    logger.info(f"[mapillary] fetching sequence ids for {sequence_id}")
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://graph.mapillary.com/images",
+            params={
+                "access_token": MAPILLARY_API_TOKEN,
+                "sequence_ids": sequence_id,
+            },
+            timeout=30,
+        )
+    response.raise_for_status()
+    images = response.json()["data"]
+    return [str(i["id"]) for i in images]
+
+
+@cache(ttl=timedelta(hours=1), key="curator:mapillary:images:{ids_hash}")
+async def _fetch_images_internal(
+    image_ids: list[str], sequence_id: str, ids_hash: str
+) -> dict[str, dict]:
+    """
+    Internal function to fetch images with a hashed key for caching.
+    """
+    logger.info(
+        f"[mapillary] fetching {len(image_ids)} images by ids for {sequence_id}"
+    )
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://graph.mapillary.com",
+            params={
+                "access_token": MAPILLARY_API_TOKEN,
+                "ids": ",".join(image_ids),
+                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            timeout=30,
+        )
+    response.raise_for_status()
+    # Response is a dict image_id -> data
+    return {str(k): v for k, v in response.json().items()}
+
+
+async def _fetch_images_by_ids(
+    image_ids: list[str], sequence_id: str
+) -> dict[str, dict]:
+    """
+    Fetch multiple images by their IDs in a single request.
+    Returns a dict mapping image ID to its data.
+    """
+    if not image_ids:
+        return {}
+
+    # Sort ids to ensure consistent hash
+    sorted_ids = sorted(image_ids)
+    ids_str = ",".join(sorted_ids)
+    ids_hash = hashlib.sha256(ids_str.encode()).hexdigest()
+
+    return await _fetch_images_internal(sorted_ids, sequence_id, ids_hash)
+
+
 @cache(ttl=timedelta(hours=1), key="curator:mapillary:image:{image_id}")
 async def _fetch_single_image(image_id: str) -> dict:
     """
@@ -116,6 +182,15 @@ class MapillaryHandler(Handler):
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
+
+    async def fetch_collection_ids(self, input: str) -> list[str]:
+        return await _fetch_sequence_ids(input)
+
+    async def fetch_images_batch(
+        self, image_ids: list[str], sequence_id: str
+    ) -> dict[str, MediaImage]:
+        data = await _fetch_images_by_ids(image_ids, sequence_id)
+        return {k: from_mapillary(v) for k, v in data.items()}
 
     async def fetch_image_metadata(
         self, image_id: str, input: Optional[str] = None

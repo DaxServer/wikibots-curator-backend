@@ -8,6 +8,7 @@ from .BatchStats import BatchStats
 from .BatchUploadItem import BatchUploadItem
 from .BatchUploadsList import BatchUploadsList
 from .BatchUploadsListData import BatchUploadsListData
+from .CollectionImageIds import CollectionImageIds
 from .CollectionImages import CollectionImages
 from .CollectionImagesData import CollectionImagesData
 from .Creator import Creator
@@ -34,6 +35,8 @@ from .GlobeCoordinateValueSnak import GlobeCoordinateValueSnak
 from .Label import Label
 from .MediaImage import MediaImage
 from .NoValueSnak import NoValueSnak
+from .PartialCollectionImages import PartialCollectionImages
+from .PartialCollectionImagesData import PartialCollectionImagesData
 from .QuantityDataValue import QuantityDataValue
 from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
@@ -50,6 +53,7 @@ from .Subscribed import Subscribed
 from .TimeDataValue import TimeDataValue
 from .TimeValueSnak import TimeValueSnak
 from .TitleBlacklistedError import TitleBlacklistedError
+from .TryBatchRetrieval import TryBatchRetrieval
 from .UnsubscribeBatch import UnsubscribeBatch
 from .UnsubscribeBatchesList import UnsubscribeBatchesList
 from .Upload import Upload
@@ -113,6 +117,7 @@ __all__ = [
     "ErrorLink",
     "GenericError",
     "TitleBlacklistedError",
+    "CollectionImageIds",
     "CollectionImages",
     "CollectionImagesData",
     "MediaImage",
@@ -121,7 +126,10 @@ __all__ = [
     "ExistingPage",
     "GeoLocation",
     "Error",
+    "PartialCollectionImages",
+    "PartialCollectionImagesData",
     "Subscribed",
+    "TryBatchRetrieval",
     "UploadCreated",
     "UploadCreatedItem",
     "UploadsComplete",

@@ -249,8 +249,8 @@ async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_send
 
         # Create a mock response with a text property
         mock_response = mocker.MagicMock()
-        mock_response.status_code = 500
-        mock_response.text = "500 error"
+        mock_response.status_code = 502
+        mock_response.text = "502 error"
 
         # Raise HTTPStatusError
         error = httpx.HTTPStatusError(
@@ -264,7 +264,7 @@ async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_send
         mock_sender.send_error.assert_called_once()
         args = mock_sender.send_error.call_args[0]
         assert "Mapillary API Error" in args[0]
-        assert "500 error" in args[0]
+        assert "502 error" in args[0]
 
 
 @pytest.mark.asyncio
