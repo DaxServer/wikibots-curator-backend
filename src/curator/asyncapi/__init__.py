@@ -44,6 +44,7 @@ from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
 from .Reference import Reference
 from .RetryUploads import RetryUploads
+from .SdcV2 import SdcV2
 from .SomeValueSnak import SomeValueSnak
 from .Statement import Statement
 from .StringDataValue import StringDataValue
@@ -112,6 +113,8 @@ __all__ = [
     "UrlDataValue",
     "Rank",
     "Reference",
+    "SdcV2",
+    "GeoLocation",
     "UploadSlice",
     "UploadSliceData",
     "BatchCreated",
@@ -133,7 +136,6 @@ __all__ = [
     "Creator",
     "Dates",
     "ExistingPage",
-    "GeoLocation",
     "Error",
     "PartialCollectionImages",
     "PartialCollectionImagesData",

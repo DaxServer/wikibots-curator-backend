@@ -8,6 +8,7 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .Label import Label
+from .SdcV2 import SdcV2
 from .Statement import Statement
 
 
@@ -18,6 +19,7 @@ class UploadItem(BaseModel):
     wikitext: str = Field()
     labels: Optional[Label] = Field(default=None)
     sdc: List[Statement] = Field(default=[])
+    sdc_v2: Optional[SdcV2] = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
