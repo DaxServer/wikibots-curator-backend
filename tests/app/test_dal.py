@@ -1,7 +1,15 @@
+from typing import Any, cast
+
 import pytest
 
-from curator.app.dal import get_batch, get_upload_request_by_id, reset_failed_uploads
-from curator.app.models import UploadRequest
+from curator.app.dal import (
+    create_upload_requests_for_batch,
+    get_batch,
+    get_upload_request_by_id,
+    reset_failed_uploads,
+)
+from curator.app.models import UploadItem, UploadRequest
+from curator.asyncapi import GeoLocation, SdcV2
 
 
 def test_get_upload_request_by_id(mocker, mock_session):
@@ -133,3 +141,46 @@ def test_reset_failed_uploads_forbidden(mocker, mock_session):
     # Execute and verify exception
     with pytest.raises(PermissionError, match="Permission denied"):
         reset_failed_uploads(mock_session, 123, "user1", "encrypted_token")
+
+
+def test_create_upload_requests_for_batch_persists_sdc_v2(mock_session):
+    sdc_v2 = SdcV2(
+        type="mapillary",
+        version=1,
+        creator_username="alice",
+        mapillary_image_id="168951548443095",
+        taken_at="2023-01-01T00:00:00Z",
+        source_url="https://example.com/photo",
+        location=GeoLocation(latitude=52.52, longitude=13.405, compass_angle=123.45),
+        width=1920,
+        height=1080,
+        include_default_copyright=True,
+    )
+
+    item = UploadItem(
+        id="img1",
+        input="seq1",
+        title="Test Image",
+        wikitext="Some wikitext",
+        sdc=[],
+        sdc_v2=sdc_v2,
+    )
+
+    reqs = create_upload_requests_for_batch(
+        session=mock_session,
+        userid="user123",
+        username="testuser",
+        batchid=1,
+        payload=[item],
+        handler="mapillary",
+        encrypted_access_token="encrypted_token",
+    )
+
+    assert len(reqs) == 1
+    assert reqs[0].sdc_v2 is not None
+    sdc_v2_data = cast(dict[str, Any], reqs[0].sdc_v2)
+    assert sdc_v2_data["version"] == 1
+    assert sdc_v2_data["creator_username"] == "alice"
+
+    mock_session.add.assert_called()
+    mock_session.commit.assert_called_once()

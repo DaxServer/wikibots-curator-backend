@@ -66,6 +66,7 @@ def get_all_upload_requests(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
+            sdc_v2=u.sdc_v2,
             labels=u.labels,
             result=u.result,
             error=u.error,
@@ -170,6 +171,14 @@ def create_upload_requests_for_batch(
             else:
                 labels_data = item.labels
 
+        sdc_v2_data = None
+        if item.sdc_v2:
+            model_dump = getattr(item.sdc_v2, "model_dump", None)
+            if callable(model_dump):
+                sdc_v2_data = model_dump(mode="json", exclude_none=True)
+            else:
+                sdc_v2_data = item.sdc_v2
+
         req = UploadRequest(
             userid=userid,
             batchid=batchid,
@@ -181,6 +190,7 @@ def create_upload_requests_for_batch(
             filename=item.title,
             wikitext=item.wikitext,
             sdc=sdc_data,
+            sdc_v2=sdc_v2_data,
             labels=labels_data,
         )
         session.add(req)
@@ -380,6 +390,7 @@ def get_upload_request(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
+            sdc_v2=u.sdc_v2,
             labels=u.labels,
             result=u.result,
             error=u.error,
