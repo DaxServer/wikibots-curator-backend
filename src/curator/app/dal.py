@@ -96,7 +96,7 @@ def ensure_user(session: Session, userid: str, username: str) -> User:
     return user
 
 
-def create_batch(session: Session, userid: str) -> Batch:
+def create_batch(session: Session, userid: str, username: str) -> Batch:
     """Create a new `Batch` row linked to `userid`; set username.
 
     Returns the `Batch` instance (possibly newly created).
@@ -105,6 +105,8 @@ def create_batch(session: Session, userid: str) -> Batch:
     session.add(batch)
     session.commit()
     session.refresh(batch)
+
+    logger.info(f"[dal] Created batch {batch.id} for userid={username}")
 
     return batch
 
@@ -142,7 +144,7 @@ def create_upload_request(
 ) -> list[UploadRequest]:
     # Ensure normalized FK rows exist
     ensure_user(session=session, userid=userid, username=username)
-    batch = create_batch(session=session, userid=userid)
+    batch = create_batch(session=session, userid=userid, username=username)
 
     reqs = []
     for item in payload:
@@ -181,6 +183,12 @@ def create_upload_request(
         )
         session.add(req)
         reqs.append(req)
+
+    logger.info(
+        f"[dal] Created {len(reqs)} upload requests in batch {batch.id} for {username}"
+    )
+
+    # session.commit()
 
     return reqs
 
