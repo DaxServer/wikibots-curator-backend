@@ -92,21 +92,26 @@ def ensure_user(session: Session, userid: str, username: str) -> User:
     if user is None:
         user = User(userid=userid, username=username)
         session.add(user)
+        session.commit()
+        session.refresh(user)
+
+        logger.info(f"[dal] Created user {userid} {username}")
 
     return user
 
 
 def create_batch(session: Session, userid: str, username: str) -> Batch:
-    """Create a new `Batch` row linked to `userid`; set username.
+    """
+    Create a new `Batch` row linked to `userid`.
 
-    Returns the `Batch` instance (possibly newly created).
+    Returns the `Batch` instance.
     """
     batch = Batch(userid=userid)
     session.add(batch)
     session.commit()
     session.refresh(batch)
 
-    logger.info(f"[dal] Created batch {batch.id} for userid={username}")
+    logger.info(f"[dal] Created batch {batch.id} for {username}")
 
     return batch
 
@@ -134,19 +139,16 @@ def count_open_uploads_for_batch(
     return count
 
 
-def create_upload_request(
+def create_upload_requests_for_batch(
     session: Session,
-    username: str,
     userid: str,
+    username: str,
+    batchid: int,
     payload: list[UploadItem],
     handler: str,
     encrypted_access_token: str,
 ) -> list[UploadRequest]:
-    # Ensure normalized FK rows exist
-    ensure_user(session=session, userid=userid, username=username)
-    batch = create_batch(session=session, userid=userid, username=username)
-
-    reqs = []
+    reqs: list[UploadRequest] = []
     for item in payload:
         # item.sdc might contain Pydantic models (Statement) that need to be serialized to dicts
         # before being saved to the JSON column in the database.
@@ -170,7 +172,7 @@ def create_upload_request(
 
         req = UploadRequest(
             userid=userid,
-            batchid=batch.id,
+            batchid=batchid,
             key=item.id,
             handler=handler,
             status="queued",
@@ -184,11 +186,42 @@ def create_upload_request(
         session.add(req)
         reqs.append(req)
 
+    session.commit()
+
+    logger.info(
+        f"[dal] Created {len(reqs)} upload requests in batch {batchid} for {username}"
+    )
+
+    return reqs
+
+
+def create_upload_request(
+    session: Session,
+    username: str,
+    userid: str,
+    payload: list[UploadItem],
+    handler: str,
+    encrypted_access_token: str,
+) -> list[UploadRequest]:
+    # Ensure normalized FK rows exist
+    ensure_user(session=session, userid=userid, username=username)
+    batch = create_batch(session=session, userid=userid, username=username)
+
+    reqs = create_upload_requests_for_batch(
+        session=session,
+        userid=userid,
+        username=username,
+        batchid=batch.id,
+        payload=payload,
+        handler=handler,
+        encrypted_access_token=encrypted_access_token,
+    )
+
     logger.info(
         f"[dal] Created {len(reqs)} upload requests in batch {batch.id} for {username}"
     )
 
-    # session.commit()
+    session.commit()
 
     return reqs
 

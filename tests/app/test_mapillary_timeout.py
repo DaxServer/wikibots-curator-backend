@@ -1,18 +1,22 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
+from curator.app.config import cache
 from curator.app.handlers.mapillary_handler import (
+    _fetch_images_internal,
     _fetch_sequence_data,
     _fetch_sequence_ids,
-    _fetch_images_internal,
     _fetch_single_image,
 )
-from curator.app.config import cache
+
 
 @pytest.fixture(autouse=True)
 def disable_cache():
     cache.disable()
     yield
     cache.enable()
+
 
 @pytest.mark.asyncio
 async def test_fetch_sequence_data_timeout():
@@ -31,6 +35,7 @@ async def test_fetch_sequence_data_timeout():
         args, kwargs = mock_client.get.call_args
         assert kwargs["timeout"] == 30
 
+
 @pytest.mark.asyncio
 async def test_fetch_sequence_ids_timeout():
     with patch("httpx.AsyncClient") as mock_client_cls:
@@ -48,6 +53,7 @@ async def test_fetch_sequence_ids_timeout():
         args, kwargs = mock_client.get.call_args
         assert kwargs["timeout"] == 30
 
+
 @pytest.mark.asyncio
 async def test_fetch_images_internal_timeout():
     with patch("httpx.AsyncClient") as mock_client_cls:
@@ -64,6 +70,7 @@ async def test_fetch_images_internal_timeout():
         mock_client.get.assert_called_once()
         args, kwargs = mock_client.get.call_args
         assert kwargs["timeout"] == 30
+
 
 @pytest.mark.asyncio
 async def test_fetch_single_image_timeout():

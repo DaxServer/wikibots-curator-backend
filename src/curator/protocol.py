@@ -5,6 +5,7 @@ from fastapi import WebSocket
 from pydantic import Field, TypeAdapter
 
 from curator.asyncapi import (
+    BatchCreated,
     BatchesList,
     BatchesListData,
     BatchUploadsList,
@@ -12,6 +13,7 @@ from curator.asyncapi import (
     CollectionImageIds,
     CollectionImages,
     CollectionImagesData,
+    CreateBatch,
     Error,
     FetchBatches,
     FetchBatchUploads,
@@ -29,6 +31,8 @@ from curator.asyncapi import (
     UploadCreated,
     UploadCreatedItem,
     UploadsComplete,
+    UploadSlice,
+    UploadSliceAck,
     UploadsUpdate,
     UploadUpdateItem,
 )
@@ -47,6 +51,8 @@ ClientMessage = Annotated[
         UnsubscribeBatch,
         UnsubscribeBatchesList,
         Upload,
+        CreateBatch,
+        UploadSlice,
     ],
     Field(discriminator="type"),
 ]
@@ -64,6 +70,8 @@ ServerMessage = Annotated[
         TryBatchRetrieval,
         CollectionImageIds,
         PartialCollectionImages,
+        BatchCreated,
+        UploadSliceAck,
     ],
     Field(discriminator="type"),
 ]
@@ -128,3 +136,9 @@ class AsyncAPIWebSocket(WebSocket):
         await self.send_json(
             PartialCollectionImages(data=data, nonce=self._get_nonce())
         )
+
+    async def send_batch_created(self, data: int) -> None:
+        await self.send_json(BatchCreated(data=data, nonce=self._get_nonce()))
+
+    async def send_upload_slice_ack(self, data: int) -> None:
+        await self.send_json(UploadSliceAck(data=data, nonce=self._get_nonce()))
