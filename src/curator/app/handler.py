@@ -62,20 +62,26 @@ class Handler:
         loop = asyncio.get_running_loop()
         try:
             images = await handler.fetch_collection(collection)
+        except httpx.ReadTimeout as e:
+            logger.error(
+                f"[mapillary] API timeout for {collection} for {self.username}"
+            )
+            await self._fetch_images_in_batches(collection, handler, loop)
+            return
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 500:
                 await self._fetch_images_in_batches(collection, handler, loop)
                 return
 
             logger.error(
-                f"[ws] [resp] Mapillary API error for {collection} for {self.username}: {e}"
+                f"[mapillary] API error for {collection} for {self.username}: {e}"
             )
             await self.socket.send_error(f"Mapillary API Error: {e.response.text}")
             return
 
         if not images:
             logger.error(
-                f"[ws] [resp] Collection not found for {collection} for {self.username}"
+                f"[mapillary] Collection not found for {collection} for {self.username}"
             )
             await self.socket.send_error("Collection not found")
             return
@@ -89,15 +95,15 @@ class Handler:
         loop: asyncio.AbstractEventLoop,
     ):
         logger.warning(
-            f"[ws] [resp] Mapillary 500 error for {collection}, attempting batch retrieval"
+            f"[mapillary] Attempting batch retrieval for {collection} for {self.username}"
         )
         await self.socket.send_try_batch_retrieval(
-            "Large collection detected. Retrying in batches..."
+            "Large collection detected. Loading in batches..."
         )
         try:
             ids = await handler.fetch_collection_ids(collection)
             logger.info(
-                f"[ws] [resp] Found {len(ids)} images in collection {collection} for {self.username}"
+                f"[mapillary] Found {len(ids)} images in collection {collection} for {self.username}"
             )
 
             if not ids:
@@ -128,11 +134,11 @@ class Handler:
                 )
         except WebSocketDisconnect:
             logger.info(
-                f"[ws] [resp] User {self.username} disconnected during batch retrieval for {collection}"
+                f"[mapillary] User {self.username} disconnected during batch retrieval for {collection}"
             )
             pass
         except Exception as ex:
-            logger.error(f"[ws] [resp] Batch retrieval failed for {collection}: {ex}")
+            logger.error(f"[mapillary] Batch retrieval failed for {collection}: {ex}")
             await self.socket.send_error(f"Batch retrieval failed: {ex}")
 
     async def _send_full_collection(
@@ -157,7 +163,7 @@ class Handler:
             images[image_id].existing = pages
 
         logger.info(
-            f"[ws] [resp] Sending collection {collection} images for {self.username}"
+            f"[mapillary] Sending collection {collection} images for {self.username}"
         )
         await self.socket.send_collection_images(
             CollectionImagesData(images=images, creator=creator)
@@ -169,6 +175,10 @@ class Handler:
         items = data.items
         handler_name = data.handler
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
+
+        logger.info(
+            f"[mapillary] Uploading {len(items)} items for {self.username}"
+        )
 
         with next(get_session()) as session:
             reqs = create_upload_request(
@@ -206,7 +216,7 @@ class Handler:
         )
 
         logger.info(
-            f"[ws] [resp] Batch uploads {len(prepared_uploads)} created for {handler_name} for {self.username}"
+            f"[ws] [resp] Batch uploads {len(prepared_uploads)} enqueued for {self.username}"
         )
         await self.socket.send_upload_created(
             [
