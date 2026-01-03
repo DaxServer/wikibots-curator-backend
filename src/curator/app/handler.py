@@ -10,7 +10,10 @@ from curator.app.auth import UserSession
 from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
     count_uploads_in_batch,
+    create_batch,
     create_upload_request,
+    create_upload_requests_for_batch,
+    ensure_user,
     get_batch,
     get_upload_request,
     reset_failed_uploads,
@@ -28,6 +31,7 @@ from curator.asyncapi import (
     SubscribeBatchesListData,
     UploadCreatedItem,
     UploadData,
+    UploadSliceData,
     UploadUpdateItem,
 )
 from curator.protocol import AsyncAPIWebSocket
@@ -62,7 +66,7 @@ class Handler:
         loop = asyncio.get_running_loop()
         try:
             images = await handler.fetch_collection(collection)
-        except httpx.ReadTimeout as e:
+        except httpx.ReadTimeout:
             logger.error(
                 f"[mapillary] API timeout for {collection} for {self.username}"
             )
@@ -172,13 +176,14 @@ class Handler:
     async def upload(
         self, data: UploadData, priority: Optional[QueuePriority] = QueuePriority.NORMAL
     ):
+        """
+        Deprecated. Use create_batch and upload_slice instead.
+        """
         items = data.items
         handler_name = data.handler
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
-        logger.info(
-            f"[mapillary] Uploading {len(items)} items for {self.username}"
-        )
+        logger.info(f"[mapillary] Uploading {len(items)} items for {self.username}")
 
         with next(get_session()) as session:
             reqs = create_upload_request(
@@ -230,6 +235,64 @@ class Handler:
                 for u in prepared_uploads
             ]
         )
+
+    async def create_batch(self):
+        with next(get_session()) as session:
+            ensure_user(
+                session=session, userid=self.user["userid"], username=self.username
+            )
+            batch = create_batch(
+                session=session, userid=self.user["userid"], username=self.username
+            )
+            batch_id = batch.id
+
+        logger.info(f"[ws] [resp] Batch {batch_id} created for {self.username}")
+
+        await self.socket.send_batch_created(batch_id)
+
+    async def upload_slice(
+        self,
+        data: UploadSliceData,
+        priority: Optional[QueuePriority] = QueuePriority.NORMAL,
+    ):
+        batchid = data.batchid
+        items = data.items
+        handler_name = data.handler
+        sliceid = data.sliceid
+        encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
+
+        logger.info(
+            f"[mapillary] Creating upload slice {sliceid} with {len(items)} items for {self.username} in batch {batchid}"
+        )
+
+        with next(get_session()) as session:
+            reqs = create_upload_requests_for_batch(
+                session=session,
+                userid=self.user["userid"],
+                username=self.username,
+                batchid=batchid,
+                payload=cast(list[UploadItem], items),
+                handler=handler_name,
+                encrypted_access_token=encrypted_access_token,
+            )
+
+            prepared_uploads = []
+            for req in reqs:
+                session.refresh(req)
+                prepared_uploads.append(req.id)
+
+        # Get the appropriate queue based on priority
+        selected_queue = get_queue(priority)
+
+        selected_queue.enqueue_many(
+            [Queue.prepare_data(process_one, (uid,)) for uid in prepared_uploads]
+        )
+
+        logger.info(
+            f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(prepared_uploads)} uploads) enqueued for {self.username}"
+        )
+
+        await self.socket.send_upload_slice_ack(sliceid)
 
     async def fetch_batches(self, data: FetchBatchesData):
         """Fetch batches and automatically subscribe to updates."""
