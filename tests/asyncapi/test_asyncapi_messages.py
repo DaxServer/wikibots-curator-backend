@@ -9,6 +9,7 @@ from curator.asyncapi import (
     Upload,
     UploadData,
     UploadItem,
+    UploadSlice,
 )
 from curator.protocol import ClientMessage
 
@@ -46,6 +47,87 @@ def test_upload_payload():
     assert isinstance(obj.data.items[0], UploadItem)
     assert obj.data.items[0].id == "1"
     assert obj.data.handler == "mapillary"
+
+
+def test_upload_payload_with_sdc_v2():
+    data = {
+        "type": "UPLOAD",
+        "data": {
+            "items": [
+                {
+                    "id": "1",
+                    "input": "test.jpg",
+                    "title": "Test Image",
+                    "wikitext": "Some wikitext",
+                    "sdc_v2": {
+                        "type": "mapillary",
+                        "version": 1,
+                        "creator_username": "alice",
+                        "mapillary_image_id": "168951548443095",
+                        "taken_at": "2023-01-01T00:00:00Z",
+                        "source_url": "https://example.com/photo",
+                        "location": {
+                            "latitude": 52.52,
+                            "longitude": 13.405,
+                            "compass_angle": 123.45,
+                        },
+                        "width": 1920,
+                        "height": 1080,
+                        "include_default_copyright": True,
+                    },
+                }
+            ],
+            "handler": "mapillary",
+        },
+    }
+    obj = adapter.validate_python(data)
+    assert isinstance(obj, Upload)
+    assert isinstance(obj.data, UploadData)
+    assert len(obj.data.items) == 1
+    assert isinstance(obj.data.items[0], UploadItem)
+    assert obj.data.items[0].sdc_v2 is not None
+    assert obj.data.items[0].sdc_v2.type == "mapillary"
+    assert obj.data.items[0].sdc_v2.version == 1
+    assert obj.data.items[0].sdc_v2.creator_username == "alice"
+
+
+def test_upload_slice_payload_with_sdc_v2():
+    data = {
+        "type": "UPLOAD_SLICE",
+        "data": {
+            "batchid": 123,
+            "sliceid": 0,
+            "handler": "mapillary",
+            "items": [
+                {
+                    "id": "img1",
+                    "input": "test",
+                    "title": "T",
+                    "wikitext": "W",
+                    "sdc_v2": {
+                        "type": "mapillary",
+                        "version": 1,
+                        "creator_username": "alice",
+                        "mapillary_image_id": "img1",
+                        "taken_at": "2023-01-01T00:00:00Z",
+                        "source_url": "https://example.com/photo",
+                        "location": {
+                            "latitude": 52.52,
+                            "longitude": 13.405,
+                            "compass_angle": 123.45,
+                        },
+                        "width": 1920,
+                        "height": 1080,
+                        "include_default_copyright": False,
+                    },
+                }
+            ],
+        },
+    }
+    obj = adapter.validate_python(data)
+    assert isinstance(obj, UploadSlice)
+    assert obj.data.items[0].sdc_v2 is not None
+    assert obj.data.items[0].sdc_v2.mapillary_image_id == "img1"
 
 
 def test_subscribe_batch_payload():
