@@ -34,6 +34,7 @@ def test_upload_payload():
                     "input": "test.jpg",
                     "title": "Test Image",
                     "wikitext": "Some wikitext",
+                    "copyright_override": True,
                 }
             ],
             "handler": "mapillary",
@@ -46,6 +47,7 @@ def test_upload_payload():
     assert len(obj.data.items) == 1
     assert isinstance(obj.data.items[0], UploadItem)
     assert obj.data.items[0].id == "1"
+    assert obj.data.items[0].copyright_override is True
     assert obj.data.handler == "mapillary"
 
 

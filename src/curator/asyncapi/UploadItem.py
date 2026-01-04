@@ -18,6 +18,7 @@ class UploadItem(BaseModel):
     title: str = Field()
     wikitext: str = Field()
     labels: Optional[Label] = Field(default=None)
+    copyright_override: Optional[bool] = Field(default=False)
     sdc: List[Statement] = Field(default=[])
     sdc_v2: Optional[SdcV2] = Field(default=None)
 

@@ -85,8 +85,12 @@ def _js_number_to_string(value: int | float) -> str:
 
 def _parse_iso_datetime(value: str) -> datetime:
     if value.endswith("Z"):
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return datetime.fromisoformat(value)
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _create_string_snak(property_id: str, value: str) -> StringValueSnak:
