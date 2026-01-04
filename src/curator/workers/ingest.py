@@ -205,14 +205,10 @@ async def process_one(upload_id: int) -> bool:
         image = await handler.fetch_image_metadata(item.key, item.collection)
         image_url = image.url_original
 
-        sdc = None
-        if item.sdc:
-            sdc = item.sdc
-        else:
-            sdc = build_statements_from_mapillary_image(
-                image=image,
-                include_default_copyright=not item.copyright_override,
-            )
+        sdc = build_statements_from_mapillary_image(
+            image=image,
+            include_default_copyright=not item.copyright_override,
+        )
 
         # Upload with retry logic for uploadstash-file-not-found errors
         upload_result = await _upload_with_retry(

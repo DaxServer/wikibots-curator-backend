@@ -80,7 +80,7 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
                 "sequence_ids": sequence_id,
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
             },
-            timeout=30,
+            timeout=60,
         )
     response.raise_for_status()
     images = response.json()["data"]
@@ -105,7 +105,7 @@ async def _fetch_sequence_ids(sequence_id: str) -> list[str]:
                 "access_token": MAPILLARY_API_TOKEN,
                 "sequence_ids": sequence_id,
             },
-            timeout=30,
+            timeout=60,
         )
     response.raise_for_status()
     images = response.json()["data"]
@@ -131,7 +131,7 @@ async def _fetch_images_internal(
                 "ids": ",".join(image_ids),
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
             },
-            timeout=30,
+            timeout=60,
         )
     response.raise_for_status()
     # Response is a dict image_id -> data
@@ -170,7 +170,7 @@ async def _fetch_single_image(image_id: str) -> dict:
                 "access_token": MAPILLARY_API_TOKEN,
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
             },
-            timeout=30,
+            timeout=60,
         )
     response.raise_for_status()
     return response.json()

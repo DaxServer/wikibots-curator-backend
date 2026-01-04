@@ -166,8 +166,7 @@ def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
     assert len(reqs) == 1
     assert reqs[0].copyright_override is True
     assert reqs[0].sdc is not None
-    assert len(reqs[0].sdc) == 1
-    assert Statement.model_validate(reqs[0].sdc[0]).mainsnak.property == "P170"
+    assert len(reqs[0].sdc) == 0
 
     mock_session.add.assert_called()
     mock_session.commit.assert_called_once()

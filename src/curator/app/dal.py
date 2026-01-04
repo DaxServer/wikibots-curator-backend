@@ -65,7 +65,6 @@ def get_all_upload_requests(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=_fix_sdc_keys(u.sdc),
             labels=u.labels,
             result=u.result,
             error=u.error,
@@ -150,18 +149,6 @@ def create_upload_requests_for_batch(
 ) -> list[UploadRequest]:
     reqs: list[UploadRequest] = []
     for item in payload:
-        # item.sdc might contain Pydantic models (Statement) that need to be serialized to dicts
-        # before being saved to the JSON column in the database.
-        sdc_data = None
-        if item.sdc:
-            sdc_data = []
-            for s in item.sdc:
-                model_dump = getattr(s, "model_dump", None)
-                if callable(model_dump):
-                    sdc_data.append(model_dump(mode="json", exclude_none=True))
-                else:
-                    sdc_data.append(s)
-
         labels_data = None
         if item.labels:
             model_dump = getattr(item.labels, "model_dump", None)
@@ -183,7 +170,6 @@ def create_upload_requests_for_batch(
             filename=item.title,
             wikitext=item.wikitext,
             copyright_override=copyright_override,
-            sdc=sdc_data,
             labels=labels_data,
         )
         session.add(req)
@@ -382,7 +368,6 @@ def get_upload_request(
             userid=u.userid,
             key=u.key,
             handler=u.handler,
-            sdc=_fix_sdc_keys(u.sdc),
             labels=u.labels,
             result=u.result,
             error=u.error,

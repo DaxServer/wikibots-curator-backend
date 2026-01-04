@@ -18,6 +18,7 @@ from .DataValueEntityId import DataValueEntityId
 from .DataValueGlobeCoordinate import DataValueGlobeCoordinate
 from .DataValueQuantity import DataValueQuantity
 from .DataValueTime import DataValueTime
+from .DataValueType import DataValueType
 from .Dates import Dates
 from .DuplicateError import DuplicateError
 from .EntityIdDataValue import EntityIdDataValue
@@ -44,6 +45,8 @@ from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
 from .Reference import Reference
 from .RetryUploads import RetryUploads
+from .SnakDataType import SnakDataType
+from .SnakType import SnakType
 from .SomeValueSnak import SomeValueSnak
 from .Statement import Statement
 from .StringDataValue import StringDataValue
@@ -89,29 +92,6 @@ __all__ = [
     "UploadData",
     "UploadItem",
     "Label",
-    "Statement",
-    "NoValueSnak",
-    "SomeValueSnak",
-    "EntityIdValueSnak",
-    "EntityIdDataValue",
-    "DataValueEntityId",
-    "WikibaseEntityType",
-    "ExternalIdValueSnak",
-    "StringDataValue",
-    "GlobeCoordinateValueSnak",
-    "GlobeCoordinateDataValue",
-    "DataValueGlobeCoordinate",
-    "QuantityValueSnak",
-    "QuantityDataValue",
-    "DataValueQuantity",
-    "StringValueSnak",
-    "TimeValueSnak",
-    "TimeDataValue",
-    "DataValueTime",
-    "UrlValueSnak",
-    "UrlDataValue",
-    "Rank",
-    "Reference",
     "UploadSlice",
     "UploadSliceData",
     "BatchCreated",
@@ -145,6 +125,32 @@ __all__ = [
     "UploadsUpdate",
     "UploadUpdateItem",
     "UploadSliceAck",
+    "NoValueSnak",
+    "SomeValueSnak",
+    "EntityIdValueSnak",
+    "EntityIdDataValue",
+    "DataValueEntityId",
+    "WikibaseEntityType",
+    "ExternalIdValueSnak",
+    "StringDataValue",
+    "GlobeCoordinateValueSnak",
+    "GlobeCoordinateDataValue",
+    "DataValueGlobeCoordinate",
+    "QuantityValueSnak",
+    "QuantityDataValue",
+    "DataValueQuantity",
+    "StringValueSnak",
+    "TimeValueSnak",
+    "TimeDataValue",
+    "DataValueTime",
+    "UrlValueSnak",
+    "UrlDataValue",
+    "DataValueType",
+    "Rank",
+    "Reference",
+    "SnakDataType",
+    "Statement",
+    "SnakType",
 ]
 
 # Rebuild models to resolve forward references

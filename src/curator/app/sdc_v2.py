@@ -73,14 +73,6 @@ def _get_numeric_id(entity: str) -> int:
     return int(entity[1:])
 
 
-def _js_number_to_string(value: int | float) -> str:
-    if isinstance(value, int):
-        return str(value)
-    if value.is_integer():
-        return str(int(value))
-    return str(value)
-
-
 def _parse_iso_datetime(value: str) -> datetime:
     if value.endswith("Z"):
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -152,7 +144,7 @@ def _create_quantity_snak(
         property=property_id,
         datavalue=QuantityDataValue(
             value=DataValueQuantity(
-                amount=f"+{_js_number_to_string(amount)}",
+                amount=f"+{amount}",
                 upper_bound=None,
                 lower_bound=None,
                 unit=f"http://www.wikidata.org/entity/{unit_item_id}",
