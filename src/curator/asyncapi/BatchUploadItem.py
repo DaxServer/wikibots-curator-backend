@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .DuplicateError import DuplicateError
 from .GenericError import GenericError
 from .Label import Label
-from .SdcV2 import SdcV2
 from .Statement import Statement
 from .TitleBlacklistedError import TitleBlacklistedError
 
@@ -25,7 +24,6 @@ class BatchUploadItem(BaseModel):
     key: Optional[str] = Field(default=None)
     handler: Optional[str] = Field(default=None)
     sdc: List[Statement] = Field(default=[])
-    sdc_v2: Optional[SdcV2] = Field(default=None)
     labels: Optional[Label] = Field(default=None)
     result: Optional[str] = Field(default=None)
     error: Optional[Union[DuplicateError, GenericError, TitleBlacklistedError]] = Field(

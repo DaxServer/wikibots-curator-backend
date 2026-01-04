@@ -19,7 +19,7 @@ from curator.app.models import (
     StructuredError,
     UploadRequest,
 )
-from curator.app.sdc_v2 import build_statements_from_sdc_v2
+from curator.app.sdc_v2 import build_statements_from_mapillary_image
 from curator.asyncapi import (
     DuplicateError,
     GenericError,
@@ -209,19 +209,9 @@ async def process_one(upload_id: int) -> bool:
         if item.sdc:
             sdc = item.sdc
         else:
-            sdc = build_statements_from_sdc_v2(
-                {
-                    "type": "mapillary",
-                    "version": 1,
-                    "creator_username": image.creator.username,
-                    "mapillary_image_id": image.id,
-                    "taken_at": image.dates.taken,
-                    "source_url": image.url,
-                    "location": image.location,
-                    "width": image.width,
-                    "height": image.height,
-                    "include_default_copyright": not item.copyright_override,
-                }
+            sdc = build_statements_from_mapillary_image(
+                image=image,
+                include_default_copyright=not item.copyright_override,
             )
 
         # Upload with retry logic for uploadstash-file-not-found errors

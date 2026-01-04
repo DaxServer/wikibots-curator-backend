@@ -24,7 +24,6 @@ async def test_worker_process_one_decrypts_token(mock_session):
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -63,7 +62,9 @@ async def test_worker_process_one_decrypts_token(mock_session):
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
@@ -88,7 +89,6 @@ async def test_worker_process_one_duplicate_status(mock_session):
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -131,7 +131,9 @@ async def test_worker_process_one_duplicate_status(mock_session):
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
@@ -177,7 +179,6 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -212,7 +213,9 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
@@ -240,7 +243,6 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -285,7 +287,9 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
@@ -314,7 +318,6 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -360,7 +363,9 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
@@ -391,7 +396,6 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         labels={"en": {"language": "en", "value": "Example"}},
         copyright_override=False,
         sdc=None,
-        sdc_v2=None,
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
@@ -435,7 +439,9 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
                 url="https://example.com/photo",
                 url_original="https://example.com/file.jpg",
-                location={"latitude": 1.0, "longitude": 2.0, "compass_angle": 3.0},
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
                 width=100,
                 height=200,
             ),
