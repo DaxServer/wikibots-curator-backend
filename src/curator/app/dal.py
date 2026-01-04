@@ -171,13 +171,7 @@ def create_upload_requests_for_batch(
             else:
                 labels_data = item.labels
 
-        sdc_v2_data = None
-        if item.sdc_v2:
-            model_dump = getattr(item.sdc_v2, "model_dump", None)
-            if callable(model_dump):
-                sdc_v2_data = model_dump(mode="json", exclude_none=True)
-            else:
-                sdc_v2_data = item.sdc_v2
+        copyright_override = bool(getattr(item, "copyright_override", False))
 
         req = UploadRequest(
             userid=userid,
@@ -189,8 +183,9 @@ def create_upload_requests_for_batch(
             access_token=encrypted_access_token,
             filename=item.title,
             wikitext=item.wikitext,
+            copyright_override=copyright_override,
             sdc=sdc_data,
-            sdc_v2=sdc_v2_data,
+            sdc_v2=None,
             labels=labels_data,
         )
         session.add(req)

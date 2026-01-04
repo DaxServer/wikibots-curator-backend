@@ -2,18 +2,19 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app.image_models import Creator, Dates, Image, Location
 from curator.app.models import User
+from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
 from curator.workers import ingest
 
 
 def make_image():
-    return Image(
+    return MediaImage(
         id="123",
         title="Test",
-        dates=Dates(),
+        dates=Dates(taken="2023-01-01T00:00:00Z"),
         creator=Creator(id="1", username="u", profile_url="p"),
-        location=Location(latitude=0.0, longitude=0.0),
+        location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
+        existing=[],
         url_original="https://example.com/file.jpg",
         thumbnail_url="t",
         preview_url="p",

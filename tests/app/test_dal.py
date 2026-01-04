@@ -1,5 +1,3 @@
-from typing import Any, cast
-
 import pytest
 
 from curator.app.dal import (
@@ -9,7 +7,7 @@ from curator.app.dal import (
     reset_failed_uploads,
 )
 from curator.app.models import UploadItem, UploadRequest
-from curator.asyncapi import GeoLocation, SdcV2
+from curator.asyncapi import GeoLocation, Rank, SdcV2, SomeValueSnak, Statement
 
 
 def test_get_upload_request_by_id(mocker, mock_session):
@@ -143,7 +141,7 @@ def test_reset_failed_uploads_forbidden(mocker, mock_session):
         reset_failed_uploads(mock_session, 123, "user1", "encrypted_token")
 
 
-def test_create_upload_requests_for_batch_persists_sdc_v2(mock_session):
+def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
     sdc_v2 = SdcV2(
         type="mapillary",
         version=1,
@@ -157,12 +155,15 @@ def test_create_upload_requests_for_batch_persists_sdc_v2(mock_session):
         include_default_copyright=True,
     )
 
+    statement = Statement(mainsnak=SomeValueSnak(property="P170"), rank=Rank.NORMAL)
+
     item = UploadItem(
         id="img1",
         input="seq1",
         title="Test Image",
         wikitext="Some wikitext",
-        sdc=[],
+        copyright_override=True,
+        sdc=[statement],
         sdc_v2=sdc_v2,
     )
 
@@ -177,10 +178,11 @@ def test_create_upload_requests_for_batch_persists_sdc_v2(mock_session):
     )
 
     assert len(reqs) == 1
-    assert reqs[0].sdc_v2 is not None
-    sdc_v2_data = cast(dict[str, Any], reqs[0].sdc_v2)
-    assert sdc_v2_data["version"] == 1
-    assert sdc_v2_data["creator_username"] == "alice"
+    assert reqs[0].copyright_override is True
+    assert reqs[0].sdc_v2 is None
+    assert reqs[0].sdc is not None
+    assert len(reqs[0].sdc) == 1
+    assert Statement.model_validate(reqs[0].sdc[0]).mainsnak.property == "P170"
 
     mock_session.add.assert_called()
     mock_session.commit.assert_called_once()

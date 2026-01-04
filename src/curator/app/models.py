@@ -66,6 +66,7 @@ class UploadRequest(SQLModel, table=True):
     )
     filename: str = Field(index=True, max_length=255)
     wikitext: str = Field(sa_column=Column(Text))
+    copyright_override: bool = Field(default=False)
     sdc: Optional[list[Statement]] = Field(default=[], sa_column=Column(JSON))
     sdc_v2: Optional[SdcV2] = Field(default=None, sa_column=Column(JSON))
     labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
@@ -89,5 +90,6 @@ class UploadItem(SQLModel):
     title: str
     wikitext: str
     labels: Optional[Label] = None
+    copyright_override: bool = False
     sdc: Optional[list[Statement]] = []
     sdc_v2: Optional[SdcV2] = None

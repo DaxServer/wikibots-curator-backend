@@ -20,7 +20,12 @@ from curator.app.models import (
     UploadRequest,
 )
 from curator.app.sdc_v2 import build_statements_from_sdc_v2
-from curator.asyncapi import DuplicateError, GenericError, TitleBlacklistedError
+from curator.asyncapi import (
+    DuplicateError,
+    GenericError,
+    Statement,
+    TitleBlacklistedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +77,7 @@ async def _upload_with_retry(
     access_token: str,
     username: str,
     image_url: str,
+    sdc: list[Statement] | None,
 ):
     """
     Upload a file with retry logic for uploadstash-file-not-found errors.
@@ -98,7 +104,7 @@ async def _upload_with_retry(
                 edit_summary=f"Uploaded via Curator from Mapillary image {item.key} (batch {item.batchid})",
                 access_token=access_token,
                 username=username,
-                sdc=item.sdc,
+                sdc=sdc,
                 labels=item.labels,
             )
         except DuplicateUploadError:
@@ -199,8 +205,24 @@ async def process_one(upload_id: int) -> bool:
         image = await handler.fetch_image_metadata(item.key, item.collection)
         image_url = image.url_original
 
-        if not item.sdc and item.sdc_v2:
-            item.sdc = build_statements_from_sdc_v2(item.sdc_v2)
+        sdc = None
+        if item.sdc:
+            sdc = item.sdc
+        else:
+            sdc = build_statements_from_sdc_v2(
+                {
+                    "type": "mapillary",
+                    "version": 1,
+                    "creator_username": image.creator.username,
+                    "mapillary_image_id": image.id,
+                    "taken_at": image.dates.taken,
+                    "source_url": image.url,
+                    "location": image.location,
+                    "width": image.width,
+                    "height": image.height,
+                    "include_default_copyright": not item.copyright_override,
+                }
+            )
 
         # Upload with retry logic for uploadstash-file-not-found errors
         upload_result = await _upload_with_retry(
@@ -208,6 +230,7 @@ async def process_one(upload_id: int) -> bool:
             access_token=access_token,
             username=username,
             image_url=image_url,
+            sdc=sdc,
         )
 
         logger.info(
