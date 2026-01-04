@@ -19,6 +19,7 @@ from curator.app.models import (
     StructuredError,
     UploadRequest,
 )
+from curator.app.sdc_v2 import build_statements_from_sdc_v2
 from curator.asyncapi import DuplicateError, GenericError, TitleBlacklistedError
 
 logger = logging.getLogger(__name__)
@@ -197,6 +198,9 @@ async def process_one(upload_id: int) -> bool:
         handler = MapillaryHandler()
         image = await handler.fetch_image_metadata(item.key, item.collection)
         image_url = image.url_original
+
+        if not item.sdc and item.sdc_v2:
+            item.sdc = build_statements_from_sdc_v2(item.sdc_v2)
 
         # Upload with retry logic for uploadstash-file-not-found errors
         upload_result = await _upload_with_retry(
