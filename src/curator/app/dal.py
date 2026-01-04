@@ -66,7 +66,6 @@ def get_all_upload_requests(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
-            sdc_v2=u.sdc_v2,
             labels=u.labels,
             result=u.result,
             error=u.error,
@@ -185,7 +184,6 @@ def create_upload_requests_for_batch(
             wikitext=item.wikitext,
             copyright_override=copyright_override,
             sdc=sdc_data,
-            sdc_v2=None,
             labels=labels_data,
         )
         session.add(req)
@@ -385,7 +383,6 @@ def get_upload_request(
             key=u.key,
             handler=u.handler,
             sdc=_fix_sdc_keys(u.sdc),
-            sdc_v2=u.sdc_v2,
             labels=u.labels,
             result=u.result,
             error=u.error,

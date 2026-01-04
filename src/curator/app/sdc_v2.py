@@ -12,11 +12,11 @@ from curator.asyncapi import (
     ExternalIdValueSnak,
     GlobeCoordinateDataValue,
     GlobeCoordinateValueSnak,
+    MediaImage,
     NoValueSnak,
     QuantityDataValue,
     QuantityValueSnak,
     Rank,
-    SdcV2,
     SomeValueSnak,
     Statement,
     StringDataValue,
@@ -39,8 +39,6 @@ type Snak = (
     | TimeValueSnak
     | UrlValueSnak
 )
-
-type SdcV2Input = dict[str, object]
 
 WIKIDATA_ENTITY = {
     "CCBYSA40": "Q18199165",
@@ -202,9 +200,10 @@ def _create_statement(
     return statement
 
 
-def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
-    if isinstance(sdc_v2, dict):
-        sdc_v2 = SdcV2.model_validate(sdc_v2)
+def build_statements_from_mapillary_image(
+    image: MediaImage,
+    include_default_copyright: bool,
+) -> list[Statement]:
     claims: list[Statement] = []
 
     claims.append(
@@ -212,10 +211,10 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
             _create_some_value_snak(WIKIDATA_PROPERTY["Creator"]),
             [
                 _create_string_snak(
-                    WIKIDATA_PROPERTY["AuthorNameString"], sdc_v2.creator_username
+                    WIKIDATA_PROPERTY["AuthorNameString"], image.creator.username
                 ),
                 _create_external_id_snak(
-                    WIKIDATA_PROPERTY["MapillaryUsername"], sdc_v2.creator_username
+                    WIKIDATA_PROPERTY["MapillaryUsername"], image.creator.username
                 ),
             ],
         )
@@ -223,9 +222,7 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
 
     claims.append(
         _create_statement(
-            _create_external_id_snak(
-                WIKIDATA_PROPERTY["MapillaryPhotoID"], sdc_v2.mapillary_image_id
-            )
+            _create_external_id_snak(WIKIDATA_PROPERTY["MapillaryPhotoID"], image.id)
         )
     )
 
@@ -239,7 +236,7 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
 
     claims.append(
         _create_statement(
-            _create_time_snak(WIKIDATA_PROPERTY["Inception"], sdc_v2.taken_at)
+            _create_time_snak(WIKIDATA_PROPERTY["Inception"], image.dates.taken)
         )
     )
 
@@ -253,9 +250,7 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
                 _create_wikibase_item_snak(
                     WIKIDATA_PROPERTY["Operator"], WIKIDATA_ENTITY["Mapillary"]
                 ),
-                _create_url_snak(
-                    WIKIDATA_PROPERTY["DescribedAtUrl"], sdc_v2.source_url
-                ),
+                _create_url_snak(WIKIDATA_PROPERTY["DescribedAtUrl"], image.url),
             ],
         )
     )
@@ -264,20 +259,20 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
         _create_statement(
             _create_globe_coordinate_snak(
                 WIKIDATA_PROPERTY["CoordinatesOfThePointOfView"],
-                sdc_v2.location.latitude,
-                sdc_v2.location.longitude,
+                image.location.latitude,
+                image.location.longitude,
             ),
             [
                 _create_quantity_snak(
                     WIKIDATA_PROPERTY["Heading"],
-                    sdc_v2.location.compass_angle,
+                    image.location.compass_angle,
                     WIKIDATA_ENTITY["Degree"],
                 )
             ],
         )
     )
 
-    if sdc_v2.include_default_copyright:
+    if include_default_copyright:
         claims.append(
             _create_statement(
                 _create_wikibase_item_snak(
@@ -297,14 +292,14 @@ def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
     claims.append(
         _create_statement(
             _create_quantity_snak(
-                WIKIDATA_PROPERTY["Width"], sdc_v2.width, WIKIDATA_ENTITY["Pixel"]
+                WIKIDATA_PROPERTY["Width"], image.width, WIKIDATA_ENTITY["Pixel"]
             )
         )
     )
     claims.append(
         _create_statement(
             _create_quantity_snak(
-                WIKIDATA_PROPERTY["Height"], sdc_v2.height, WIKIDATA_ENTITY["Pixel"]
+                WIKIDATA_PROPERTY["Height"], image.height, WIKIDATA_ENTITY["Pixel"]
             )
         )
     )
