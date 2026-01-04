@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from curator.asyncapi import (
     DataValueEntityId,
@@ -13,6 +12,7 @@ from curator.asyncapi import (
     ExternalIdValueSnak,
     GlobeCoordinateDataValue,
     GlobeCoordinateValueSnak,
+    NoValueSnak,
     QuantityDataValue,
     QuantityValueSnak,
     Rank,
@@ -27,6 +27,20 @@ from curator.asyncapi import (
     UrlValueSnak,
     WikibaseEntityType,
 )
+
+type Snak = (
+    NoValueSnak
+    | SomeValueSnak
+    | EntityIdValueSnak
+    | ExternalIdValueSnak
+    | GlobeCoordinateValueSnak
+    | QuantityValueSnak
+    | StringValueSnak
+    | TimeValueSnak
+    | UrlValueSnak
+)
+
+type SdcV2Input = dict[str, object]
 
 WIKIDATA_ENTITY = {
     "CCBYSA40": "Q18199165",
@@ -166,12 +180,12 @@ def _create_time_snak(property_id: str, taken_at: str) -> TimeValueSnak:
 
 
 def _create_statement(
-    mainsnak: Any,
-    qualifiers: list[Any] | None = None,
+    mainsnak: Snak,
+    qualifiers: list[Snak] | None = None,
 ) -> Statement:
     statement = Statement(mainsnak=mainsnak, rank=Rank.NORMAL)
     if qualifiers:
-        grouped: dict[str, list[Any]] = {}
+        grouped: dict[str, list[Snak]] = {}
         order: list[str] = []
         for snak in qualifiers:
             prop = snak.property
@@ -184,7 +198,7 @@ def _create_statement(
     return statement
 
 
-def build_statements_from_sdc_v2(sdc_v2: SdcV2 | dict[str, Any]) -> list[Statement]:
+def build_statements_from_sdc_v2(sdc_v2: SdcV2 | SdcV2Input) -> list[Statement]:
     if isinstance(sdc_v2, dict):
         sdc_v2 = SdcV2.model_validate(sdc_v2)
     claims: list[Statement] = []
