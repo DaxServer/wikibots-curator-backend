@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
 
+from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
 from curator.asyncapi.GenericError import GenericError
 
 # Set up encryption key for tests
@@ -81,11 +82,22 @@ def mock_batch():
 @pytest.fixture
 def mock_image():
     """Standard mock image object"""
-    image = MagicMock()
-    image.id = "img-1"
-    image.url_original = "https://example.com/file.jpg"
-    image.title = "Test Image"
-    return image
+    return MediaImage(
+        id="img-1",
+        title="Test Image",
+        dates=Dates(taken="2023-01-01T00:00:00Z"),
+        creator=Creator(
+            id="u1", username="user1", profile_url="https://example.com/u1"
+        ),
+        location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
+        existing=[],
+        url_original="https://example.com/file.jpg",
+        thumbnail_url="https://example.com/thumb.jpg",
+        preview_url="https://example.com/preview.jpg",
+        url="https://example.com/photo",
+        width=100,
+        height=100,
+    )
 
 
 @pytest.fixture

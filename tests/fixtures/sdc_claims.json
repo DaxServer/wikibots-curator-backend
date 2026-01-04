@@ -669,8 +669,8 @@
             "type": "globecoordinate",
             "value": {
               "globe": "http://www.wikidata.org/entity/Q2",
-              "latitude": 0.0,
-              "longitude": 0.0,
+              "latitude": 55.328748,
+              "longitude": 78.643604,
               "precision": 1e-09
             }
           },
@@ -684,7 +684,7 @@
               "datavalue": {
                 "type": "quantity",
                 "value": {
-                  "amount": "+0",
+                  "amount": "+1.2",
                   "unit": "http://www.wikidata.org/entity/Q28390"
                 }
               },
@@ -783,9 +783,9 @@
       "height": 1,
       "include_default_copyright": true,
       "location": {
-        "compass_angle": 0.0,
-        "latitude": 0.0,
-        "longitude": 0.0
+        "compass_angle": 1.2,
+        "latitude": 55.328748,
+        "longitude": 78.643604
       },
       "mapillary_image_id": "1",
       "source_url": "https://example.com/photo2",
@@ -1202,7 +1202,7 @@
               "datavalue": {
                 "type": "quantity",
                 "value": {
-                  "amount": "+90",
+                  "amount": "+90.0",
                   "unit": "http://www.wikidata.org/entity/Q28390"
                 }
               },

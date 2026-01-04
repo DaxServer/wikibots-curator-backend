@@ -28,7 +28,6 @@ def test_create_upload_request_label_serialization(mocker, mock_session):
             title="Test Title",
             wikitext="Test Wikitext",
             labels=label,
-            sdc=[],
         )
 
         # Call the function, casting to match the expected type in the app
