@@ -25,9 +25,12 @@ def upgrade() -> None:
     op.add_column(
         "upload_requests",
         sa.Column("collection", sa.String(length=255), nullable=True),
+        if_not_exists=True,
     )
     op.add_column(
-        "upload_requests", sa.Column("access_token", sa.Text(), nullable=True)
+        "upload_requests",
+        sa.Column("access_token", sa.Text(), nullable=True),
+        if_not_exists=True,
     )
     # ### end Alembic commands ###
 

@@ -4,7 +4,6 @@ import pytest
 
 from curator.app.handler import Handler
 from curator.asyncapi import UploadItem, UploadSliceData
-from curator.workers.rq import QueuePriority
 
 
 @pytest.fixture
@@ -48,7 +47,7 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
     ):
         mock_req = mocker.MagicMock()
@@ -65,9 +64,7 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        mock_get_queue.assert_called_once_with(QueuePriority.NORMAL)
-        mock_queue = mock_get_queue.return_value
-        mock_queue.enqueue_many.assert_called_once()
+        mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_slice_ack.assert_called_once_with(0)
 
 
@@ -80,7 +77,7 @@ async def test_upload_slice_multiple_items(
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
     ):
         mock_req1 = mocker.MagicMock()
@@ -102,10 +99,9 @@ async def test_upload_slice_multiple_items(
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        mock_get_queue.assert_called_once_with(QueuePriority.NORMAL)
-        mock_queue = mock_get_queue.return_value
-        mock_queue.enqueue_many.assert_called_once()
-        # Verify enqueue_many was called with 2 items
-        enqueued_args = mock_queue.enqueue_many.call_args[0][0]
-        assert len(enqueued_args) == 2
+        # Verify process_upload.delay was called twice with the correct IDs
+        assert mock_process_upload.delay.call_count == 2
+        calls = mock_process_upload.delay.call_args_list
+        assert calls[0][0][0] == 1
+        assert calls[1][0][0] == 2
         mock_sender.send_upload_slice_ack.assert_called_once_with(1)

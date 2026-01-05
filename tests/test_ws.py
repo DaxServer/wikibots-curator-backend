@@ -42,11 +42,9 @@ def mock_dal():
 
 
 @pytest.fixture
-def mock_worker(mocker):
-    with patch("curator.app.handler.get_queue") as mock_get_queue:
-        mock_queue = mocker.MagicMock()
-        mock_get_queue.return_value = mock_queue
-        yield mock_queue
+def mock_worker():
+    with patch("curator.app.handler.process_upload") as mock_process_upload:
+        yield mock_process_upload
 
 
 @pytest.fixture
@@ -156,7 +154,7 @@ def test_ws_upload(mocker, mock_dal, mock_worker, mock_session):
         assert items[0]["batchid"] == 100
 
         # Verify worker was called
-        mock_worker.enqueue_many.assert_called_once()
+        mock_worker.delay.assert_called_once_with(1)
 
 
 def test_ws_invalid_message():

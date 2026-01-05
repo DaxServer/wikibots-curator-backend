@@ -13,12 +13,14 @@ dependencies = [
     "asgiref (>=3.8.0,<4.0.0)",
     "authlib (>=1.6.5,<2.0.0)",
     "cashews[redis] (>=7.4.4,<8.0.0)",
+    "celery[sqlalchemy] (>=5.6.2,<6.0.0)",
     "cryptography (>=46.0.3,<47.0.0)",
     "fastapi (>=0.125.0,<1.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
     "itsdangerous (>=2.2.0,<3.0.0)",
     "mwoauth (>=0.4.0,<1.0.0)",
     "mysql-connector-python (>=9.5.0,<10.0.0)",
+    "pymysql (>=1.1.2,<2.0.0)",
     "pywikibot (>=10.5.0,<11.0.0)",
     "redis (>=7.1.0,<8.0.0)",
     "rq (>=2.6.1,<3.0.0)",
@@ -31,17 +33,18 @@ dependencies = [
 [project.scripts]
 alembic = "alembic.config:main"
 web = "curator.main:start"
-worker = "curator.workers.rq:start"
+worker = "curator.workers.celery:start"
+worker1 = "curator.workers.rq:start"
 
 [tool.poetry]
 packages = [{include = "curator", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.9.0"
+black = "^25.12.0"
 isort = "^7.0.0"
-pytest = "^8.3.5"
+pytest = "^9.0.2"
 pytest-asyncio = "^1.3.0"
-pytest-mock = "^3.14.0"
+pytest-mock = "^3.15.1"
 pytest-timeout = "^2.4.0"
 ruff = "^0.14.10"
 ty = "^0.0.8"

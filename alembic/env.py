@@ -35,6 +35,32 @@ def include_object(object, name, type_, reflected, compare_to):
     Exclude Celery and Kombu tables from Alembic autogeneration.
     These tables are managed by Celery, not by our application models.
     """
+    # Skip Celery tables
+    celery_tables = [
+        "celery_taskmeta",
+        "celery_tasksetmeta",
+        "celery_taskresult",
+        "task_result",
+        "task_meta",
+        "taskset_meta",
+    ]
+
+    # Skip Kombu tables (message queue backend)
+    kombu_tables = [
+        "kombu_queue",
+        "kombu_message",
+        "kombu_message_delivery",
+    ]
+
+    # Skip SQLAlchemy continuation tables (used by SQLAlchemy continuation)
+    continuation_tables = [
+        "alembic_version",
+        "sqlalchemy_continuation",
+    ]
+
+    if type_ == "table" and name in celery_tables + kombu_tables + continuation_tables:
+        return False
+
     return True
 
 
