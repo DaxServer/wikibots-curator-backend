@@ -24,9 +24,9 @@ def upgrade() -> None:
     # Add composite index on (batchid, updated_at) for upload_requests
     # This significantly speeds up stats aggregation and change detection queries
     op.create_index(
-        op.f("ix_upload_requests_batchid_updated_at"),
+        op.f("ix_upload_requests_batchid_status_updated_at"),
         "upload_requests",
-        ["batchid", "updated_at"],
+        ["batchid", "status", "updated_at"],
         unique=False,
     )
 
