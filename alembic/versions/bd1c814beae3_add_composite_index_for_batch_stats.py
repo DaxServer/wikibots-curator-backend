@@ -35,5 +35,5 @@ def downgrade() -> None:
     """Downgrade schema."""
     # Drop composite index
     op.drop_index(
-        op.f("ix_upload_requests_batchid_updated_at"), table_name="upload_requests"
+        op.f("ix_upload_requests_batchid_status_updated_at"), table_name="upload_requests"
     )
