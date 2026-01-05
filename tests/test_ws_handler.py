@@ -96,7 +96,7 @@ async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
     with (
         patch("curator.app.handler.get_session", return_value=iter([mock_session])),
         patch("curator.app.handler.create_upload_request") as mock_create,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
 
@@ -124,9 +124,7 @@ async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
 
         await handler_instance.upload(data)
 
-        mock_get_queue.assert_called_once_with(QueuePriority.NORMAL)
-        mock_queue = mock_get_queue.return_value
-        mock_queue.enqueue_many.assert_called_once()
+        mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()
         call_args = mock_sender.send_upload_created.call_args[0][0]
         # call_args is List[UploadCreatedItem]
@@ -339,7 +337,7 @@ async def test_stream_uploads_only_sends_on_change(
 async def test_retry_uploads_success(handler_instance):
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         mock_reset.return_value = [1, 2]
 
@@ -347,16 +345,18 @@ async def test_retry_uploads_success(handler_instance):
         await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
-        mock_get_queue.assert_called_once_with(QueuePriority.NORMAL)
-        mock_queue = mock_get_queue.return_value
-        mock_queue.enqueue_many.assert_called_once()
+        # Verify process_upload.delay was called twice with the correct IDs
+        assert mock_process_upload.delay.call_count == 2
+        calls = mock_process_upload.delay.call_args_list
+        assert calls[0][0][0] == 1
+        assert calls[1][0][0] == 2
 
 
 @pytest.mark.asyncio
 async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         mock_reset.return_value = []
 
@@ -364,7 +364,7 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
         await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
-        mock_get_queue.assert_not_called()  # Should not be called when no failures
+        mock_process_upload.delay.assert_not_called()  # Should not be called when no failures
         mock_sender.send_error.assert_called_once_with("No failed uploads to retry")
 
 
@@ -372,7 +372,7 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
 async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
@@ -380,7 +380,7 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
         await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
-        mock_get_queue.assert_not_called()  # Should not be called when error occurs
+        mock_process_upload.delay.assert_not_called()  # Should not be called when error occurs
         mock_sender.send_error.assert_called_once_with("Permission denied")
 
 
@@ -388,7 +388,7 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
 async def test_retry_uploads_not_found(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
@@ -396,7 +396,7 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
         await handler_instance.retry_uploads(data.data)
 
         mock_reset.assert_called_once()
-        mock_get_queue.assert_not_called()  # Should not be called when error occurs
+        mock_process_upload.delay.assert_not_called()  # Should not be called when error occurs
         mock_sender.send_error.assert_called_once_with("Batch 123 not found")
 
 
@@ -409,11 +409,9 @@ async def test_upload_with_priority_urgent(
     with (
         patch("curator.app.handler.get_session", return_value=iter([mock_session])),
         patch("curator.app.handler.create_upload_request") as mock_create,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
-
-        mock_queue = mock_get_queue.return_value
 
         mock_req = mocker.MagicMock()
         mock_req.id = 1
@@ -439,9 +437,8 @@ async def test_upload_with_priority_urgent(
 
         await handler_instance.upload(data, priority=QueuePriority.URGENT)
 
-        # Verify get_queue was called with URGENT priority
-        mock_get_queue.assert_called_once_with(QueuePriority.URGENT)
-        mock_queue.enqueue_many.assert_called_once()
+        # Verify process_upload.delay was called
+        mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()
 
 
@@ -451,11 +448,9 @@ async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_s
     with (
         patch("curator.app.handler.get_session", return_value=iter([mock_session])),
         patch("curator.app.handler.create_upload_request") as mock_create,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
         handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
-
-        mock_queue = mock_get_queue.return_value
 
         mock_req = mocker.MagicMock()
         mock_req.id = 1
@@ -481,9 +476,8 @@ async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_s
 
         await handler_instance.upload(data, priority=QueuePriority.LATER)
 
-        # Verify get_queue was called with LATER priority
-        mock_get_queue.assert_called_once_with(QueuePriority.LATER)
-        mock_queue.enqueue_many.assert_called_once()
+        # Verify process_upload.delay was called
+        mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()
 
 
@@ -492,17 +486,18 @@ async def test_retry_uploads_with_priority_urgent(handler_instance):
     """Test retry uploads with URGENT priority"""
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
-        mock_queue = mock_get_queue.return_value
         mock_reset.return_value = [1, 2]
 
         data = RetryUploads(data=123)
         await handler_instance.retry_uploads(data.data, priority=QueuePriority.URGENT)
 
-        # Verify get_queue was called with URGENT priority
-        mock_get_queue.assert_called_once_with(QueuePriority.URGENT)
-        mock_queue.enqueue_many.assert_called_once()
+        # Verify process_upload.delay was called twice with the correct IDs
+        assert mock_process_upload.delay.call_count == 2
+        calls = mock_process_upload.delay.call_args_list
+        assert calls[0][0][0] == 1
+        assert calls[1][0][0] == 2
 
 
 @pytest.mark.asyncio
@@ -510,14 +505,15 @@ async def test_retry_uploads_with_priority_later(handler_instance):
     """Test retry uploads with LATER priority"""
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,
-        patch("curator.app.handler.get_queue") as mock_get_queue,
+        patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
-        mock_queue = mock_get_queue.return_value
         mock_reset.return_value = [1, 2]
 
         data = RetryUploads(data=123)
         await handler_instance.retry_uploads(data.data, priority=QueuePriority.LATER)
 
-        # Verify get_queue was called with LATER priority
-        mock_get_queue.assert_called_once_with(QueuePriority.LATER)
-        mock_queue.enqueue_many.assert_called_once()
+        # Verify process_upload.delay was called twice with the correct IDs
+        assert mock_process_upload.delay.call_count == 2
+        calls = mock_process_upload.delay.call_args_list
+        assert calls[0][0][0] == 1
+        assert calls[1][0][0] == 2

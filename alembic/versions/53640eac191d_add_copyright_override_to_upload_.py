@@ -30,6 +30,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.false(),
         ),
+        if_not_exists=True,
     )
     # ### end Alembic commands ###
 

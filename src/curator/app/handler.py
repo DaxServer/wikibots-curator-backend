@@ -4,7 +4,6 @@ from typing import Any, Optional, cast
 
 import httpx
 from fastapi import WebSocketDisconnect
-from rq import Queue
 
 from curator.app.auth import UserSession
 from curator.app.crypto import encrypt_access_token
@@ -35,8 +34,8 @@ from curator.asyncapi import (
     UploadUpdateItem,
 )
 from curator.protocol import AsyncAPIWebSocket
-from curator.workers.ingest import process_one
-from curator.workers.rq import QueuePriority, get_queue
+from curator.workers.rq import QueuePriority
+from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
 
@@ -210,15 +209,9 @@ class Handler:
                     }
                 )
 
-        # Get the appropriate queue based on priority (defaults to normal)
-        selected_queue = get_queue(priority)
-
-        selected_queue.enqueue_many(
-            [
-                Queue.prepare_data(process_one, (upload["id"],))
-                for upload in prepared_uploads
-            ]
-        )
+        # Enqueue uploads
+        for upload in prepared_uploads:
+            process_upload.delay(upload["id"])
 
         logger.info(
             f"[ws] [resp] Batch uploads {len(prepared_uploads)} enqueued for {self.username}"
@@ -281,12 +274,9 @@ class Handler:
                 session.refresh(req)
                 prepared_uploads.append(req.id)
 
-        # Get the appropriate queue based on priority
-        selected_queue = get_queue(priority)
-
-        selected_queue.enqueue_many(
-            [Queue.prepare_data(process_one, (uid,)) for uid in prepared_uploads]
-        )
+        # Enqueue uploads
+        for upload_id in prepared_uploads:
+            process_upload.delay(upload_id)
 
         logger.info(
             f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(prepared_uploads)} uploads) enqueued for {self.username}"
@@ -361,12 +351,9 @@ class Handler:
             await self.socket.send_error("No failed uploads to retry")
             return
 
-        # Get the appropriate queue based on priority
-        selected_queue = get_queue(priority)
-
-        selected_queue.enqueue_many(
-            [Queue.prepare_data(process_one, (uid,)) for uid in retried_ids]
-        )
+        # Enqueue retries
+        for upload_id in retried_ids:
+            process_upload.delay(upload_id)
 
         logger.info(
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"
