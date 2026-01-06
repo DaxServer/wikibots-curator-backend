@@ -99,9 +99,9 @@ def on_worker_ready(sender=None, **kwargs):
                     continue
 
                 mtime = heartbeat_path.stat().st_mtime
-                if time.time() - mtime > CELERY_MAXIMUM_WAIT_TIME:
+                if time.time() - mtime > CELERY_MAXIMUM_WAIT_TIME * 60:
                     logger.warning(
-                        f"[celery] Idle timeout of {CELERY_MAXIMUM_WAIT_TIME} seconds reached. Exiting worker {pid}."
+                        f"[celery] Idle timeout of {CELERY_MAXIMUM_WAIT_TIME} minutes reached. Exiting worker {pid}."
                     )
                     os.kill(pid, signal.SIGTERM)
                     break
