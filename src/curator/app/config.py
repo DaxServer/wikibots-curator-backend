@@ -1,5 +1,6 @@
 import logging
 import os
+from enum import Enum
 
 import redis
 from cashews import Cache, Command
@@ -46,6 +47,14 @@ REDIS_URL = os.getenv("TOOL_REDIS_URI", "redis://localhost:6379")
 redis_client = redis.Redis.from_url(REDIS_URL, db=10)
 
 logger = logging.getLogger(__name__)
+
+
+class QueuePriority(Enum):
+    """Queue priority levels."""
+
+    URGENT = "urgent"
+    NORMAL = "normal"
+    LATER = "later"
 
 
 class WikidataProperty:

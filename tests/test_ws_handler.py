@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
+from curator.app.config import QueuePriority
 from curator.app.handler import Handler
 from curator.asyncapi import (
     BatchItem,
@@ -19,7 +20,6 @@ from curator.asyncapi import (
     UploadItem,
 )
 from curator.protocol import AsyncAPIWebSocket
-from curator.workers.rq import QueuePriority
 
 
 @pytest.fixture
