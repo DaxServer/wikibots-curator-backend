@@ -69,7 +69,7 @@ def on_worker_init(**kwargs):
 
 
 @worker_ready.connect
-def on_worker_ready(**kwargs):
+def on_worker_ready(sender=None, **kwargs):
     pid = os.getpid()
     logger.info(f"[celery] Worker ready - PID: {pid}")
 
@@ -77,12 +77,23 @@ def on_worker_ready(**kwargs):
     heartbeat_path = HEARTBEAT_FILE.with_name(f"{HEARTBEAT_FILE.name}_{pid}")
     heartbeat_path.touch()
 
-    logger.info(f"[celery] Idle monitor started. Heartbeat file: {heartbeat_path}")
+    worker_hostname = sender.hostname if sender else None
+    logger.info(
+        f"[celery] Idle monitor started. Heartbeat file: {heartbeat_path}. Worker: {worker_hostname}"
+    )
 
     def monitor():
         while True:
             time.sleep(60)
             try:
+                # Check for active tasks using inspection API
+                if worker_hostname:
+                    inspector = app.control.inspect()
+                    active_tasks = inspector.active()
+                    if active_tasks and active_tasks.get(worker_hostname):
+                        # Worker is busy processing tasks, treat as activity
+                        heartbeat_path.touch()
+
                 if not heartbeat_path.exists():
                     heartbeat_path.touch()
                     continue
@@ -90,7 +101,7 @@ def on_worker_ready(**kwargs):
                 mtime = heartbeat_path.stat().st_mtime
                 if time.time() - mtime > CELERY_MAXIMUM_WAIT_TIME:
                     logger.warning(
-                        f"[celery] Idle timeout of {CELERY_MAXIMUM_WAIT_TIME} minutes reached. Exiting worker {pid}."
+                        f"[celery] Idle timeout of {CELERY_MAXIMUM_WAIT_TIME} seconds reached. Exiting worker {pid}."
                     )
                     os.kill(pid, signal.SIGTERM)
                     break
@@ -126,11 +137,10 @@ def on_worker_shutdown(**kwargs):
     logger.info(f"[celery] Worker shutting down - PID: {pid}")
 
     heartbeat_path = HEARTBEAT_FILE.with_name(f"{HEARTBEAT_FILE.name}_{pid}")
-    if heartbeat_path.exists():
-        try:
-            heartbeat_path.unlink()
-        except Exception as e:
-            logger.warning(f"[celery] Failed to remove heartbeat file: {e}")
+    try:
+        heartbeat_path.unlink(missing_ok=True)
+    except Exception as e:
+        logger.warning(f"[celery] Failed to remove heartbeat file: {e}")
 
 
 def start():
