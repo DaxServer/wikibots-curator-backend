@@ -41,7 +41,6 @@ def upgrade() -> None:
         "users",
         ["last_edited_by"],
         ["userid"],
-        if_not_exists=True,
     )
     # ### end Alembic commands ###
 
