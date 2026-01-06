@@ -27,7 +27,13 @@ class User(SQLModel, table=True):
     )
 
     batches: list["Batch"] = Relationship(back_populates="user")
-    uploads: list["UploadRequest"] = Relationship(back_populates="user")
+    uploads: list["UploadRequest"] = Relationship(
+        back_populates="user",
+        sa_relationship_kwargs={
+            "primaryjoin": "User.userid==UploadRequest.userid",
+            "lazy": "selectin",
+        },
+    )
 
 
 class Batch(SQLModel, table=True):
@@ -71,6 +77,9 @@ class UploadRequest(SQLModel, table=True):
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
     error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
+    last_edited_by: Optional[str] = Field(
+        default=None, foreign_key="users.userid", index=True, max_length=255
+    )
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
         default_factory=datetime.now,
@@ -78,7 +87,19 @@ class UploadRequest(SQLModel, table=True):
         sa_column_kwargs={"onupdate": datetime.now},
     )
 
-    user: Optional[User] = Relationship(back_populates="uploads")
+    user: Optional[User] = Relationship(
+        back_populates="uploads",
+        sa_relationship_kwargs={
+            "primaryjoin": "User.userid==UploadRequest.userid",
+        },
+    )
+    last_editor: Optional[User] = Relationship(
+        sa_relationship_kwargs={
+            "primaryjoin": "UploadRequest.last_edited_by==User.userid",
+            "foreign_keys": "UploadRequest.last_edited_by",
+            "lazy": "selectin",
+        }
+    )
     batch: Optional[Batch] = Relationship(back_populates="uploads")
 
 

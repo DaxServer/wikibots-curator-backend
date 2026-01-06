@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
+from curator.app.auth import LoggedInUser
+from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
     count_all_upload_requests,
     count_batches,
@@ -8,9 +10,11 @@ from curator.app.dal import (
     get_all_upload_requests,
     get_batches,
     get_users,
+    retry_batch_as_admin,
 )
 from curator.app.db import engine
 from curator.app.models import UploadRequest
+from curator.workers.tasks import process_upload
 
 
 def check_admin(request: Request):
@@ -75,3 +79,26 @@ async def admin_update_upload_request(
 
         session.commit()
     return {"message": "Upload request updated successfully"}
+
+
+@router.post("/batches/{batch_id}/retry")
+async def admin_retry_batch(
+    batch_id: int,
+    user: LoggedInUser,
+):
+    with Session(engine) as session:
+        # Encrypt the admin's token
+        encrypted_token = encrypt_access_token(user["access_token"])
+
+        try:
+            reset_ids = retry_batch_as_admin(
+                session, batch_id, encrypted_token, user["userid"]
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    # Queue the uploads for processing
+    for upload_id in reset_ids:
+        process_upload.delay(upload_id)
+
+    return {"message": f"Retried {len(reset_ids)} uploads"}

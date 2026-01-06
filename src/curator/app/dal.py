@@ -72,6 +72,7 @@ def get_all_upload_requests(
             created_at=u.created_at.isoformat() if u.created_at else None,
             updated_at=u.updated_at.isoformat() if u.updated_at else None,
             image_id=u.key,
+            last_edited_by=u.last_editor.username if u.last_editor else None,
         )
         for u in result
     ]
@@ -375,6 +376,7 @@ def get_upload_request(
             created_at=u.created_at.isoformat() if u.created_at else None,
             updated_at=u.updated_at.isoformat() if u.updated_at else None,
             image_id=u.key,
+            last_edited_by=u.last_editor.username if u.last_editor else None,
         )
         for u in result.all()
     ]
@@ -463,6 +465,39 @@ def reset_failed_uploads(
         upload.error = None
         upload.result = None
         upload.access_token = encrypted_access_token
+        session.add(upload)
+        reset_ids.append(upload.id)
+
+    session.commit()
+    return reset_ids
+
+
+def retry_batch_as_admin(
+    session: Session, batchid: int, encrypted_access_token: str, admin_userid: str
+) -> list[int]:
+    """
+    Reset status of ALL uploads in a batch to 'queued', except those in 'in_progress'.
+    Updates the access token for the retry to the admin's token.
+    """
+    batch = session.get(Batch, batchid)
+    if not batch:
+        raise ValueError("Batch not found")
+
+    # Select all uploads that are NOT in_progress
+    statement = select(UploadRequest).where(
+        UploadRequest.batchid == batchid,
+        UploadRequest.status != "in_progress",
+    )
+    uploads_to_retry = session.exec(statement).all()
+
+    reset_ids = []
+    for upload in uploads_to_retry:
+        upload.status = "queued"
+        upload.error = None
+        upload.result = None
+        upload.success = None
+        upload.access_token = encrypted_access_token
+        upload.last_edited_by = admin_userid
         session.add(upload)
         reset_ids.append(upload.id)
 
