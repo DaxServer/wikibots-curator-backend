@@ -200,9 +200,6 @@ async def test_handler_fetch_batches_workflow(mocker, mock_user, mock_websocket_
 
     mock_session = mocker.MagicMock()
 
-    def get_mock_session():
-        yield mock_session
-
     # Only mock sleep for the streamer loop to avoid real 2s wait
     mock_sleep = mocker.patch(
         "curator.app.handler_optimized.asyncio.sleep", new_callable=AsyncMock
@@ -210,9 +207,7 @@ async def test_handler_fetch_batches_workflow(mocker, mock_user, mock_websocket_
     mock_sleep.side_effect = [None, asyncio.CancelledError()]
 
     with (
-        patch(
-            "curator.app.handler_optimized.get_session", side_effect=get_mock_session
-        ),
+        patch("curator.app.handler_optimized.Session", return_value=mock_session),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
         patch("curator.app.handler_optimized.get_batches_minimal") as mock_mini,
         patch(

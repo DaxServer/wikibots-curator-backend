@@ -2,9 +2,15 @@ import asyncio
 import logging
 from typing import Literal
 
+from pywikibot.page import FilePage, Page
+from sqlmodel import Session
+
 from curator.app.commons import (
     DuplicateUploadError,
+    apply_sdc,
     check_title_blacklisted,
+    fetch_sdc_from_api,
+    get_commons_site,
     upload_file_chunked,
 )
 from curator.app.crypto import decrypt_access_token

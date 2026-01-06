@@ -242,7 +242,7 @@ def build_statements_from_mapillary_image(
                 _create_wikibase_item_snak(
                     WIKIDATA_PROPERTY["Operator"], WIKIDATA_ENTITY["Mapillary"]
                 ),
-                _create_url_snak(WIKIDATA_PROPERTY["DescribedAtUrl"], image.url),
+                _create_string_snak(WIKIDATA_PROPERTY["DescribedAtUrl"], image.url),
             ],
         )
     )

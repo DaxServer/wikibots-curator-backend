@@ -29,13 +29,10 @@ async def test_worker_process_one_decrypts_token(mock_session):
         user=SimpleNamespace(username="User"),
     )
 
-    def fake_session_iter():
-        yield mock_session
-
     captured = {}
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -77,6 +74,7 @@ async def test_worker_process_one_decrypts_token(mock_session):
 
 @pytest.mark.asyncio
 async def test_worker_process_one_duplicate_status(mock_session):
+    """Test that process_one marks duplicate status when file already exists."""
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -94,9 +92,6 @@ async def test_worker_process_one_duplicate_status(mock_session):
         user=SimpleNamespace(username="User"),
     )
 
-    def fake_session_iter():
-        yield mock_session
-
     captured_status = {}
 
     def capture_status(session, upload_id, status, error=None, success=None):
@@ -104,7 +99,7 @@ async def test_worker_process_one_duplicate_status(mock_session):
         captured_status["error"] = error
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -184,9 +179,6 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         user=SimpleNamespace(username="User"),
     )
 
-    def fake_session_iter():
-        yield mock_session
-
     captured_status = {}
 
     def capture_status(session, upload_id, status, error=None, success=None):
@@ -194,7 +186,7 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         captured_status["error"] = error
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -248,9 +240,6 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         user=SimpleNamespace(username="User"),
     )
 
-    def fake_session_iter():
-        yield mock_session
-
     upload_attempts = []
 
     def mock_upload_file_chunked(**kwargs):
@@ -267,7 +256,7 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         }
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -341,7 +330,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         )
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -417,7 +406,7 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         raise Exception("Network timeout or some other error")
 
     with (
-        patch("curator.workers.ingest.get_session", fake_session_iter),
+        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status

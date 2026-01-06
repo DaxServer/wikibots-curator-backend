@@ -94,7 +94,7 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.get_session", return_value=iter([mock_session])),
+        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
@@ -407,7 +407,7 @@ async def test_upload_with_priority_urgent(
 ):
     """Test upload with URGENT priority"""
     with (
-        patch("curator.app.handler.get_session", return_value=iter([mock_session])),
+        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
@@ -446,7 +446,7 @@ async def test_upload_with_priority_urgent(
 async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_session):
     """Test upload with LATER priority"""
     with (
-        patch("curator.app.handler.get_session", return_value=iter([mock_session])),
+        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
