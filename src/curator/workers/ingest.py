@@ -2,9 +2,14 @@ import asyncio
 import logging
 from typing import Literal
 
+from pywikibot.page import FilePage, Page
+from sqlmodel import Session
+
 from curator.app.commons import (
     DuplicateUploadError,
+    apply_sdc,
     check_title_blacklisted,
+    get_commons_site,
     upload_file_chunked,
 )
 from curator.app.crypto import decrypt_access_token
@@ -13,7 +18,7 @@ from curator.app.dal import (
     get_upload_request_by_id,
     update_upload_status,
 )
-from curator.app.db import get_session
+from curator.app.db import engine
 from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
     StructuredError,
@@ -137,7 +142,7 @@ async def _upload_with_retry(
 
 async def process_one(upload_id: int) -> bool:
     logger.info(f"[{upload_id}] processing upload")
-    session = next(get_session())
+    session = Session(engine)
     item = None
     try:
         item = get_upload_request_by_id(session, upload_id)

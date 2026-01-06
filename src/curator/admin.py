@@ -9,7 +9,7 @@ from curator.app.dal import (
     get_batches,
     get_users,
 )
-from curator.app.db import get_session
+from curator.app.db import engine
 from curator.app.models import UploadRequest
 
 
@@ -28,11 +28,11 @@ router = APIRouter(
 async def admin_get_batches(
     page: int = 1,
     limit: int = 100,
-    session: Session = Depends(get_session),
 ):
     offset = (page - 1) * limit
-    items = get_batches(session, offset=offset, limit=limit)
-    total = count_batches(session)
+    with Session(engine) as session:
+        items = get_batches(session, offset=offset, limit=limit)
+        total = count_batches(session)
     return {"items": items, "total": total}
 
 
@@ -40,11 +40,11 @@ async def admin_get_batches(
 async def admin_get_users(
     page: int = 1,
     limit: int = 100,
-    session: Session = Depends(get_session),
 ):
     offset = (page - 1) * limit
-    items = get_users(session, offset=offset, limit=limit)
-    total = count_users(session)
+    with Session(engine) as session:
+        items = get_users(session, offset=offset, limit=limit)
+        total = count_users(session)
     return {"items": items, "total": total}
 
 
@@ -52,11 +52,11 @@ async def admin_get_users(
 async def admin_get_upload_requests(
     page: int = 1,
     limit: int = 100,
-    session: Session = Depends(get_session),
 ):
     offset = (page - 1) * limit
-    items = get_all_upload_requests(session, offset=offset, limit=limit)
-    total = count_all_upload_requests(session)
+    with Session(engine) as session:
+        items = get_all_upload_requests(session, offset=offset, limit=limit)
+        total = count_all_upload_requests(session)
     return {"items": items, "total": total}
 
 
@@ -64,14 +64,14 @@ async def admin_get_upload_requests(
 async def admin_update_upload_request(
     upload_request_id: int,
     update_data: dict,
-    session: Session = Depends(get_session),
 ):
-    upload_request = session.get(UploadRequest, upload_request_id)
-    if not upload_request:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    with Session(engine) as session:
+        upload_request = session.get(UploadRequest, upload_request_id)
+        if not upload_request:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    for key, value in update_data.items():
-        setattr(upload_request, key, value)
+        for key, value in update_data.items():
+            setattr(upload_request, key, value)
 
-    session.commit()
+        session.commit()
     return {"message": "Upload request updated successfully"}

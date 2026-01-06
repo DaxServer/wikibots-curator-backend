@@ -49,7 +49,7 @@ def mock_worker():
 
 @pytest.fixture
 def mock_session():
-    with patch("curator.app.handler.get_session") as mock:
+    with patch("curator.app.handler.Session") as mock:
         session_instance = mock.return_value.__enter__.return_value
         yield session_instance
 

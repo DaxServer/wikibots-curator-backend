@@ -4,6 +4,7 @@ from typing import Any, Optional, cast
 
 import httpx
 from fastapi import WebSocketDisconnect
+from sqlmodel import Session
 
 from curator.app.auth import UserSession
 from curator.app.config import QueuePriority
@@ -18,7 +19,7 @@ from curator.app.dal import (
     get_upload_request,
     reset_failed_uploads,
 )
-from curator.app.db import get_session
+from curator.app.db import engine
 from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import UploadItem
@@ -184,7 +185,7 @@ class Handler:
 
         logger.info(f"[mapillary] Uploading {len(items)} items for {self.username}")
 
-        with next(get_session()) as session:
+        with Session(engine) as session:
             reqs = create_upload_request(
                 session=session,
                 username=self.username,
@@ -230,7 +231,7 @@ class Handler:
         )
 
     async def create_batch(self):
-        with next(get_session()) as session:
+        with Session(engine) as session:
             ensure_user(
                 session=session, userid=self.user["userid"], username=self.username
             )
@@ -258,7 +259,7 @@ class Handler:
             f"[mapillary] Creating upload slice {sliceid} with {len(items)} items for {self.username} in batch {batchid}"
         )
 
-        with next(get_session()) as session:
+        with Session(engine) as session:
             reqs = create_upload_requests_for_batch(
                 session=session,
                 userid=self.user["userid"],
@@ -308,7 +309,7 @@ class Handler:
         )
 
     async def fetch_batch_uploads(self, batchid: int):
-        with next(get_session()) as session:
+        with Session(engine) as session:
             batch = get_batch(session, batchid)
             if not batch:
                 await self.socket.send_error(f"Batch {batchid} not found")
@@ -333,7 +334,7 @@ class Handler:
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 
         try:
-            with next(get_session()) as session:
+            with Session(engine) as session:
                 retried_ids = reset_failed_uploads(
                     session, batchid, userid, encrypted_access_token
                 )
@@ -380,7 +381,7 @@ class Handler:
             while True:
                 await asyncio.sleep(2)
 
-                with next(get_session()) as session:
+                with Session(engine) as session:
                     items = get_upload_request(
                         session,
                         batchid=batchid,

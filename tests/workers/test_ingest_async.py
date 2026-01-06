@@ -9,7 +9,7 @@ from curator.workers.ingest import process_one
 @pytest.mark.asyncio
 async def test_process_one_runs_async(
     mocker,
-    patch_get_session,
+    patch_ingest_session,
     patch_get_upload_request_by_id,
     patch_update_upload_status,
     patch_mapillary_handler,
@@ -42,7 +42,7 @@ async def test_process_one_runs_async(
 @pytest.mark.parametrize("status", ["completed", "failed", "duplicate", "in_progress"])
 async def test_process_one_skips_non_queued_items(
     mocker,
-    patch_get_session,
+    patch_ingest_session,
     patch_get_upload_request_by_id,
     patch_update_upload_status,
     patch_clear_upload_access_token,
@@ -65,7 +65,7 @@ async def test_process_one_skips_non_queued_items(
 @pytest.mark.asyncio
 async def test_process_one_missing_access_token(
     mocker,
-    patch_get_session,
+    patch_ingest_session,
     patch_get_upload_request_by_id,
     patch_update_upload_status,
     patch_mapillary_handler,

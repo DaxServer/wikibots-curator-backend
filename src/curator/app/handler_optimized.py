@@ -12,7 +12,7 @@ from curator.app.dal_optimized import (
     get_batches_optimized,
     get_latest_update_time,
 )
-from curator.app.db import get_session
+from curator.app.db import engine
 from curator.asyncapi import BatchesListData
 from curator.protocol import AsyncAPIWebSocket
 
@@ -48,7 +48,7 @@ class OptimizedBatchStreamer:
 
         try:
             # Initial full sync
-            with next(get_session()) as session:
+            with Session(engine) as session:
                 await self._send_full_sync(session, userid, filter_text)
                 self.last_update_time = get_latest_update_time(
                     session, userid, filter_text
@@ -64,7 +64,7 @@ class OptimizedBatchStreamer:
             while self.is_running:
                 await asyncio.sleep(update_check_interval)
 
-                with next(get_session()) as session:
+                with Session(engine) as session:
                     current_latest = get_latest_update_time(
                         session, userid, filter_text
                     )

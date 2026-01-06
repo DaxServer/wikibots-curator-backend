@@ -1,6 +1,6 @@
 import os
 
-from sqlmodel import Session, create_engine
+from sqlmodel import create_engine
 
 TOOLSDB_USER = os.getenv("TOOL_TOOLSDB_USER")
 TOOLSDB_PASSWORD = os.getenv("TOOL_TOOLSDB_PASSWORD")
@@ -20,8 +20,3 @@ else:
 engine = create_engine(
     DB_URL, connect_args=CONNECT_ARGS, pool_recycle=280, pool_pre_ping=True
 )
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session

@@ -15,9 +15,9 @@ def mock_socket():
     return socket
 
 
-def get_mock_session():
+def get_mock_session(*args, **kwargs):
     mock_session = AsyncMock()
-    return iter([mock_session])
+    return mock_session
 
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_streamer_full_sync_initially(mock_socket):
 
     with (
         patch(
-            "curator.app.handler_optimized.get_session",
+            "curator.app.handler_optimized.Session",
             side_effect=get_mock_session,
         ),
         patch(
@@ -71,7 +71,7 @@ async def test_streamer_incremental_update(mock_socket):
 
     with (
         patch(
-            "curator.app.handler_optimized.get_session",
+            "curator.app.handler_optimized.Session",
             side_effect=get_mock_session,
         ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
@@ -121,7 +121,7 @@ async def test_streamer_no_update_if_time_same(mock_socket):
 
     with (
         patch(
-            "curator.app.handler_optimized.get_session",
+            "curator.app.handler_optimized.Session",
             side_effect=get_mock_session,
         ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
@@ -152,7 +152,7 @@ async def test_streamer_no_updates_on_paginated_page(mock_socket):
 
     with (
         patch(
-            "curator.app.handler_optimized.get_session",
+            "curator.app.handler_optimized.Session",
             side_effect=get_mock_session,
         ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
