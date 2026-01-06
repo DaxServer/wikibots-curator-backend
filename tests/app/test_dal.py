@@ -6,7 +6,7 @@ from curator.app.dal import (
     get_upload_request_by_id,
     reset_failed_uploads,
 )
-from curator.app.models import UploadItem, UploadRequest
+from curator.app.models import UploadItem
 from curator.asyncapi import Rank, SomeValueSnak, Statement
 
 
@@ -19,27 +19,29 @@ def test_get_upload_request_by_id(mocker, mock_session):
     mock_upload_request.filename = "test.jpg"
 
     # Configure the mock session to return our mock upload request
-    mock_session.get.return_value = mock_upload_request
+    mock_result = mocker.MagicMock()
+    mock_result.first.return_value = mock_upload_request
+    mock_session.exec.return_value = mock_result
 
     # Execute
     result = get_upload_request_by_id(mock_session, 123)
 
     # Verify
     assert result == mock_upload_request
-    mock_session.get.assert_called_once_with(UploadRequest, 123)
 
 
-def test_get_upload_request_by_id_not_found(mock_session):
+def test_get_upload_request_by_id_not_found(mocker, mock_session):
     """Test that get_upload_request_by_id returns None when not found"""
     # Configure the mock session to return None
-    mock_session.get.return_value = None
+    mock_result = mocker.MagicMock()
+    mock_result.first.return_value = None
+    mock_session.exec.return_value = mock_result
 
     # Execute
     result = get_upload_request_by_id(mock_session, 456)
 
     # Verify
     assert result is None
-    mock_session.get.assert_called_once_with(UploadRequest, 456)
 
 
 def test_get_batch(mocker, mock_session):

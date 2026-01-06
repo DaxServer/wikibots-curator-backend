@@ -5,9 +5,10 @@ from curator.app.models import Batch, UploadRequest
 
 
 def test_retry_batch_as_admin_success(mock_session):
-    """Test retry_batch_as_admin resets eligible uploads and updates token"""
+    """Test retry_batch_as_admin resets eligible uploads and updates token and last_edited_by"""
     batch_id = 123
     admin_token = "admin_encrypted_token"
+    admin_userid = "admin_user"
 
     # Mock batch
     mock_batch = Batch(id=batch_id, userid="user1")
@@ -22,6 +23,7 @@ def test_retry_batch_as_admin_success(mock_session):
     upload_failed = UploadRequest(
         id=1,
         batchid=batch_id,
+        userid="original_user",
         status="failed",
         access_token="old",
         key="1",
@@ -32,6 +34,7 @@ def test_retry_batch_as_admin_success(mock_session):
     upload_completed = UploadRequest(
         id=2,
         batchid=batch_id,
+        userid="original_user",
         status="completed",
         access_token="old",
         key="2",
@@ -42,6 +45,7 @@ def test_retry_batch_as_admin_success(mock_session):
     upload_inprogress = UploadRequest(
         id=3,
         batchid=batch_id,
+        userid="original_user",
         status="in_progress",
         access_token="old",
         key="3",
@@ -52,6 +56,7 @@ def test_retry_batch_as_admin_success(mock_session):
     upload_queued = UploadRequest(
         id=4,
         batchid=batch_id,
+        userid="original_user",
         status="queued",
         access_token="old",
         key="4",
@@ -69,7 +74,6 @@ def test_retry_batch_as_admin_success(mock_session):
         upload_queued,
     ]
 
-    admin_userid = "admin_user"
     reset_ids = retry_batch_as_admin(mock_session, batch_id, admin_token, admin_userid)
 
     # Verify results
@@ -83,19 +87,24 @@ def test_retry_batch_as_admin_success(mock_session):
     assert upload_failed.status == "queued"
     assert upload_failed.access_token == admin_token
     assert upload_failed.error is None
+    assert upload_failed.userid == "original_user"  # Should NOT change
     assert upload_failed.last_edited_by == admin_userid
 
     assert upload_completed.status == "queued"
     assert upload_completed.access_token == admin_token
+    assert upload_completed.userid == "original_user"  # Should NOT change
     assert upload_completed.success is None
     assert upload_completed.last_edited_by == admin_userid
 
     assert upload_queued.status == "queued"
     assert upload_queued.access_token == admin_token
+    assert upload_queued.userid == "original_user"  # Should NOT change
     assert upload_queued.last_edited_by == admin_userid
 
     assert upload_inprogress.status == "in_progress"
     assert upload_inprogress.access_token == "old"
+    assert upload_inprogress.userid == "original_user"
+    assert upload_inprogress.last_edited_by is None
 
     # Verify commit
     mock_session.commit.assert_called_once()
