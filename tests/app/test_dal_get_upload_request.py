@@ -1,5 +1,5 @@
-import pytest
 from unittest.mock import MagicMock
+
 from curator.app.dal import get_upload_request
 
 

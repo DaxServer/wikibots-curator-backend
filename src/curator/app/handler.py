@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 from typing import Any, Optional, cast
 
@@ -41,6 +42,22 @@ from curator.workers.tasks import process_upload
 logger = logging.getLogger(__name__)
 
 
+def handle_exceptions(func):
+    @functools.wraps(func)
+    async def wrapper(self, *args, **kwargs):
+        try:
+            return await func(self, *args, **kwargs)
+        except WebSocketDisconnect:
+            raise  # Let the main loop handle disconnects
+        except Exception as e:
+            logger.exception(f"Error in {func.__name__} for user {self.username}: {e}")
+            await self.socket.send_error(
+                "Internal server error.. please notify User:DaxServer"
+            )
+
+    return wrapper
+
+
 class Handler:
     def __init__(self, user: UserSession, sender: AsyncAPIWebSocket, request_obj: Any):
         self.user = user
@@ -61,6 +78,7 @@ class Handler:
         if self.batch_streamer:
             asyncio.create_task(self.batch_streamer.stop_streaming())
 
+    @handle_exceptions
     async def fetch_images(self, collection: str):
         handler = MapillaryHandler()
         loop = asyncio.get_running_loop()
@@ -173,6 +191,7 @@ class Handler:
             CollectionImagesData(images=images, creator=creator)
         )
 
+    @handle_exceptions
     async def upload(
         self, data: UploadData, priority: Optional[QueuePriority] = QueuePriority.NORMAL
     ):
@@ -230,6 +249,7 @@ class Handler:
             ]
         )
 
+    @handle_exceptions
     async def create_batch(self):
         with Session(engine) as session:
             ensure_user(
@@ -244,6 +264,7 @@ class Handler:
 
         await self.socket.send_batch_created(batch_id)
 
+    @handle_exceptions
     async def upload_slice(
         self,
         data: UploadSliceData,
@@ -285,6 +306,7 @@ class Handler:
 
         await self.socket.send_upload_slice_ack(sliceid)
 
+    @handle_exceptions
     async def fetch_batches(self, data: FetchBatchesData):
         """Fetch batches and automatically subscribe to updates."""
         if self.batches_list_task and not self.batches_list_task.done():
@@ -308,6 +330,7 @@ class Handler:
             f"[ws] [resp] FetchBatches and subscribed to batches list for {self.username}"
         )
 
+    @handle_exceptions
     async def fetch_batch_uploads(self, batchid: int):
         with Session(engine) as session:
             batch = get_batch(session, batchid)
@@ -327,6 +350,7 @@ class Handler:
             BatchUploadsListData(batch=batch, uploads=serialized_uploads)
         )
 
+    @handle_exceptions
     async def retry_uploads(
         self, batchid: int, priority: Optional[QueuePriority] = QueuePriority.NORMAL
     ):
@@ -360,6 +384,7 @@ class Handler:
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"
         )
 
+    @handle_exceptions
     async def subscribe_batch(self, batchid: int):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
@@ -369,6 +394,7 @@ class Handler:
         logger.info(f"[ws] [resp] Subscribed to batch {batchid} for {self.username}")
         await self.socket.send_subscribed(batchid)
 
+    @handle_exceptions
     async def unsubscribe_batch(self):
         if self.uploads_task and not self.uploads_task.done():
             self.uploads_task.cancel()
@@ -427,6 +453,7 @@ class Handler:
         except Exception as e:
             logger.error(f"Error in stream_uploads: {e}")
 
+    @handle_exceptions
     async def subscribe_batches_list(self, data: SubscribeBatchesListData):
         """Deprecated: Subscription is now automatic in fetch_batches."""
         if self.batches_list_task and not self.batches_list_task.done():
@@ -446,6 +473,7 @@ class Handler:
 
         logger.info(f"[ws] [resp] Subscribed to batches list for {self.username}")
 
+    @handle_exceptions
     async def unsubscribe_batches_list(self):
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
