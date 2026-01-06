@@ -191,18 +191,7 @@ def check_title_blacklisted(
     batch_id: int,
 ) -> tuple[bool, str]:
     """
-    Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API.
-
-    Args:
-        access_token: The OAuth access token for Commons API
-        username: The Commons username for authentication
-        filename: The filename to check (without "File:" prefix)
-        upload_id: The upload ID for logging
-        batch_id: The batch ID for logging
-
-    Returns:
-        tuple: (is_blacklisted, reason) where is_blacklisted is True if blacklisted,
-               and reason is the blacklist reason or empty string if not blacklisted
+    Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API
     """
     site = get_commons_site(access_token, username)
 

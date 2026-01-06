@@ -1,11 +1,13 @@
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
 from curator.admin import (
     admin_get_batches,
     admin_get_upload_requests,
     admin_get_users,
+    admin_retry_batch,
 )
 
 
@@ -65,3 +67,55 @@ async def test_admin_get_upload_requests_success(mock_session):
         )
         mock_count_all_upload_requests.assert_called_once_with(mock_session)
         assert result == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+async def test_admin_retry_batch_success(mock_session):
+    user = {
+        "username": "DaxServer",
+        "userid": "u1",
+        "access_token": ("token", "secret"),
+    }
+    with (
+        patch("curator.admin.Session") as mock_Session_cls,
+        patch("curator.admin.encrypt_access_token") as mock_encrypt,
+        patch("curator.admin.retry_batch_as_admin") as mock_retry,
+        patch("curator.workers.tasks.process_upload.delay") as mock_task,
+    ):
+        mock_Session_cls.return_value.__enter__.return_value = mock_session
+        mock_encrypt.return_value = "encrypted_token"
+        mock_retry.return_value = [1, 2, 3]
+
+        result = await admin_retry_batch(batch_id=1, user=user)
+
+        mock_encrypt.assert_called_once_with(("token", "secret"))
+        mock_retry.assert_called_once_with(mock_session, 1, "encrypted_token", "u1")
+        assert result == {"message": "Retried 3 uploads"}
+
+        # Verify Celery tasks were queued
+        assert mock_task.call_count == 3
+        mock_task.assert_any_call(1)
+        mock_task.assert_any_call(2)
+        mock_task.assert_any_call(3)
+
+
+@pytest.mark.asyncio
+async def test_admin_retry_batch_not_found(mock_session):
+    user = {
+        "username": "DaxServer",
+        "userid": "u1",
+        "access_token": ("token", "secret"),
+    }
+    with (
+        patch("curator.admin.Session") as mock_Session_cls,
+        patch("curator.admin.encrypt_access_token") as mock_encrypt,
+        patch("curator.admin.retry_batch_as_admin") as mock_retry,
+    ):
+        mock_Session_cls.return_value.__enter__.return_value = mock_session
+        mock_encrypt.return_value = "encrypted_token"
+        mock_retry.side_effect = ValueError("Batch not found")
+
+        with pytest.raises(HTTPException) as exc:
+            await admin_retry_batch(batch_id=1, user=user)
+
+        assert exc.value.status_code == 404

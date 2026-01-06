@@ -85,14 +85,7 @@ async def _upload_with_retry(
     sdc: list[Statement] | None,
 ):
     """
-    Upload a file with retry logic for uploadstash-file-not-found errors.
-
-    Returns:
-        dict: Upload result on success
-
-    Raises:
-        DuplicateUploadError: For duplicate file detection (passes through)
-        Exception: For upload errors after retries are exhausted and other errors
+    Upload a file with retry logic for uploadstash-file-not-found errors
     """
     for attempt in range(MAX_UPLOADSTASH_TRIES):
         try:
@@ -148,8 +141,13 @@ async def process_one(upload_id: int) -> bool:
         item = get_upload_request_by_id(session, upload_id)
         if not item:
             logger.error(f"[{upload_id}] upload not found")
-            _cleanup(session, item)
-            return False
+            return _fail(
+                session,
+                upload_id,
+                "failed",
+                None,
+                GenericError(message="Upload request not found"),
+            )
 
         if item.status != "queued":
             logger.error(f"[{upload_id}/{item.batchid}] upload not in queued status")
