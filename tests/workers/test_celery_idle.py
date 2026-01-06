@@ -34,7 +34,7 @@ def test_idle_monitor_kill_after_timeout(mock_heartbeat_file):
         patch("os.getpid", return_value=pid),
         patch("os.kill") as mock_kill,
         patch("threading.Thread") as mock_thread_cls,
-        patch("time.sleep"),
+        patch("time.sleep") as mock_sleep,
         patch("time.time") as mock_time,
     ):
         # Setup mocks
@@ -63,15 +63,22 @@ def test_idle_monitor_kill_after_timeout(mock_heartbeat_file):
         # Set file mtime to start_time
         os.utime(expected_file, (start_time, start_time))
 
-        # Set current time to start_time + CELERY_MAXIMUM_WAIT_TIME + 1 second
-        # The monitor calls time.time()
-        mock_time.side_effect = [
-            start_time + CELERY_MAXIMUM_WAIT_TIME + 1,  # For time.time() inside loop
-            start_time + CELERY_MAXIMUM_WAIT_TIME + 2,  # subsequent calls
-        ]
+        # Set current time to start_time + CELERY_MAXIMUM_WAIT_TIME * 60 + 1 second
+        # The monitor compares time.time() - mtime > CELERY_MAXIMUM_WAIT_TIME * 60
+        mock_time.return_value = start_time + (CELERY_MAXIMUM_WAIT_TIME * 60) + 1
 
-        # Run monitor function once (it should break loop)
-        monitor_func()
+        # Configure sleep: first call returns None, second call raises to break loop
+        class BreakLoop(Exception):
+            pass
+
+        mock_sleep.side_effect = [None, BreakLoop]
+
+        # Run monitor function (will sleep once, check timeout, call kill, break)
+        # Then sleep again which raises BreakLoop
+        try:
+            monitor_func()
+        except BreakLoop:
+            pass
 
         # Verify kill was called
         mock_kill.assert_called_with(pid, signal.SIGTERM)
