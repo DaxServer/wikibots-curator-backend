@@ -1,5 +1,6 @@
 import logging
 import os
+from enum import Enum
 
 import redis
 from cashews import Cache, Command
@@ -39,16 +40,25 @@ TOKEN_ENCRYPTION_KEY = os.environ.get(
 WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 
-
-class WikidataProperty:
-    MapillaryPhotoID = "P1947"
-
+CELERY_CONCURRENCY = int(os.getenv("CELERY_CONCURRENCY", 2))
 
 REDIS_PREFIX = "skI4ZdSn18vvLkMHnPk8AEyg/8VjDRT6sY2u+BXIdsk="
 REDIS_URL = os.getenv("TOOL_REDIS_URI", "redis://localhost:6379")
 redis_client = redis.Redis.from_url(REDIS_URL, db=10)
 
 logger = logging.getLogger(__name__)
+
+
+class QueuePriority(Enum):
+    """Queue priority levels."""
+
+    URGENT = "urgent"
+    NORMAL = "normal"
+    LATER = "later"
+
+
+class WikidataProperty:
+    MapillaryPhotoID = "P1947"
 
 
 async def integrity_middleware(call, cmd: Command, backend: Backend, *args, **kwargs):

@@ -7,6 +7,7 @@ import sys
 from celery import Celery
 from celery.signals import worker_init, worker_ready, worker_shutdown
 
+from curator.app.config import CELERY_CONCURRENCY
 from curator.app.db import DB_URL
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ app.conf.update(
     accept_content=["json"],
     result_serializer="json",
     worker_max_tasks_per_child=100,
-    worker_concurrency=1,
+    worker_concurrency=CELERY_CONCURRENCY,
     task_routes={
         "curator.workers.tasks.process_upload": {"queue": "uploads"},
     },

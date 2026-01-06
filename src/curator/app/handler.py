@@ -6,6 +6,7 @@ import httpx
 from fastapi import WebSocketDisconnect
 
 from curator.app.auth import UserSession
+from curator.app.config import QueuePriority
 from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
     count_uploads_in_batch,
@@ -34,7 +35,6 @@ from curator.asyncapi import (
     UploadUpdateItem,
 )
 from curator.protocol import AsyncAPIWebSocket
-from curator.workers.rq import QueuePriority
 from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
