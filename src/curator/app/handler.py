@@ -27,6 +27,9 @@ from curator.app.models import UploadItem
 from curator.asyncapi import (
     BatchUploadsListData,
     CollectionImagesData,
+    DuplicatedSdcNotUpdatedError,
+    DuplicatedSdcUpdatedError,
+    DuplicateError,
     FetchBatchesData,
     MediaImage,
     PartialCollectionImagesData,
@@ -437,7 +440,14 @@ class Handler:
                     completed = sum(
                         1
                         for r in items
-                        if r.status in ("completed", "failed", "duplicate")
+                        if r.status
+                        in (
+                            "completed",
+                            "failed",
+                            DuplicateError.model_fields["type"].default,
+                            DuplicatedSdcUpdatedError.model_fields["type"].default,
+                            DuplicatedSdcNotUpdatedError.model_fields["type"].default,
+                        )
                     )
                     if completed >= total:
                         logger.info(

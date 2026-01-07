@@ -137,6 +137,13 @@ async def test_worker_process_one_duplicate_status(mock_session):
                 height=200,
             ),
         ),
+        # Mock the entire SDC merge handler to return None (merge failed)
+        # This will cause it to fall back to marking as duplicate
+        patch(
+            "curator.workers.ingest._handle_duplicate_with_sdc_merge",
+            new_callable=AsyncMock,
+            return_value=(None, None),  # (url, status) - None means merge failed
+        ),
     ):
         ok = await process_one(1)
         assert ok is False

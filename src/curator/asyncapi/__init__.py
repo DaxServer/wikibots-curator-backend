@@ -20,6 +20,8 @@ from .DataValueQuantity import DataValueQuantity
 from .DataValueTime import DataValueTime
 from .DataValueType import DataValueType
 from .Dates import Dates
+from .DuplicatedSdcNotUpdatedError import DuplicatedSdcNotUpdatedError
+from .DuplicatedSdcUpdatedError import DuplicatedSdcUpdatedError
 from .DuplicateError import DuplicateError
 from .EntityIdDataValue import EntityIdDataValue
 from .EntityIdValueSnak import EntityIdValueSnak
@@ -104,6 +106,8 @@ __all__ = [
     "BatchUploadItem",
     "DuplicateError",
     "ErrorLink",
+    "DuplicatedSdcNotUpdatedError",
+    "DuplicatedSdcUpdatedError",
     "GenericError",
     "TitleBlacklistedError",
     "CollectionImageIds",

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import (
     BaseModel,
@@ -18,6 +18,10 @@ from pydantic import (
 class NoValueSnak(BaseModel):
     snaktype: Literal["novalue"] = Field(default="novalue", frozen=True)
     property: str = Field(description="""Property ID""")
+    hash: Optional[str] = Field(
+        description="""Hash of the snak for Wikimedia Commons identification""",
+        default=None,
+    )
     additional_properties: dict[str, Any] = Field(default={}, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -53,7 +57,12 @@ class NoValueSnak(BaseModel):
 
         data = data.copy()
         json_properties = list(data.keys())
-        known_object_properties = ["snaktype", "property", "additional_properties"]
+        known_object_properties = [
+            "snaktype",
+            "property",
+            "hash",
+            "additional_properties",
+        ]
         unknown_object_properties = [
             element
             for element in json_properties
@@ -63,7 +72,7 @@ class NoValueSnak(BaseModel):
         if len(unknown_object_properties) == 0:
             return data
 
-        known_json_properties = ["snaktype", "property", "additionalProperties"]
+        known_json_properties = ["snaktype", "property", "hash", "additionalProperties"]
         additional_properties = data.get("additional_properties", {})
         for obj_key in unknown_object_properties:
             if not known_json_properties.__contains__(obj_key):

@@ -5,6 +5,8 @@ from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 from curator.asyncapi import (
+    DuplicatedSdcNotUpdatedError,
+    DuplicatedSdcUpdatedError,
     DuplicateError,
     GenericError,
     Label,
@@ -12,7 +14,13 @@ from curator.asyncapi import (
     TitleBlacklistedError,
 )
 
-StructuredError = Union[DuplicateError, GenericError, TitleBlacklistedError]
+StructuredError = Union[
+    DuplicateError,
+    DuplicatedSdcNotUpdatedError,
+    DuplicatedSdcUpdatedError,
+    GenericError,
+    TitleBlacklistedError,
+]
 
 
 class User(SQLModel, table=True):
