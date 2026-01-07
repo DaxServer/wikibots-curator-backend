@@ -353,6 +353,22 @@ async def test_retry_uploads_success(handler_instance):
 
 
 @pytest.mark.asyncio
+async def test_handle_fetch_batch_uploads_exception(handler_instance, mock_sender):
+    with (
+        patch("curator.app.handler.get_batch") as mock_get_batch,
+        patch("curator.app.handler.logger") as mock_logger,
+    ):
+        mock_get_batch.side_effect = Exception("DB Error")
+
+        await handler_instance.fetch_batch_uploads(1)
+
+        mock_logger.exception.assert_called_once()
+        mock_sender.send_error.assert_called_once_with(
+            "Internal server error.. please notify User:DaxServer"
+        )
+
+
+@pytest.mark.asyncio
 async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads") as mock_reset,

@@ -392,8 +392,16 @@ def get_upload_request(
 def get_upload_request_by_id(
     session: Session, upload_id: int
 ) -> Optional[UploadRequest]:
-    """Fetch an UploadRequest by its ID."""
-    return session.get(UploadRequest, upload_id)
+    """Fetch an UploadRequest by its ID with relationships loaded."""
+    user_attr = class_mapper(UploadRequest).relationships["user"].class_attribute
+    last_editor_attr = (
+        class_mapper(UploadRequest).relationships["last_editor"].class_attribute
+    )
+    return session.exec(
+        select(UploadRequest)
+        .options(selectinload(user_attr), selectinload(last_editor_attr))
+        .where(col(UploadRequest.id) == upload_id)
+    ).first()
 
 
 def update_upload_status(
@@ -480,7 +488,10 @@ def reset_failed_uploads(
 
 
 def retry_batch_as_admin(
-    session: Session, batchid: int, encrypted_access_token: str, admin_userid: str
+    session: Session,
+    batchid: int,
+    encrypted_access_token: str,
+    admin_userid: str,
 ) -> list[int]:
     """
     Reset status of ALL uploads in a batch to 'queued', except those in 'in_progress'.

@@ -27,6 +27,8 @@ async def test_worker_process_one_decrypts_token(mock_session):
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     captured = {}
@@ -90,6 +92,8 @@ async def test_worker_process_one_duplicate_status(mock_session):
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     captured_status = {}
@@ -184,6 +188,8 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     captured_status = {}
@@ -245,6 +251,8 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     upload_attempts = []
@@ -317,6 +325,8 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     def fake_session_iter():
@@ -395,6 +405,8 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         collection="seq",
         access_token=encrypt_access_token(("t", "s")),
         user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
     )
 
     def fake_session_iter():

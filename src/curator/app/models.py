@@ -39,7 +39,6 @@ class User(SQLModel, table=True):
         back_populates="user",
         sa_relationship_kwargs={
             "primaryjoin": "User.userid==UploadRequest.userid",
-            "lazy": "selectin",
         },
     )
 
@@ -105,7 +104,6 @@ class UploadRequest(SQLModel, table=True):
         sa_relationship_kwargs={
             "primaryjoin": "UploadRequest.last_edited_by==User.userid",
             "foreign_keys": "UploadRequest.last_edited_by",
-            "lazy": "selectin",
         }
     )
     batch: Optional[Batch] = Relationship(back_populates="uploads")

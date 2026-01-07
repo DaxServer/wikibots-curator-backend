@@ -2,12 +2,10 @@ import asyncio
 import logging
 from typing import Literal
 
-from pywikibot.page import FilePage, Page
 from sqlmodel import Session
 
 from curator.app.commons import (
     DuplicateUploadError,
-    apply_sdc,
     check_title_blacklisted,
     fetch_sdc_from_api,
     get_commons_site,
@@ -332,7 +330,9 @@ async def process_one(upload_id: int) -> bool:
                     message="User not found for upload",
                 ),
             )
-        username = item.user.username
+
+        # Use last_editor's username if last_edited_by is set (admin retry), otherwise use original user's username
+        username = item.last_editor.username if item.last_editor else item.user.username
 
         # Check if the title is blacklisted
         logger.info(f"[{upload_id}/{item.batchid}] checking if title is blacklisted")
