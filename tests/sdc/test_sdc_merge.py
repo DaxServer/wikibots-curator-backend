@@ -162,39 +162,46 @@ def test_are_snaks_equal_different_properties():
 def test_merge_qualifiers_empty_existing():
     """Test merging qualifiers when existing is empty."""
     existing: Qualifiers = {}
+    existing_order: list[str] = []
     new = [make_string_snak("P2093", "alice")]
-    merged, _ = merge_qualifiers(existing, new)
+    merged, merged_order = merge_qualifiers(existing, existing_order, new)
     assert "P2093" in merged
     assert len(merged["P2093"]) == 1
     assert isinstance(merged["P2093"][0], StringValueSnak)
     snak = merged["P2093"][0]
     assert snak.datavalue.value == "alice"
+    assert merged_order == ["P2093"]
 
 
 def test_merge_qualifiers_add_new_property():
     """Test merging qualifiers adds new property."""
     existing: Qualifiers = {"P2093": [make_string_snak("P2093", "alice")]}
+    existing_order = ["P2093"]
     new = [make_url_snak("P2699", "https://example.com/alice")]
-    merged, _ = merge_qualifiers(existing, new)
+    merged, merged_order = merge_qualifiers(existing, existing_order, new)
     assert "P2093" in merged
     assert "P2699" in merged
     assert len(merged["P2093"]) == 1
     assert len(merged["P2699"]) == 1
+    assert merged_order == ["P2093", "P2699"]
 
 
 def test_merge_qualifiers_existing_same_values():
     """Test that existing qualifiers with same value are not duplicated."""
     existing: Qualifiers = {"P2093": [make_string_snak("P2093", "alice")]}
+    existing_order = ["P2093"]
     new = [make_string_snak("P2093", "alice")]
-    merged, _ = merge_qualifiers(existing, new)
+    merged, merged_order = merge_qualifiers(existing, existing_order, new)
     assert len(merged["P2093"]) == 1
+    assert merged_order == ["P2093"]
 
 
 def test_merge_qualifiers_preserves_order():
     """Test that qualifier order is preserved."""
     existing: Qualifiers = {"P2093": [make_string_snak("P2093", "alice")]}
+    existing_order = ["P2093"]
     new = [make_url_snak("P2699", "https://example.com/alice")]
-    merged, order = merge_qualifiers(existing, new, return_order=True)  # type: ignore
+    merged, order = merge_qualifiers(existing, existing_order, new)
     assert order == ["P2093", "P2699"]
 
 
@@ -378,9 +385,9 @@ def test_merge_preserves_statement_id():
     merged = safe_merge_statement([existing], new)
 
     assert len(merged) == 1
-    assert (
-        merged[0].id == "M123$EXISTING_STATEMENT_ID"
-    ), "Statement id MUST be preserved for Commons to update the correct statement"
+    assert merged[0].id == "M123$EXISTING_STATEMENT_ID", (
+        "Statement id MUST be preserved for Commons to update the correct statement"
+    )
 
 
 def test_merge_preserves_mainsnak_hash():
@@ -397,9 +404,9 @@ def test_merge_preserves_mainsnak_hash():
     merged = safe_merge_statement([existing], new)
 
     assert len(merged) == 1
-    assert (
-        merged[0].mainsnak.hash == "abc123hash"
-    ), "Mainsnak hash MUST be preserved for Commons to identify the snak"
+    assert merged[0].mainsnak.hash == "abc123hash", (
+        "Mainsnak hash MUST be preserved for Commons to identify the snak"
+    )
 
 
 def test_merge_preserves_qualifier_hashes():
@@ -420,15 +427,15 @@ def test_merge_preserves_qualifier_hashes():
 
     assert len(merged) == 1
     assert "P2093" in merged[0].qualifiers
-    assert (
-        merged[0].qualifiers["P2093"][0].hash == "qualifier_hash_456"
-    ), "Existing qualifier hash MUST be preserved"
+    assert merged[0].qualifiers["P2093"][0].hash == "qualifier_hash_456", (
+        "Existing qualifier hash MUST be preserved"
+    )
 
     # New qualifier should not have a hash
     assert "P2699" in merged[0].qualifiers
-    assert (
-        merged[0].qualifiers["P2699"][0].hash is None
-    ), "New qualifier should not have a hash"
+    assert merged[0].qualifiers["P2699"][0].hash is None, (
+        "New qualifier should not have a hash"
+    )
 
 
 def test_merge_preserves_all_identifiers_comprehensive():
@@ -465,31 +472,31 @@ def test_merge_preserves_all_identifiers_comprehensive():
 
     # CRITICAL ASSERTIONS
     assert merged[0].id == "M456$STATEMENT_ID", "Statement id must be preserved"
-    assert (
-        merged[0].mainsnak.hash == "mainsnak_hash_123"
-    ), "Mainsnak hash must be preserved"
+    assert merged[0].mainsnak.hash == "mainsnak_hash_123", (
+        "Mainsnak hash must be preserved"
+    )
 
     # Check qualifiers
     assert "P2093" in merged[0].qualifiers
-    assert (
-        merged[0].qualifiers["P2093"][0].hash == "qualifier1_hash"
-    ), "Existing qualifier hash must be preserved"
+    assert merged[0].qualifiers["P2093"][0].hash == "qualifier1_hash", (
+        "Existing qualifier hash must be preserved"
+    )
 
     assert "P2699" in merged[0].qualifiers
-    assert (
-        merged[0].qualifiers["P2699"][0].hash == "qualifier2_hash"
-    ), "Existing qualifier hash must be preserved"
+    assert merged[0].qualifiers["P2699"][0].hash == "qualifier2_hash", (
+        "Existing qualifier hash must be preserved"
+    )
 
     assert "P1476" in merged[0].qualifiers
-    assert (
-        merged[0].qualifiers["P1476"][0].hash is None
-    ), "New qualifier should not have a hash"
+    assert merged[0].qualifiers["P1476"][0].hash is None, (
+        "New qualifier should not have a hash"
+    )
 
     # Check references
     assert len(merged[0].references) == 1
-    assert (
-        merged[0].references[0].hash == "reference_hash"
-    ), "Reference hash must be preserved"
+    assert merged[0].references[0].hash == "reference_hash", (
+        "Reference hash must be preserved"
+    )
 
 
 def test_merge_creates_new_object_not_in_place():
@@ -507,9 +514,9 @@ def test_merge_creates_new_object_not_in_place():
     merged = safe_merge_statement([existing], new)
 
     # When nothing changed, the original object should be preserved
-    assert (
-        merged[0] is existing
-    ), "Should preserve original Statement object when nothing changed"
+    assert merged[0] is existing, (
+        "Should preserve original Statement object when nothing changed"
+    )
 
     # Fields should be the same
     assert merged[0].id == existing.id

@@ -114,7 +114,9 @@ def are_snaks_equal(snak1: Snak, snak2: Snak) -> bool:
 
 
 def merge_qualifiers(
-    existing: Qualifiers, new_qualifiers: list[Snak], return_order: bool = False
+    existing: Qualifiers,
+    existing_order: list[str],
+    new_qualifiers: list[Snak],
 ) -> tuple[Qualifiers, list[str]]:
     """
     Merge new qualifiers into existing qualifiers without duplication
@@ -123,8 +125,6 @@ def merge_qualifiers(
     # Copy existing qualifiers
     for prop, snaks in existing.items():
         merged[prop] = list(snaks)  # Make a copy
-
-    order: list[str] = list(existing.keys())
 
     for new_snak in new_qualifiers:
         prop = new_snak.property
@@ -143,10 +143,10 @@ def merge_qualifiers(
         if prop not in merged:
             merged[prop] = []
         merged[prop].append(new_snak)
-        if prop not in order:
-            order.append(prop)
+        if prop not in existing_order:
+            existing_order.append(prop)
 
-    return merged, order
+    return merged, existing_order
 
 
 def _normalize_reference(ref: Reference) -> tuple:
@@ -237,7 +237,7 @@ def safe_merge_statement(
         new_qualifiers_list.extend(snaks)
 
     merged_qualifiers, qualifiers_order = merge_qualifiers(
-        existing_qualifiers, new_qualifiers_list
+        existing_qualifiers, existing_stmt.qualifiers_order, new_qualifiers_list
     )
 
     merged_references = merge_references(
