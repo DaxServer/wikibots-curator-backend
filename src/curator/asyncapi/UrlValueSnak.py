@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import (
     BaseModel,
@@ -22,6 +22,10 @@ class UrlValueSnak(BaseModel):
     property: str = Field(description="""Property ID""")
     datatype: Literal["url"] = Field(default="url", frozen=True)
     datavalue: UrlDataValue = Field(description="""URL data value""")
+    hash: Optional[str] = Field(
+        description="""Hash of the snak for Wikimedia Commons identification""",
+        default=None,
+    )
     additional_properties: dict[str, Any] = Field(default={}, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -62,6 +66,7 @@ class UrlValueSnak(BaseModel):
             "property",
             "datatype",
             "datavalue",
+            "hash",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -78,6 +83,7 @@ class UrlValueSnak(BaseModel):
             "property",
             "datatype",
             "datavalue",
+            "hash",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

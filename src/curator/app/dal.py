@@ -12,6 +12,9 @@ from curator.asyncapi import (
     BatchItem,
     BatchStats,
     BatchUploadItem,
+    DuplicatedSdcNotUpdatedError,
+    DuplicatedSdcUpdatedError,
+    DuplicateError,
 )
 
 logger = logging.getLogger(__name__)
@@ -265,7 +268,11 @@ def get_batches_stats(session: Session, batch_ids: list[int]) -> dict[int, Batch
                 stats[batch_id].completed = count
             elif status == "failed":
                 stats[batch_id].failed = count
-            elif status == "duplicate":
+            elif status in (
+                DuplicateError.model_fields["type"].default,
+                DuplicatedSdcUpdatedError.model_fields["type"].default,
+                DuplicatedSdcNotUpdatedError.model_fields["type"].default,
+            ):
                 stats[batch_id].duplicate = count
 
     return stats

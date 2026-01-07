@@ -7,6 +7,8 @@ from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .DuplicatedSdcNotUpdatedError import DuplicatedSdcNotUpdatedError
+from .DuplicatedSdcUpdatedError import DuplicatedSdcUpdatedError
 from .DuplicateError import DuplicateError
 from .GenericError import GenericError
 from .Label import Label
@@ -24,9 +26,15 @@ class BatchUploadItem(BaseModel):
     handler: Optional[str] = Field(default=None)
     labels: Optional[Label] = Field(default=None)
     result: Optional[str] = Field(default=None)
-    error: Optional[Union[DuplicateError, GenericError, TitleBlacklistedError]] = Field(
-        default=None
-    )
+    error: Optional[
+        Union[
+            DuplicateError,
+            DuplicatedSdcNotUpdatedError,
+            DuplicatedSdcUpdatedError,
+            GenericError,
+            TitleBlacklistedError,
+        ]
+    ] = Field(default=None)
     success: Optional[str] = Field(default=None)
     last_edited_by: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None)

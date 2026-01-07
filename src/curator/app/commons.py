@@ -140,14 +140,14 @@ def ensure_uploaded(file_page: FilePage, uploaded: bool, file_name: str):
         raise ValueError("File upload failed")
 
 
-def apply_sdc(
-    site,
-    file_page: FilePage,
-    sdc: Optional[list[Statement]] = None,
-    edit_summary: str = "",
-    labels: Optional[Label] = None,
-):
+def _build_sdc_payload(
+    sdc: Optional[list[Statement]], labels: Optional[Label]
+) -> dict[str, Any]:
+    """
+    Build the wbeditentity data payload from SDC statements and labels
+    """
     data: dict[str, Any] = {}
+
     if sdc:
         data["claims"] = []
         for s in sdc:
@@ -164,8 +164,26 @@ def apply_sdc(
             labels.model_dump(mode="json", by_alias=True, exclude_none=True)
         ]
 
+    return data
+
+
+def apply_sdc(
+    site,
+    file_page: FilePage,
+    sdc: Optional[list[Statement]] = None,
+    edit_summary: str = "",
+    labels: Optional[Label] = None,
+) -> bool:
+    """
+    Apply SDC to an existing file on Commons
+    """
+    _ensure_pywikibot()
+    assert pywikibot
+
+    data = _build_sdc_payload(sdc, labels)
+
     if not data:
-        return
+        return False
 
     payload = {
         "action": "wbeditentity",
@@ -181,6 +199,8 @@ def apply_sdc(
     content = file_page.get(force=True) + "\n"
     file_page.text = content
     file_page.save(summary="null edit")
+
+    return True
 
 
 def check_title_blacklisted(
@@ -221,3 +241,49 @@ def check_title_blacklisted(
             f"[{upload_id}/{batch_id}] Failed to check title blacklist for {filename}: {e}"
         )
         return False, ""
+
+
+def fetch_sdc_from_api(
+    site, media_id: str
+) -> tuple[list[Statement] | None, dict[str, Label] | None]:
+    """
+    Fetch SDC data and labels from Commons API for a given media ID using site.simple_request()
+    """
+    try:
+        response = site.simple_request(
+            action="wbgetentities",
+            ids=media_id,
+            format="json",
+            props="claims|labels",
+        )
+        data = response.submit()
+
+        # Check if the entity exists
+        if media_id not in data.get("entities", {}):
+            logger.warning(f"Media ID {media_id} not found on Commons")
+            return None, None
+
+        entity = data["entities"][media_id]
+
+        # Convert statements - API returns 'statements' key, not 'claims'
+        statements_data = entity.get("statements", {})
+        existing_sdc = []
+        for prop, claim_list in statements_data.items():
+            for claim_dict in claim_list:
+                stmt = Statement.model_validate(claim_dict)
+                existing_sdc.append(stmt)
+
+        # Convert labels to Label model objects
+        labels_data = entity.get("labels", {})
+        existing_labels = None
+        if labels_data:
+            existing_labels = {
+                lang_code: Label.model_validate(label_data)
+                for lang_code, label_data in labels_data.items()
+            }
+
+        return existing_sdc, existing_labels
+
+    except Exception as e:
+        logger.error(f"Failed to fetch SDC for {media_id}: {e}")
+        return None, None

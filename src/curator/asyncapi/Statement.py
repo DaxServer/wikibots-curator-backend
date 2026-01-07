@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Literal, Union
+from typing import Any, List, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -63,6 +63,9 @@ class Statement(BaseModel):
     qualifiers_order: List[str] = Field(default=[], alias="""qualifiers-order""")
     references: List[Reference] = Field(default=[])
     type: Literal["statement"] = Field(default="statement", frozen=True)
+    id: Optional[str] = Field(
+        description="""Statement identifier from Wikimedia Commons""", default=None
+    )
     additional_properties: dict[str, Any] = Field(default={}, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -112,6 +115,7 @@ class Statement(BaseModel):
             "qualifiers_order",
             "references",
             "type",
+            "id",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -130,6 +134,7 @@ class Statement(BaseModel):
             "qualifiers-order",
             "references",
             "type",
+            "id",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})

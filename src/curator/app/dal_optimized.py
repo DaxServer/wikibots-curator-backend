@@ -8,7 +8,13 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, col, select
 
 from curator.app.models import Batch, UploadRequest, User
-from curator.asyncapi import BatchItem, BatchStats
+from curator.asyncapi import (
+    BatchItem,
+    BatchStats,
+    DuplicatedSdcNotUpdatedError,
+    DuplicatedSdcUpdatedError,
+    DuplicateError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +83,23 @@ def get_batches_optimized(
             func.sum(case((col(UploadRequest.status) == "in_progress", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "completed", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "failed", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "duplicate", 1), else_=0)),
+            func.sum(
+                case(
+                    (
+                        col(UploadRequest.status).in_(
+                            [
+                                DuplicateError.model_fields["type"].default,
+                                DuplicatedSdcUpdatedError.model_fields["type"].default,
+                                DuplicatedSdcNotUpdatedError.model_fields[
+                                    "type"
+                                ].default,
+                            ]
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
         )
         .where(col(UploadRequest.batchid).in_(batch_ids))
         .group_by(col(UploadRequest.batchid))
@@ -230,7 +252,23 @@ def get_batches_minimal(
             func.sum(case((col(UploadRequest.status) == "in_progress", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "completed", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "failed", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "duplicate", 1), else_=0)),
+            func.sum(
+                case(
+                    (
+                        col(UploadRequest.status).in_(
+                            [
+                                DuplicateError.model_fields["type"].default,
+                                DuplicatedSdcUpdatedError.model_fields["type"].default,
+                                DuplicatedSdcNotUpdatedError.model_fields[
+                                    "type"
+                                ].default,
+                            ]
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
         )
         .where(col(UploadRequest.batchid).in_(batch_ids))
         .group_by(col(UploadRequest.batchid))

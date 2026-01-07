@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import (
     BaseModel,
@@ -22,6 +22,10 @@ class ExternalIdValueSnak(BaseModel):
     property: str = Field(description="""Property ID""")
     datatype: Literal["external-id"] = Field(default="external-id", frozen=True)
     datavalue: StringDataValue = Field(description="""String data value""")
+    hash: Optional[str] = Field(
+        description="""Hash of the snak for Wikimedia Commons identification""",
+        default=None,
+    )
     additional_properties: dict[str, Any] = Field(default={}, exclude=True)
 
     model_config = ConfigDict(populate_by_name=True)
@@ -62,6 +66,7 @@ class ExternalIdValueSnak(BaseModel):
             "property",
             "datatype",
             "datavalue",
+            "hash",
             "additional_properties",
         ]
         unknown_object_properties = [
@@ -78,6 +83,7 @@ class ExternalIdValueSnak(BaseModel):
             "property",
             "datatype",
             "datavalue",
+            "hash",
             "additionalProperties",
         ]
         additional_properties = data.get("additional_properties", {})
