@@ -4,8 +4,10 @@ from typing import Literal
 
 from sqlmodel import Session
 
+from pywikibot.page import FilePage, Page
 from curator.app.commons import (
     DuplicateUploadError,
+    apply_sdc,
     check_title_blacklisted,
     fetch_sdc_from_api,
     get_commons_site,
