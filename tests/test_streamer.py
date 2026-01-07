@@ -15,9 +15,9 @@ def mock_socket():
     return socket
 
 
-def get_mock_session(*args, **kwargs):
-    mock_session = AsyncMock()
-    return mock_session
+@pytest.fixture(autouse=True)
+def patch_streamer_get_session(patch_get_session):
+    return patch_get_session("curator.app.handler_optimized.get_session")
 
 
 @pytest.mark.asyncio
@@ -25,10 +25,6 @@ async def test_streamer_full_sync_initially(mock_socket):
     streamer = OptimizedBatchStreamer(mock_socket, "testuser")
 
     with (
-        patch(
-            "curator.app.handler_optimized.Session",
-            side_effect=get_mock_session,
-        ),
         patch(
             "curator.app.handler_optimized.get_batches_optimized"
         ) as mock_get_batches,
@@ -70,10 +66,6 @@ async def test_streamer_incremental_update(mock_socket):
     t2 = datetime(2023, 1, 1, 12, 0, 5)
 
     with (
-        patch(
-            "curator.app.handler_optimized.Session",
-            side_effect=get_mock_session,
-        ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
         patch("curator.app.handler_optimized.get_batches_minimal") as mock_mini,
         patch(
@@ -120,10 +112,6 @@ async def test_streamer_no_update_if_time_same(mock_socket):
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
-        patch(
-            "curator.app.handler_optimized.Session",
-            side_effect=get_mock_session,
-        ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
         patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
         patch("curator.app.handler_optimized.count_batches_optimized") as mock_count,
@@ -151,10 +139,6 @@ async def test_streamer_no_updates_on_paginated_page(mock_socket):
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
-        patch(
-            "curator.app.handler_optimized.Session",
-            side_effect=get_mock_session,
-        ),
         patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
         patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
         patch("curator.app.handler_optimized.count_batches_optimized") as mock_count,

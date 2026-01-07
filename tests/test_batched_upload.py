@@ -18,14 +18,14 @@ def mock_sender(mocker):
 
 
 @pytest.fixture
-def handler_instance(mocker, mock_user, mock_sender):
+def handler_instance(mocker, mock_user, mock_sender, patch_get_session):
+    patch_get_session("curator.app.handler.get_session")
     return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
 @pytest.mark.asyncio
 async def test_create_batch(mocker, handler_instance, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.ensure_user") as mock_ensure_user,
         patch("curator.app.handler.create_batch") as mock_create_batch,
     ):
@@ -43,7 +43,6 @@ async def test_create_batch(mocker, handler_instance, mock_sender, mock_session)
 @pytest.mark.asyncio
 async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
@@ -73,7 +72,6 @@ async def test_upload_slice_multiple_items(
     mocker, handler_instance, mock_sender, mock_session
 ):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,

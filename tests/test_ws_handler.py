@@ -37,7 +37,8 @@ def mock_sender(mocker):
 
 
 @pytest.fixture
-def handler_instance(mocker, mock_user, mock_sender, mock_session):
+def handler_instance(mocker, mock_user, mock_sender, patch_get_session):
+    patch_get_session("curator.app.handler.get_session")
     return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
@@ -92,14 +93,11 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
+async def test_handle_upload(mocker, handler_instance, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
-        handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
-
         mock_req = mocker.MagicMock()
         mock_req.id = 1
         mock_req.status = "pending"
@@ -107,9 +105,9 @@ async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
         mock_req.batchid = 100
         mock_req._sa_instance_state = mocker.MagicMock()
         mock_req._sa_instance_state.class_.__name__ = "UploadRequest"
-
+ 
         mock_create.return_value = [mock_req]
-
+ 
         data = UploadData(
             items=[
                 UploadItem(
@@ -121,9 +119,9 @@ async def test_handle_upload(mocker, mock_user, mock_sender, mock_session):
             ],
             handler="mapillary",
         )
-
+ 
         await handler_instance.upload(data)
-
+ 
         mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()
         call_args = mock_sender.send_upload_created.call_args[0][0]
@@ -419,16 +417,13 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
 # Priority Queue Tests
 @pytest.mark.asyncio
 async def test_upload_with_priority_urgent(
-    mocker, mock_user, mock_sender, mock_session
+    mocker, handler_instance, mock_sender, mock_session
 ):
     """Test upload with URGENT priority"""
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
-        handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
-
         mock_req = mocker.MagicMock()
         mock_req.id = 1
         mock_req.status = "pending"
@@ -436,9 +431,9 @@ async def test_upload_with_priority_urgent(
         mock_req.batchid = 100
         mock_req._sa_instance_state = mocker.MagicMock()
         mock_req._sa_instance_state.class_.__name__ = "UploadRequest"
-
+ 
         mock_create.return_value = [mock_req]
-
+ 
         data = UploadData(
             items=[
                 UploadItem(
@@ -450,24 +445,21 @@ async def test_upload_with_priority_urgent(
             ],
             handler="mapillary",
         )
-
+ 
         await handler_instance.upload(data, priority=QueuePriority.URGENT)
-
+ 
         # Verify process_upload.delay was called
         mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_session):
+async def test_upload_with_priority_later(mocker, handler_instance, mock_sender, mock_session):
     """Test upload with LATER priority"""
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.create_upload_request") as mock_create,
         patch("curator.app.handler.process_upload") as mock_process_upload,
     ):
-        handler_instance = Handler(mock_user, mock_sender, mocker.MagicMock())
-
         mock_req = mocker.MagicMock()
         mock_req.id = 1
         mock_req.status = "pending"
@@ -475,9 +467,9 @@ async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_s
         mock_req.batchid = 100
         mock_req._sa_instance_state = mocker.MagicMock()
         mock_req._sa_instance_state.class_.__name__ = "UploadRequest"
-
+ 
         mock_create.return_value = [mock_req]
-
+ 
         data = UploadData(
             items=[
                 UploadItem(
@@ -489,9 +481,9 @@ async def test_upload_with_priority_later(mocker, mock_user, mock_sender, mock_s
             ],
             handler="mapillary",
         )
-
+ 
         await handler_instance.upload(data, priority=QueuePriority.LATER)
-
+ 
         # Verify process_upload.delay was called
         mock_process_upload.delay.assert_called_once_with(1)
         mock_sender.send_upload_created.assert_called_once()

@@ -48,10 +48,10 @@ def mock_worker():
 
 
 @pytest.fixture
-def mock_session():
-    with patch("curator.app.handler.Session") as mock:
-        session_instance = mock.return_value.__enter__.return_value
-        yield session_instance
+def mock_get_session_patch(patch_get_session):
+    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.app.handler_optimized.get_session")
+    return True
 
 
 def test_ws_fetch_images(mock_mapillary_handler):
@@ -111,7 +111,7 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         assert data["data"] == "Collection not found"
 
 
-def test_ws_upload(mocker, mock_dal, mock_worker, mock_session):
+def test_ws_upload(mocker, mock_dal, mock_worker, mock_get_session_patch):
     mock_create, _, _ = mock_dal
 
     # Mock create_upload_request return value
@@ -167,7 +167,7 @@ def test_ws_invalid_message():
 
 
 @pytest.mark.asyncio
-async def test_stream_uploads_completion(mocker, mock_dal, mock_session):
+async def test_stream_uploads_completion(mocker, mock_dal, mock_get_session_patch):
     _, mock_get, mock_count = mock_dal
 
     # Setup mock data
@@ -210,7 +210,7 @@ async def test_stream_uploads_completion(mocker, mock_dal, mock_session):
         assert msg["type"] == "UPLOADS_COMPLETE"
 
 
-def test_ws_subscribe_batches_list(mock_session):
+def test_ws_subscribe_batches_list(mock_get_session_patch):
     with (
         patch(
             "curator.app.handler_optimized.get_batches_optimized"
@@ -240,7 +240,7 @@ def test_ws_subscribe_batches_list(mock_session):
         assert data["data"]["total"] == 0
 
 
-def test_ws_fetch_batches_auto_subscribe(mock_session):
+def test_ws_fetch_batches_auto_subscribe(mock_get_session_patch):
     with (
         patch(
             "curator.app.handler_optimized.get_batches_optimized"

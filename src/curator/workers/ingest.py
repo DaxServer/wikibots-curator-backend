@@ -2,9 +2,8 @@ import asyncio
 import logging
 from typing import Literal
 
-from sqlmodel import Session
-
 from pywikibot.page import FilePage, Page
+
 from curator.app.commons import (
     DuplicateUploadError,
     apply_sdc,
@@ -19,7 +18,7 @@ from curator.app.dal import (
     get_upload_request_by_id,
     update_upload_status,
 )
-from curator.app.db import engine
+from curator.app.db import get_session
 from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
     StructuredError,
@@ -43,17 +42,13 @@ logger = logging.getLogger(__name__)
 MAX_UPLOADSTASH_TRIES = 2
 
 
-def _cleanup(session, item: UploadRequest | None = None):
-    try:
-        if item:
-            clear_upload_access_token(session, upload_id=item.id)
-    finally:
-        session.close()
+def _cleanup(session, upload_id: int):
+    clear_upload_access_token(session, upload_id=upload_id)
 
 
-def _success(session, item: UploadRequest, url) -> bool:
-    update_upload_status(session, upload_id=item.id, status="completed", success=url)
-    _cleanup(session, item)
+def _success(session, upload_id: int, url) -> bool:
+    update_upload_status(session, upload_id=upload_id, status="completed", success=url)
+    _cleanup(session, upload_id)
     return True
 
 
@@ -63,7 +58,6 @@ def _fail(
     status: Literal[
         "failed", "duplicate", "duplicated_sdc_updated", "duplicated_sdc_not_updated"
     ],
-    item: UploadRequest | None,
     structured_error: StructuredError,
 ) -> bool:
     update_upload_status(
@@ -72,7 +66,7 @@ def _fail(
         status=status,
         error=structured_error,
     )
-    _cleanup(session, item)
+    _cleanup(session, upload_id)
     return False
 
 
@@ -287,89 +281,105 @@ async def _upload_with_retry(
 
 async def process_one(upload_id: int) -> bool:
     logger.info(f"[{upload_id}] processing upload")
-    session = Session(engine)
-    item = None
+
+    # 1. Fetch data and set in_progress (Short session)
     try:
-        item = get_upload_request_by_id(session, upload_id)
-        if not item:
-            logger.error(f"[{upload_id}] upload not found")
-            return _fail(
-                session,
-                upload_id,
-                "failed",
-                None,
-                GenericError(message="Upload request not found"),
+        with get_session() as session:
+            item = get_upload_request_by_id(session, upload_id)
+            if not item:
+                logger.error(f"[{upload_id}] upload not found")
+                # We can't even fail it in DB if it's not found
+                return False
+
+            if item.status != "queued":
+                logger.error(
+                    f"[{upload_id}/{item.batchid}] upload not in queued status"
+                )
+                return False
+
+            update_upload_status(session, upload_id=upload_id, status="in_progress")
+
+            if not item.access_token:
+                logger.error(f"[{upload_id}/{item.batchid}] missing access token")
+                return _fail(
+                    session=session,
+                    upload_id=upload_id,
+                    status="failed",
+                    structured_error=GenericError(message="Missing access token"),
+                )
+
+            if not item.user:
+                logger.error(f"[{upload_id}/{item.batchid}] user not found for upload")
+                return _fail(
+                    session=session,
+                    upload_id=upload_id,
+                    status="failed",
+                    structured_error=GenericError(message="User not found for upload"),
+                )
+
+            # Extract all needed values to avoid DetachedInstanceError outside this block
+            access_token = decrypt_access_token(item.access_token)
+            username = (
+                item.last_editor.username if item.last_editor else item.user.username
             )
-
-        if item.status != "queued":
-            logger.error(f"[{upload_id}/{item.batchid}] upload not in queued status")
-            _cleanup(session, item)
-            return False
-
-        update_upload_status(session, upload_id=item.id, status="in_progress")
-
-        if not item.access_token:
-            logger.error(f"[{upload_id}/{item.batchid}] missing access token")
+            filename = item.filename
+            key = item.key
+            batchid = item.batchid
+            collection = item.collection
+            wikitext = item.wikitext
+            labels = item.labels
+            copyright_override = item.copyright_override
+    except Exception as e:
+        logger.error(f"[{upload_id}] Error in initial fetch: {e}")
+        with get_session() as session:
             return _fail(
                 session=session,
-                upload_id=item.id,
+                upload_id=upload_id,
                 status="failed",
-                item=item,
-                structured_error=GenericError(
-                    message="Missing access token",
-                ),
+                structured_error=GenericError(message=f"Initial fetch error: {e}"),
             )
 
-        access_token = decrypt_access_token(item.access_token)
-        if not item.user:
-            logger.error(f"[{upload_id}/{item.batchid}] user not found for upload")
-            return _fail(
-                session=session,
-                upload_id=item.id,
-                status="failed",
-                item=item,
-                structured_error=GenericError(
-                    message="User not found for upload",
-                ),
-            )
-
-        # Use last_editor's username if last_edited_by is set (admin retry), otherwise use original user's username
-        username = item.last_editor.username if item.last_editor else item.user.username
-
+    # 2. Long running operations (NO DB SESSION)
+    try:
         # Check if the title is blacklisted
-        logger.info(f"[{upload_id}/{item.batchid}] checking if title is blacklisted")
+        logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")
         is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, item.filename, upload_id, item.batchid
+            access_token, username, filename, upload_id, batchid
         )
         if is_blacklisted:
             logger.warning(
-                f"[{upload_id}/{item.batchid}] title {item.filename} is blacklisted: {reason}"
+                f"[{upload_id}/{batchid}] title {filename} is blacklisted: {reason}"
             )
-            return _fail(
-                session=session,
-                upload_id=item.id,
-                status="failed",
-                item=item,
-                structured_error=TitleBlacklistedError(
-                    message=reason,
-                ),
-            )
+            with get_session() as session:
+                return _fail(
+                    session=session,
+                    upload_id=upload_id,
+                    status="failed",
+                    structured_error=TitleBlacklistedError(message=reason),
+                )
 
         logger.info(
-            f"[{upload_id}/{item.batchid}] fetching Mapillary image metadata for photo {item.key} from collection {item.collection}"
+            f"[{upload_id}/{batchid}] fetching Mapillary image metadata for photo {key} from collection {collection}"
         )
         handler = MapillaryHandler()
-        image = await handler.fetch_image_metadata(item.key, item.collection)
+        image = await handler.fetch_image_metadata(key, collection)
         image_url = image.url_original
 
         sdc = build_statements_from_mapillary_image(
             image=image,
-            include_default_copyright=not item.copyright_override,
+            include_default_copyright=not copyright_override,
         )
 
         # Upload with retry logic for uploadstash-file-not-found errors
         upload_result = await _upload_with_retry(
-            item=item,
+            item=UploadRequest(
+                id=upload_id,
+                batchid=batchid,
+                filename=filename,
+                key=key,
+                wikitext=wikitext,
+                labels=labels,
+            ),
             access_token=access_token,
             username=username,
             image_url=image_url,
@@ -377,83 +387,66 @@ async def process_one(upload_id: int) -> bool:
         )
 
         logger.info(
-            f"[{upload_id}/{item.batchid}] successfully uploaded to {upload_result.get('url')}"
+            f"[{upload_id}/{batchid}] successfully uploaded to {upload_result.get('url')}"
         )
 
-        return _success(session, item, upload_result.get("url"))
+        with get_session() as session:
+            return _success(session, upload_id, upload_result.get("url"))
+
     except DuplicateUploadError as e:
-        batchid = f"/{item.batchid}" if item else ""
         logger.info(
-            f"[{upload_id}{batchid}] duplicate upload detected, attempting SDC merge"
+            f"[{upload_id}/{batchid}] duplicate upload detected, attempting SDC merge"
         )
 
-        if item is None:
-            # Can't merge without item info
-            return _fail(
-                session,
-                upload_id,
-                "duplicate",
-                None,
-                DuplicateError(
-                    message=str(e),
-                    links=e.duplicates,
-                ),
-            )
-
+        # For SDC merge, we need a fresh item instance if we use handle_duplicate_with_sdc_merge
+        # but let's pass a mock item or refactor handle_duplicate
+        mock_item = UploadRequest(
+            id=upload_id, batchid=batchid, filename=filename, key=key, labels=labels
+        )
         merge_result, merge_status = await _handle_duplicate_with_sdc_merge(
-            item=item,
+            item=mock_item,
             access_token=access_token,
             username=username,
             sdc=sdc,
             duplicate_error=e,
         )
 
-        if merge_result:
-            if merge_status == "duplicated_sdc_updated":
-                return _fail(
-                    session,
-                    upload_id,
-                    "duplicated_sdc_updated",
-                    item,
-                    DuplicatedSdcUpdatedError(
-                        message=str(e),
-                        links=e.duplicates,
-                    ),
-                )
-            elif merge_status == "duplicated_sdc_not_updated":
-                return _fail(
-                    session,
-                    upload_id,
-                    "duplicated_sdc_not_updated",
-                    item,
-                    DuplicatedSdcNotUpdatedError(
-                        message=str(e),
-                        links=e.duplicates,
-                    ),
-                )
+        with get_session() as session:
+            if merge_result:
+                if merge_status == "duplicated_sdc_updated":
+                    return _fail(
+                        session,
+                        upload_id,
+                        "duplicated_sdc_updated",
+                        DuplicatedSdcUpdatedError(message=str(e), links=e.duplicates),
+                    )
+                elif merge_status == "duplicated_sdc_not_updated":
+                    return _fail(
+                        session,
+                        upload_id,
+                        "duplicated_sdc_not_updated",
+                        DuplicatedSdcNotUpdatedError(
+                            message=str(e), links=e.duplicates
+                        ),
+                    )
+                else:
+                    return _success(session, upload_id, merge_result)
             else:
-                # Should not happen, but handle gracefully
-                return _success(session, item, merge_result)
-        else:
+                return _fail(
+                    session,
+                    upload_id,
+                    "duplicate",
+                    DuplicateError(message=str(e), links=e.duplicates),
+                )
+
+    except Exception as e:
+        logger.error(
+            f"[{upload_id}/{batchid}] error processing upload: {e}", exc_info=True
+        )
+        with get_session() as session:
             return _fail(
                 session,
                 upload_id,
-                "duplicate",
-                item,
-                DuplicateError(
-                    message=str(e),
-                    links=e.duplicates,
-                ),
+                "failed",
+                GenericError(message=str(e)),
             )
-    except Exception as e:
-        batchid = f"/{item.batchid}" if item else ""
-        logger.error(
-            f"[{upload_id}{batchid}] error processing upload: {e}", exc_info=True
-        )
-        return _fail(
-            session,
-            upload_id,
-            "failed",
-            item,
-            GenericError(message=str(e)),
-        )

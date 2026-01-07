@@ -119,7 +119,7 @@ def test_reset_failed_uploads_success(mocker, mock_session):
     assert mock_upload1.access_token == "encrypted_token"
     assert mock_upload2.status == "queued"
     assert mock_upload2.access_token == "encrypted_token"
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()
 
 
 def test_reset_failed_uploads_not_found(mock_session):
@@ -171,4 +171,4 @@ def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
     assert len(reqs[0].sdc) == 0
 
     mock_session.add.assert_called()
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()

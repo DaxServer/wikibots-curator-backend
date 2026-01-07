@@ -116,7 +116,7 @@ def test_update_upload_status_with_error(mock_update, mock_session):
 
     # Verify session.exec was called with the result of values()
     mock_session.exec.assert_called_once_with(mock_values_clause)
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()
 
 
 @patch("curator.app.dal.update")
@@ -160,7 +160,7 @@ def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
 
     # Verify session.exec was called with the result of values()
     mock_session.exec.assert_called_once_with(mock_values_clause)
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()
 
 
 @patch("curator.app.dal.update")
@@ -201,4 +201,4 @@ def test_update_upload_status_with_title_blacklisted_error(mock_update, mock_ses
 
     # Verify session.exec was called with the result of values()
     mock_session.exec.assert_called_once_with(mock_values_clause)
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()

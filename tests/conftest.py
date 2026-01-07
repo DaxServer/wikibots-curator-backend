@@ -24,6 +24,21 @@ def mock_session():
     session.exec.return_value.all.return_value = []
     session.exec.return_value.first.return_value = None
     return session
+ 
+ 
+@pytest.fixture
+def mock_get_session(mock_session):
+    """Fixture that mocks the get_session context manager"""
+    from contextlib import contextmanager
+ 
+    @contextmanager
+    def _mock_get_session():
+        try:
+            yield mock_session
+        finally:
+            mock_session.close()
+ 
+    return _mock_get_session
 
 
 @pytest.fixture
@@ -150,9 +165,13 @@ def mock_get(mocker):
 
 
 @pytest.fixture
-def patch_ingest_session(mocker, mock_session):
-    """Patch Session to return mock session"""
-    return mocker.patch("curator.workers.ingest.Session", return_value=mock_session)
+def patch_get_session(mocker, mock_get_session):
+    """Generic fixture to patch get_session in a specified target"""
+ 
+    def _patch(target):
+        return mocker.patch(target, side_effect=mock_get_session)
+ 
+    return _patch
 
 
 @pytest.fixture

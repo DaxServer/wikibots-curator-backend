@@ -1822,6 +1822,22 @@ starlette = "*"
 redis = ["redis (>=4.2.0rc1)"]
 
 [[package]]
+name = "tenacity"
+version = "9.1.2"
+description = "Retry code until it succeeds"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138"},
+    {file = "tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb"},
+]
+
+[package.extras]
+doc = ["reno", "sphinx"]
+test = ["pytest", "tornado (>=4.5)", "typeguard"]
+
+[[package]]
 name = "ty"
 version = "0.0.8"
 description = "An extremely fast Python type checker, written in Rust."
@@ -2049,4 +2065,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "ec83277795e0eaf4c9bef8b52dc1a546b4fb5e4a0f3e6b88ab5d70f2ef4e5b2e"
+content-hash = "304932d899de35632628076db7d7c6ca683ed231fa8c6de4a09fcebe08564f74"

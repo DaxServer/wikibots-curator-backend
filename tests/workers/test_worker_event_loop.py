@@ -26,9 +26,9 @@ def make_image():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("runs", [1, 2])
-async def test_process_one_runs_without_event_loop_closed(mocker, mock_session, runs):
+async def test_process_one_runs_without_event_loop_closed(mocker, mock_session, runs, patch_get_session):
+    patch_get_session("curator.workers.ingest.get_session")
     with (
-        patch.object(ingest, "Session", return_value=mock_session),
         patch.object(ingest, "get_upload_request_by_id") as mock_get,
         patch.object(ingest, "update_upload_status") as mock_update,
         patch.object(ingest, "check_title_blacklisted", return_value=(False, "")),

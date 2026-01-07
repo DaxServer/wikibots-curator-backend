@@ -107,7 +107,7 @@ def test_retry_batch_as_admin_success(mock_session):
     assert upload_inprogress.last_edited_by is None
 
     # Verify commit
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()
 
 
 def test_retry_batch_as_admin_batch_not_found(mock_session):

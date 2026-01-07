@@ -12,7 +12,7 @@ from curator.app.dal import (
     get_users,
     retry_batch_as_admin,
 )
-from curator.app.db import engine
+from curator.app.db import engine, get_session
 from curator.app.models import UploadRequest
 from curator.workers.tasks import process_upload
 
@@ -34,7 +34,7 @@ async def admin_get_batches(
     limit: int = 100,
 ):
     offset = (page - 1) * limit
-    with Session(engine) as session:
+    with get_session() as session:
         items = get_batches(session, offset=offset, limit=limit)
         total = count_batches(session)
     return {"items": items, "total": total}
@@ -46,7 +46,7 @@ async def admin_get_users(
     limit: int = 100,
 ):
     offset = (page - 1) * limit
-    with Session(engine) as session:
+    with get_session() as session:
         items = get_users(session, offset=offset, limit=limit)
         total = count_users(session)
     return {"items": items, "total": total}
@@ -58,7 +58,7 @@ async def admin_get_upload_requests(
     limit: int = 100,
 ):
     offset = (page - 1) * limit
-    with Session(engine) as session:
+    with get_session() as session:
         items = get_all_upload_requests(session, offset=offset, limit=limit)
         total = count_all_upload_requests(session)
     return {"items": items, "total": total}
@@ -69,15 +69,13 @@ async def admin_update_upload_request(
     upload_request_id: int,
     update_data: dict,
 ):
-    with Session(engine) as session:
+    with get_session() as session:
         upload_request = session.get(UploadRequest, upload_request_id)
         if not upload_request:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
         for key, value in update_data.items():
             setattr(upload_request, key, value)
-
-        session.commit()
     return {"message": "Upload request updated successfully"}
 
 
@@ -86,8 +84,7 @@ async def admin_retry_batch(
     batch_id: int,
     user: LoggedInUser,
 ):
-    with Session(engine) as session:
-        # Encrypt the admin's token
+    with get_session() as session:
         encrypted_token = encrypt_access_token(user["access_token"])
 
         try:
