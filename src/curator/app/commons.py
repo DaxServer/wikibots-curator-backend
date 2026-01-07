@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 
@@ -12,6 +13,9 @@ from curator.app.config import OAUTH_KEY, OAUTH_SECRET
 from curator.asyncapi import ErrorLink, Label, Statement
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of retries for Mapillary image download errors
+MAX_DOWNLOAD_RETRIES = 2
 
 
 pywikibot: Any | None = None
@@ -60,7 +64,7 @@ def upload_file_chunked(
     site = get_commons_site(access_token, username)
 
     with NamedTemporaryFile() as temp_file:
-        temp_file.write(download_file(file_url))
+        temp_file.write(download_file(file_url, upload_id, batch_id))
 
         file_hash = compute_file_hash(temp_file.name)
         logger.info(f"[{upload_id}/{batch_id}] file hash: {file_hash}")
@@ -100,11 +104,33 @@ def get_commons_site(access_token: AccessToken, username: str):
     return site
 
 
-def download_file(file_url: str) -> bytes:
-    resp = httpx.get(file_url, timeout=60)
-    resp.raise_for_status()
+def download_file(file_url: str, upload_id: int = 0, batch_id: int = 0) -> bytes:
+    """
+    Download a file from the given URL with retry logic for Mapillary errors
 
-    return resp.content
+    When Mapillary returns application/x-php instead of an image, retry after a delay
+    """
+    for attempt in range(MAX_DOWNLOAD_RETRIES):
+        resp = httpx.get(file_url, timeout=60)
+        resp.raise_for_status()
+
+        content_type = resp.headers.get("content-type", "")
+        if "application/x-php" not in content_type:
+            return resp.content
+
+        # Got application/x-php instead of image
+        if attempt < MAX_DOWNLOAD_RETRIES - 1:
+            logger.warning(
+                f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
+                f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
+            )
+            time.sleep(2)
+        else:
+            raise ValueError(
+                f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
+            )
+
+    raise ValueError(f"Failed to download file after {MAX_DOWNLOAD_RETRIES} attempts")
 
 
 def find_duplicates(site, sha1: str) -> list[ErrorLink]:
