@@ -191,7 +191,9 @@ async def test_handler_cancel_tasks_stops_everything(
 
 
 @pytest.mark.asyncio
-async def test_handler_fetch_batches_workflow(mocker, mock_user, mock_websocket_sender, patch_get_session):
+async def test_handler_fetch_batches_workflow(
+    mocker, mock_user, mock_websocket_sender, patch_get_session
+):
     """Test the full workflow: fetch_batches -> initial sync -> incremental update."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 

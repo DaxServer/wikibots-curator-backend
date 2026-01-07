@@ -1,18 +1,11 @@
 import asyncio
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.asyncapi import BatchItem, BatchStats
-
-
-@pytest.fixture
-def mock_socket():
-    socket = AsyncMock()
-    socket.send_batches_list = AsyncMock()
-    return socket
 
 
 @pytest.fixture(autouse=True)
@@ -21,8 +14,8 @@ def patch_streamer_get_session(patch_get_session):
 
 
 @pytest.mark.asyncio
-async def test_streamer_full_sync_initially(mock_socket):
-    streamer = OptimizedBatchStreamer(mock_socket, "testuser")
+async def test_streamer_full_sync_initially(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
 
     with (
         patch(
@@ -52,15 +45,15 @@ async def test_streamer_full_sync_initially(mock_socket):
             pass
 
         # Should have sent a full sync (partial=False)
-        mock_socket.send_batches_list.assert_called_once()
-        args, kwargs = mock_socket.send_batches_list.call_args
+        mock_sender.send_batches_list.assert_called_once()
+        args, kwargs = mock_sender.send_batches_list.call_args
         assert kwargs["partial"] is False
         assert len(args[0].items) == 1
 
 
 @pytest.mark.asyncio
-async def test_streamer_incremental_update(mock_socket):
-    streamer = OptimizedBatchStreamer(mock_socket, "testuser")
+async def test_streamer_incremental_update(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
 
     t1 = datetime(2023, 1, 1, 12, 0, 0)
     t2 = datetime(2023, 1, 1, 12, 0, 5)
@@ -98,17 +91,17 @@ async def test_streamer_incremental_update(mock_socket):
             pass
 
         # Should have called send_batches_list twice: once full, once partial
-        assert mock_socket.send_batches_list.call_count == 2
+        assert mock_sender.send_batches_list.call_count == 2
 
         # Second call should be partial
-        args, kwargs = mock_socket.send_batches_list.call_args
+        args, kwargs = mock_sender.send_batches_list.call_args
         assert kwargs["partial"] is True
         assert args[0].items[0].id == 1
 
 
 @pytest.mark.asyncio
-async def test_streamer_no_update_if_time_same(mock_socket):
-    streamer = OptimizedBatchStreamer(mock_socket, "testuser")
+async def test_streamer_no_update_if_time_same(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
@@ -128,14 +121,14 @@ async def test_streamer_no_update_if_time_same(mock_socket):
             pass
 
         # Only initial sync should be called
-        assert mock_socket.send_batches_list.call_count == 1
-        _, kwargs = mock_socket.send_batches_list.call_args
+        assert mock_sender.send_batches_list.call_count == 1
+        _, kwargs = mock_sender.send_batches_list.call_args
         assert kwargs["partial"] is False
 
 
 @pytest.mark.asyncio
-async def test_streamer_no_updates_on_paginated_page(mock_socket):
-    streamer = OptimizedBatchStreamer(mock_socket, "testuser")
+async def test_streamer_no_updates_on_paginated_page(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
@@ -152,8 +145,8 @@ async def test_streamer_no_updates_on_paginated_page(mock_socket):
         await streamer.start_streaming(page=2)
 
         # Should have sent a full sync (partial=False)
-        mock_socket.send_batches_list.assert_called_once()
-        _, kwargs = mock_socket.send_batches_list.call_args
+        mock_sender.send_batches_list.assert_called_once()
+        _, kwargs = mock_sender.send_batches_list.call_args
         assert kwargs["partial"] is False
 
         # asyncio.sleep should NOT have been called (the loop was bypassed)

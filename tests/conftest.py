@@ -24,20 +24,20 @@ def mock_session():
     session.exec.return_value.all.return_value = []
     session.exec.return_value.first.return_value = None
     return session
- 
- 
+
+
 @pytest.fixture
 def mock_get_session(mock_session):
     """Fixture that mocks the get_session context manager"""
     from contextlib import contextmanager
- 
+
     @contextmanager
     def _mock_get_session():
         try:
             yield mock_session
         finally:
             mock_session.close()
- 
+
     return _mock_get_session
 
 
@@ -146,13 +146,30 @@ def mock_requests_response():
 
 
 @pytest.fixture
-def mock_websocket_sender():
-    """Standard mock WebSocket sender"""
+def mock_sender():
+    """Comprehensive mock WebSocket sender covering all AsyncAPI messages"""
     sender = MagicMock()
     sender.send_batches_list = AsyncMock()
     sender.send_batch_items = AsyncMock()
+    sender.send_batch_uploads_list = AsyncMock()
+    sender.send_collection_images = AsyncMock()
+    sender.send_upload_created = AsyncMock()
+    sender.send_subscribed = AsyncMock()
+    sender.send_uploads_update = AsyncMock()
+    sender.send_uploads_complete = AsyncMock()
+    sender.send_upload_slice_ack = AsyncMock()
+    sender.send_batch_created = AsyncMock()
     sender.send_error = AsyncMock()
     return sender
+
+
+@pytest.fixture
+def handler_instance(mocker, mock_user, mock_sender, patch_get_session):
+    """Standardized Handler instance with get_session pre-patched"""
+    from curator.app.handler import Handler
+
+    patch_get_session("curator.app.handler.get_session")
+    return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
 # Common Patch Fixtures
@@ -167,10 +184,10 @@ def mock_get(mocker):
 @pytest.fixture
 def patch_get_session(mocker, mock_get_session):
     """Generic fixture to patch get_session in a specified target"""
- 
+
     def _patch(target):
         return mocker.patch(target, side_effect=mock_get_session)
- 
+
     return _patch
 
 

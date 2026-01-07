@@ -9,8 +9,8 @@ from curator.workers.ingest import process_one
 @pytest.fixture(autouse=True)
 def patch_ingest_get_session(patch_get_session):
     return patch_get_session("curator.workers.ingest.get_session")
- 
- 
+
+
 @pytest.mark.asyncio
 async def test_process_one_runs_async(
     mocker,

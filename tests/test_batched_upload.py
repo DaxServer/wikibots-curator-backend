@@ -1,26 +1,8 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from curator.app.handler import Handler
 from curator.asyncapi import UploadItem, UploadSliceData
-
-
-@pytest.fixture
-def mock_sender(mocker):
-    from curator.protocol import AsyncAPIWebSocket
-
-    sender = mocker.MagicMock(spec=AsyncAPIWebSocket)
-    sender.send_batch_created = AsyncMock()
-    sender.send_upload_slice_ack = AsyncMock()
-    sender.send_error = AsyncMock()
-    return sender
-
-
-@pytest.fixture
-def handler_instance(mocker, mock_user, mock_sender, patch_get_session):
-    patch_get_session("curator.app.handler.get_session")
-    return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
 @pytest.mark.asyncio

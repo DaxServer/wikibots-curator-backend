@@ -10,9 +10,13 @@ from curator.asyncapi import ErrorLink
 from curator.workers.ingest import process_one
 
 
+@pytest.fixture(autouse=True)
+def patch_ingest_get_session(patch_get_session):
+    return patch_get_session("curator.workers.ingest.get_session")
+
+
 @pytest.mark.asyncio
-async def test_worker_process_one_decrypts_token(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_decrypts_token(mock_session):
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -75,8 +79,7 @@ async def test_worker_process_one_decrypts_token(mock_session, patch_get_session
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_duplicate_status(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_duplicate_status(mock_session):
     """Test that process_one marks duplicate status when file already exists."""
     item = SimpleNamespace(
         id=1,
@@ -171,8 +174,7 @@ def test_upload_request_access_token_excluded_from_model_dump():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_fails_on_blacklisted_title(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
     """Test that process_one fails when title is blacklisted."""
     item = SimpleNamespace(
         id=1,
@@ -234,8 +236,7 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session, patch
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_success(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_uploadstash_retry_success(mock_session):
     """Test that process_one retries uploadstash-file-not-found errors and succeeds on retry."""
     item = SimpleNamespace(
         id=1,
@@ -308,8 +309,7 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session, patch_
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
     """Test that process_one tries uploadstash-file-not-found errors up to MAX_UPLOADSTASH_TRIES attempts."""
     item = SimpleNamespace(
         id=1,
@@ -388,8 +388,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session, p
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_different_error(mock_session, patch_get_session):
-    patch_get_session("curator.workers.ingest.get_session")
+async def test_worker_process_one_uploadstash_retry_different_error(mock_session):
     """Test that process_one doesn't retry non-uploadstash errors."""
     item = SimpleNamespace(
         id=1,

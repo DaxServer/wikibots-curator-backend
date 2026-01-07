@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlmodel import Session
 
 from curator.app.auth import LoggedInUser
 from curator.app.crypto import encrypt_access_token
@@ -12,7 +11,7 @@ from curator.app.dal import (
     get_users,
     retry_batch_as_admin,
 )
-from curator.app.db import engine, get_session
+from curator.app.db import get_session
 from curator.app.models import UploadRequest
 from curator.workers.tasks import process_upload
 
