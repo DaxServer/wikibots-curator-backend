@@ -3,14 +3,17 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from .UploadSliceAckItem import UploadSliceAckItem
 
 
 class UploadSliceAck(BaseModel):
     type: Literal["UPLOAD_SLICE_ACK"] = Field(default="UPLOAD_SLICE_ACK", frozen=True)
-    data: int = Field(description="""Acknowledged slice identifier""")
+    data: List[UploadSliceAckItem] = Field()
+    sliceid: int = Field(description="""Acknowledged slice identifier""")
     nonce: str = Field(description="""Timestamp nonce to ensure change detection""")
 
     model_config = ConfigDict(populate_by_name=True)
