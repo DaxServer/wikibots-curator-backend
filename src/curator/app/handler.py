@@ -309,9 +309,9 @@ class Handler:
         )
 
         await self.socket.send_upload_slice_ack(
-            [
-                UploadSliceAckItem(id=id, status=status)
-                for id, status in prepared_uploads.items()
+            data=[
+                UploadSliceAckItem(id=key, status=status)
+                for key, status in prepared_uploads.items()
             ],
             sliceid=sliceid,
         )
