@@ -10,6 +10,11 @@ from curator.asyncapi import ErrorLink
 from curator.workers.ingest import process_one
 
 
+@pytest.fixture(autouse=True)
+def patch_ingest_get_session(patch_get_session):
+    return patch_get_session("curator.workers.ingest.get_session")
+
+
 @pytest.mark.asyncio
 async def test_worker_process_one_decrypts_token(mock_session):
     item = SimpleNamespace(
@@ -34,7 +39,6 @@ async def test_worker_process_one_decrypts_token(mock_session):
     captured = {}
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -103,7 +107,6 @@ async def test_worker_process_one_duplicate_status(mock_session):
         captured_status["error"] = error
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -199,7 +202,6 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         captured_status["error"] = error
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -271,7 +273,6 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         }
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -347,7 +348,6 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         )
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -425,7 +425,6 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         raise Exception("Network timeout or some other error")
 
     with (
-        patch("curator.workers.ingest.Session", return_value=mock_session),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status

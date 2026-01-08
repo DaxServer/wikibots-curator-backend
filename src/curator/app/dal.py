@@ -95,8 +95,7 @@ def ensure_user(session: Session, userid: str, username: str) -> User:
     if user is None:
         user = User(userid=userid, username=username)
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        session.flush()
 
         logger.info(f"[dal] Created user {userid} {username}")
 
@@ -111,8 +110,7 @@ def create_batch(session: Session, userid: str, username: str) -> Batch:
     """
     batch = Batch(userid=userid)
     session.add(batch)
-    session.commit()
-    session.refresh(batch)
+    session.flush()
 
     logger.info(f"[dal] Created batch {batch.id} for {username}")
 
@@ -179,7 +177,7 @@ def create_upload_requests_for_batch(
         session.add(req)
         reqs.append(req)
 
-    session.commit()
+    session.flush()
 
     logger.info(
         f"[dal] Created {len(reqs)} upload requests in batch {batchid} for {username}"
@@ -214,7 +212,7 @@ def create_upload_request(
         f"[dal] Created {len(reqs)} upload requests in batch {batch.id} for {username}"
     )
 
-    session.commit()
+    session.flush()
 
     return reqs
 
@@ -437,7 +435,7 @@ def update_upload_status(
     session.exec(
         update(UploadRequest).where(col(UploadRequest.id) == upload_id).values(**values)
     )
-    session.commit()
+    session.flush()
     logger.info(f"[dal] update_upload_status: flushed for upload_id={upload_id}")
 
 
@@ -448,7 +446,7 @@ def clear_upload_access_token(session: Session, upload_id: int) -> None:
         .where(col(UploadRequest.id) == upload_id)
         .values(access_token=None)
     )
-    session.commit()
+    session.flush()
     logger.info(
         f"[dal] clear_upload_access_token: cleared token for upload_id={upload_id}"
     )
@@ -483,7 +481,7 @@ def reset_failed_uploads(
         session.add(upload)
         reset_ids.append(upload.id)
 
-    session.commit()
+    session.flush()
     return reset_ids
 
 
@@ -519,5 +517,5 @@ def retry_batch_as_admin(
         session.add(upload)
         reset_ids.append(upload.id)
 
-    session.commit()
+    session.flush()
     return reset_ids

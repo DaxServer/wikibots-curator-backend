@@ -1,31 +1,13 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from curator.app.handler import Handler
 from curator.asyncapi import UploadItem, UploadSliceData
-
-
-@pytest.fixture
-def mock_sender(mocker):
-    from curator.protocol import AsyncAPIWebSocket
-
-    sender = mocker.MagicMock(spec=AsyncAPIWebSocket)
-    sender.send_batch_created = AsyncMock()
-    sender.send_upload_slice_ack = AsyncMock()
-    sender.send_error = AsyncMock()
-    return sender
-
-
-@pytest.fixture
-def handler_instance(mocker, mock_user, mock_sender):
-    return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
 @pytest.mark.asyncio
 async def test_create_batch(mocker, handler_instance, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch("curator.app.handler.ensure_user") as mock_ensure_user,
         patch("curator.app.handler.create_batch") as mock_create_batch,
     ):
@@ -43,7 +25,6 @@ async def test_create_batch(mocker, handler_instance, mock_sender, mock_session)
 @pytest.mark.asyncio
 async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
@@ -73,7 +54,6 @@ async def test_upload_slice_multiple_items(
     mocker, handler_instance, mock_sender, mock_session
 ):
     with (
-        patch("curator.app.handler.Session", return_value=mock_session),
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,

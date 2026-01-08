@@ -25,6 +25,7 @@ dependencies = [
     "redis (>=7.1.0,<8.0.0)",
     "sqlmodel (>=0.0.27,<1.0.0)",
     "starsessions (>=2.2.1,<3.0.0)",
+    "tenacity (>=9.0.0,<10.0.0)",
     "uvicorn (>=0.38.0,<1.0.0)",
     "websockets (>=15.0.1,<16.0.0)",
 ]

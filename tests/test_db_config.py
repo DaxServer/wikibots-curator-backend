@@ -6,3 +6,5 @@ def test_engine_pool_configuration():
     assert engine.pool._pre_ping is True
     # Check if pool_recycle is set to 280 seconds
     assert engine.pool._recycle == 280
+    assert engine.pool.size() == 5
+    assert engine.pool._max_overflow == 10
