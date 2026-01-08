@@ -22,7 +22,13 @@ async def mock_check_login():
     }
 
 
-app.dependency_overrides[check_login] = mock_check_login
+@pytest.fixture(autouse=True)
+def setup_auth_override():
+    # Set up dependency override before each test
+    app.dependency_overrides[check_login] = mock_check_login
+    yield
+    # Clean up after test
+    app.dependency_overrides.pop(check_login, None)
 
 
 @pytest.fixture

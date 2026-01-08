@@ -200,8 +200,6 @@ async def test_handler_fetch_batches_workflow(
     t1 = datetime(2023, 1, 1, 12, 0, 0)
     t2 = datetime(2023, 1, 1, 12, 0, 5)
 
-    mock_session = mocker.MagicMock()
-
     # Only mock sleep for the streamer loop to avoid real 2s wait
     mock_sleep = mocker.patch(
         "curator.app.handler_optimized.asyncio.sleep", new_callable=AsyncMock
