@@ -22,7 +22,6 @@ from curator.app.db import get_session
 from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
     StructuredError,
-    UploadRequest,
 )
 from curator.app.sdc_merge import merge_sdc_statements
 from curator.app.sdc_v2 import build_statements_from_mapillary_image
@@ -79,7 +78,10 @@ def _is_uploadstash_file_not_found_error(error_message: str) -> bool:
 
 
 async def _handle_duplicate_with_sdc_merge(
-    item: UploadRequest,
+    upload_id: int,
+    batch_id: int,
+    key: str,
+    labels: dict | Label | None,
     access_token: str,
     username: str,
     sdc: list[Statement] | None,
@@ -88,16 +90,13 @@ async def _handle_duplicate_with_sdc_merge(
     """
     Handle duplicate upload by attempting to merge SDC
     """
-    batchid = f"/{item.batchid}"
-    upload_id = item.id
-
     if not duplicate_error.duplicates or len(duplicate_error.duplicates) == 0:
-        logger.warning(f"[{upload_id}{batchid}] no duplicate files found")
+        logger.warning(f"[{upload_id}/{batch_id}] no duplicate files found")
         return None, None
 
     if sdc is None:
         logger.info(
-            f"[{upload_id}{batchid}] no SDC to merge, falling back to duplicate status"
+            f"[{upload_id}/{batch_id}] no SDC to merge, falling back to duplicate status"
         )
         return None, None
 
@@ -105,7 +104,7 @@ async def _handle_duplicate_with_sdc_merge(
     duplicate_title = duplicate_file.title
 
     logger.info(
-        f"[{upload_id}{batchid}] merging SDC with existing file {duplicate_title}"
+        f"[{upload_id}/{batch_id}] merging SDC with existing file {duplicate_title}"
     )
 
     site = get_commons_site(access_token, username)
@@ -113,13 +112,11 @@ async def _handle_duplicate_with_sdc_merge(
     file_page = FilePage(Page(site, title=duplicate_title, ns=6))
     existing_sdc, existing_labels = fetch_sdc_from_api(site, f"M{file_page.pageid}")
 
-    # Convert item.labels to Label model if it's a dict (from JSON storage)
+    # Convert labels to Label model if it's a dict (from JSON storage)
     item_label = None
-    if item.labels:
+    if labels:
         item_label = (
-            Label.model_validate(item.labels)
-            if isinstance(item.labels, dict)
-            else item.labels
+            Label.model_validate(labels) if isinstance(labels, dict) else labels
         )
 
     # Get existing label matching the item's label language
@@ -128,12 +125,12 @@ async def _handle_duplicate_with_sdc_merge(
         existing_label = existing_labels.get(item_label.language)
 
     if existing_sdc is None:
-        logger.info(f"[{upload_id}{batchid}] no existing SDC, applying new SDC")
+        logger.info(f"[{upload_id}/{batch_id}] no existing SDC, applying new SDC")
         merged_sdc = sdc
     else:
         merged_sdc = merge_sdc_statements(existing_sdc, sdc)
         logger.info(
-            f"[{upload_id}{batchid}] merged {len(sdc)} new statements with {len(existing_sdc)} existing statements, result: {len(merged_sdc)} statements"
+            f"[{upload_id}/{batch_id}] merged {len(sdc)} new statements with {len(existing_sdc)} existing statements, result: {len(merged_sdc)} statements"
         )
 
     # Check if merged SDC and labels are equal to existing SDC and labels
@@ -141,13 +138,13 @@ async def _handle_duplicate_with_sdc_merge(
     labels_equal = _are_labels_equal(existing_label, item_label)
 
     logger.info(
-        f"[{upload_id}{batchid}] SDC equality check: existing={len(existing_sdc) if existing_sdc else 0}, "
+        f"[{upload_id}/{batch_id}] SDC equality check: existing={len(existing_sdc) if existing_sdc else 0}, "
         f"merged={len(merged_sdc)}, equal={sdc_equal}, labels_equal={labels_equal}"
     )
 
     if sdc_equal and labels_equal:
         logger.info(
-            f"[{upload_id}{batchid}] merged SDC and labels are equal to existing, skipping API request"
+            f"[{upload_id}/{batch_id}] merged SDC and labels are equal to existing, skipping API request"
         )
         return duplicate_file.url, "duplicated_sdc_not_updated"
 
@@ -155,10 +152,12 @@ async def _handle_duplicate_with_sdc_merge(
         site=site,
         file_page=file_page,
         sdc=merged_sdc,
-        edit_summary=f"Merging SDC from Mapillary image {item.key} (batch {item.batchid})",
+        edit_summary=f"Merging SDC from Mapillary image {key} (batch {batch_id})",
         labels=item_label,
     ):
-        logger.info(f"[{upload_id}{batchid}] successfully applied SDC to existing file")
+        logger.info(
+            f"[{upload_id}/{batch_id}] successfully applied SDC to existing file"
+        )
 
     return duplicate_file.url, "duplicated_sdc_updated"
 
@@ -224,7 +223,12 @@ def _are_sdc_equal(sdc1: list[Statement], sdc2: list[Statement]) -> bool:
 
 
 async def _upload_with_retry(
-    item: UploadRequest,
+    upload_id: int,
+    batch_id: int,
+    filename: str,
+    key: str,
+    wikitext: str,
+    labels: Label | None,
     access_token: str,
     username: str,
     image_url: str,
@@ -236,20 +240,20 @@ async def _upload_with_retry(
     for attempt in range(MAX_UPLOADSTASH_TRIES):
         try:
             logger.info(
-                f"[{item.id}/{item.batchid}] uploading file (attempt {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
+                f"[{upload_id}/{batch_id}] uploading file (attempt {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
             )
 
             return upload_file_chunked(
-                upload_id=item.id,
-                batch_id=item.batchid,
-                file_name=item.filename,
+                upload_id=upload_id,
+                batch_id=batch_id,
+                file_name=filename,
                 file_url=image_url,
-                wikitext=item.wikitext,
-                edit_summary=f"Uploaded via Curator from Mapillary image {item.key} (batch {item.batchid})",
+                wikitext=wikitext,
+                edit_summary=f"Uploaded via Curator from Mapillary image {key} (batch {batch_id})",
                 access_token=access_token,
                 username=username,
                 sdc=sdc,
-                labels=item.labels,
+                labels=labels,
             )
         except DuplicateUploadError:
             # Let DuplicateUploadError pass through to be handled by the outer exception handler
@@ -263,7 +267,7 @@ async def _upload_with_retry(
                 and attempt < MAX_UPLOADSTASH_TRIES - 1
             ):
                 logger.warning(
-                    f"[{item.id}/{item.batchid}] uploadstash-file-not-found error on attempt {attempt + 1}, "
+                    f"[{upload_id}/{batch_id}] uploadstash-file-not-found error on attempt {attempt + 1}, "
                     f"retrying in 2 seconds... (retry {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
                 )
                 # Wait 2 seconds before retrying
@@ -273,7 +277,7 @@ async def _upload_with_retry(
             # Either not an uploadstash error or we've exceeded max retries
             if _is_uploadstash_file_not_found_error(error_message):
                 logger.error(
-                    f"[{item.id}/{item.batchid}] uploadstash-file-not-found error persisted after {MAX_UPLOADSTASH_TRIES} attempts"
+                    f"[{upload_id}/{batch_id}] uploadstash-file-not-found error persisted after {MAX_UPLOADSTASH_TRIES} attempts"
                 )
 
             raise
@@ -372,14 +376,12 @@ async def process_one(upload_id: int) -> bool:
 
         # Upload with retry logic for uploadstash-file-not-found errors
         upload_result = await _upload_with_retry(
-            item=UploadRequest(
-                id=upload_id,
-                batchid=batchid,
-                filename=filename,
-                key=key,
-                wikitext=wikitext,
-                labels=labels,
-            ),
+            upload_id=upload_id,
+            batch_id=batchid,
+            filename=filename,
+            key=key,
+            wikitext=wikitext,
+            labels=labels,
             access_token=access_token,
             username=username,
             image_url=image_url,
@@ -398,13 +400,12 @@ async def process_one(upload_id: int) -> bool:
             f"[{upload_id}/{batchid}] duplicate upload detected, attempting SDC merge"
         )
 
-        # For SDC merge, we need a fresh item instance if we use handle_duplicate_with_sdc_merge
-        # but let's pass a mock item or refactor handle_duplicate
-        mock_item = UploadRequest(
-            id=upload_id, batchid=batchid, filename=filename, key=key, labels=labels
-        )
+        # For SDC merge, we passing extracted data directly
         merge_result, merge_status = await _handle_duplicate_with_sdc_merge(
-            item=mock_item,
+            upload_id=upload_id,
+            batch_id=batchid,
+            key=key,
+            labels=labels,
             access_token=access_token,
             username=username,
             sdc=sdc,
