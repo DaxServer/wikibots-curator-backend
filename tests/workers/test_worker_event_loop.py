@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app.models import User
+from curator.app.models import UploadRequest, User
 from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
 from curator.workers import ingest
 
@@ -41,7 +41,7 @@ async def test_process_one_runs_without_event_loop_closed(
     ):
         mock_decrypt.return_value = "token"
         mock_fetch.return_value = make_image()
-        mock_item = ingest.UploadRequest(
+        mock_item = UploadRequest(
             id=1,
             batchid=1,
             userid="user",
