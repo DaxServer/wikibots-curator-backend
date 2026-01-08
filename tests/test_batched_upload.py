@@ -49,20 +49,10 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         mock_create_reqs.assert_called_once()
         mock_process_upload.delay.assert_called_once_with(1)
 
-        # Verify send_upload_slice_ack was called with data and sliceid
-        mock_sender.send_upload_slice_ack.assert_called_once()
-        call_args = mock_sender.send_upload_slice_ack.call_args
-        # Check both positional and keyword arguments
-        if len(call_args[0]) > 0:
-            data_arg = call_args[0][0]
-        else:
-            data_arg = call_args[1].get('data')
-        if len(call_args[0]) > 1:
-            sliceid_arg = call_args[0][1]
-        else:
-            sliceid_arg = call_args[1].get('sliceid')
-        assert data_arg == [UploadSliceAckItem(id="img1", status="queued")]
-        assert sliceid_arg == 0
+        mock_sender.send_upload_slice_ack.assert_called_once_with(
+            data=[UploadSliceAckItem(id="img1", status="queued")],
+            sliceid=0
+        )
 
 
 @pytest.mark.asyncio
