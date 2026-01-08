@@ -71,6 +71,7 @@ from .UploadItem import UploadItem
 from .UploadsComplete import UploadsComplete
 from .UploadSlice import UploadSlice
 from .UploadSliceAck import UploadSliceAck
+from .UploadSliceAckItem import UploadSliceAckItem
 from .UploadSliceData import UploadSliceData
 from .UploadsUpdate import UploadsUpdate
 from .UploadUpdateItem import UploadUpdateItem
@@ -129,6 +130,7 @@ __all__ = [
     "UploadsUpdate",
     "UploadUpdateItem",
     "UploadSliceAck",
+    "UploadSliceAckItem",
     "NoValueSnak",
     "SomeValueSnak",
     "EntityIdValueSnak",

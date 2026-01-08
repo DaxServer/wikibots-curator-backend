@@ -36,6 +36,7 @@ from curator.asyncapi import (
     UploadsUpdate,
     UploadUpdateItem,
 )
+from curator.asyncapi.UploadSliceAckItem import UploadSliceAckItem
 
 WS_CHANNEL_ADDRESS: str = "/ws"
 
@@ -140,5 +141,9 @@ class AsyncAPIWebSocket(WebSocket):
     async def send_batch_created(self, data: int) -> None:
         await self.send_json(BatchCreated(data=data, nonce=self._get_nonce()))
 
-    async def send_upload_slice_ack(self, data: int) -> None:
-        await self.send_json(UploadSliceAck(data=data, nonce=self._get_nonce()))
+    async def send_upload_slice_ack(
+        self, data: list[UploadSliceAckItem], sliceid: int
+    ) -> None:
+        await self.send_json(
+            UploadSliceAck(data=data, sliceid=sliceid, nonce=self._get_nonce())
+        )

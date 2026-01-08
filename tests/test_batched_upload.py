@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.asyncapi import UploadItem, UploadSliceData
+from curator.asyncapi import UploadItem, UploadSliceData, UploadSliceAckItem
 
 
 @pytest.mark.asyncio
@@ -33,6 +33,8 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
     ):
         mock_req = mocker.MagicMock()
         mock_req.id = 1
+        mock_req.key = "img1"
+        mock_req.status = "queued"
         mock_create_reqs.return_value = [mock_req]
 
         data = UploadSliceData(
@@ -46,7 +48,21 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
 
         mock_create_reqs.assert_called_once()
         mock_process_upload.delay.assert_called_once_with(1)
-        mock_sender.send_upload_slice_ack.assert_called_once_with(0)
+
+        # Verify send_upload_slice_ack was called with data and sliceid
+        mock_sender.send_upload_slice_ack.assert_called_once()
+        call_args = mock_sender.send_upload_slice_ack.call_args
+        # Check both positional and keyword arguments
+        if len(call_args[0]) > 0:
+            data_arg = call_args[0][0]
+        else:
+            data_arg = call_args[1].get('data')
+        if len(call_args[0]) > 1:
+            sliceid_arg = call_args[0][1]
+        else:
+            sliceid_arg = call_args[1].get('sliceid')
+        assert data_arg == [UploadSliceAckItem(id="img1", status="queued")]
+        assert sliceid_arg == 0
 
 
 @pytest.mark.asyncio
@@ -62,8 +78,12 @@ async def test_upload_slice_multiple_items(
     ):
         mock_req1 = mocker.MagicMock()
         mock_req1.id = 1
+        mock_req1.key = "img1"
+        mock_req1.status = "queued"
         mock_req2 = mocker.MagicMock()
         mock_req2.id = 2
+        mock_req2.key = "img2"
+        mock_req2.status = "queued"
         mock_create_reqs.return_value = [mock_req1, mock_req2]
 
         data = UploadSliceData(
@@ -84,4 +104,21 @@ async def test_upload_slice_multiple_items(
         calls = mock_process_upload.delay.call_args_list
         assert calls[0][0][0] == 1
         assert calls[1][0][0] == 2
-        mock_sender.send_upload_slice_ack.assert_called_once_with(1)
+
+        # Verify send_upload_slice_ack was called with data and sliceid
+        mock_sender.send_upload_slice_ack.assert_called_once()
+        call_args = mock_sender.send_upload_slice_ack.call_args
+        # Check both positional and keyword arguments
+        if len(call_args[0]) > 0:
+            data_arg = call_args[0][0]
+        else:
+            data_arg = call_args[1].get('data')
+        if len(call_args[0]) > 1:
+            sliceid_arg = call_args[0][1]
+        else:
+            sliceid_arg = call_args[1].get('sliceid')
+        assert data_arg == [
+            UploadSliceAckItem(id="img1", status="queued"),
+            UploadSliceAckItem(id="img2", status="queued"),
+        ]
+        assert sliceid_arg == 1

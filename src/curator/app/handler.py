@@ -35,6 +35,7 @@ from curator.asyncapi import (
     SubscribeBatchesListData,
     UploadCreatedItem,
     UploadData,
+    UploadSliceAckItem,
     UploadSliceData,
     UploadUpdateItem,
 )
@@ -292,20 +293,28 @@ class Handler:
                 encrypted_access_token=encrypted_access_token,
             )
 
-            prepared_uploads = []
+            prepared_uploads: dict[str, str] = {}
+            to_enqueue = []
             for req in reqs:
                 session.refresh(req)
-                prepared_uploads.append(req.id)
+                prepared_uploads[req.key] = req.status
+                to_enqueue.append(req.id)
 
         # Enqueue uploads
-        for upload_id in prepared_uploads:
+        for upload_id in to_enqueue:
             process_upload.delay(upload_id)
 
         logger.info(
-            f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(prepared_uploads)} uploads) enqueued for {self.username}"
+            f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(to_enqueue)} uploads) enqueued for {self.username}"
         )
 
-        await self.socket.send_upload_slice_ack(sliceid)
+        await self.socket.send_upload_slice_ack(
+            [
+                UploadSliceAckItem(id=id, status=status)
+                for id, status in prepared_uploads.items()
+            ],
+            sliceid=sliceid,
+        )
 
     @handle_exceptions
     async def fetch_batches(self, data: FetchBatchesData):
