@@ -1,12 +1,8 @@
-import hashlib
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from curator.app.handlers.mapillary_handler import (
-    MapillaryHandler,
-    _fetch_images_by_ids,
-)
+from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.asyncapi import MediaImage
 
 
@@ -16,6 +12,14 @@ def mock_fetch_sequence():
         "curator.app.handlers.mapillary_handler._fetch_sequence_data",
         new_callable=AsyncMock,
     ) as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_cache():
+    with patch("curator.app.handlers.mapillary_handler.cache") as mock:
+        mock.set = AsyncMock()
+        mock.set_many = AsyncMock()
         yield mock
 
 
@@ -46,19 +50,19 @@ mock_image_data = {
 
 
 @pytest.mark.asyncio
-async def test_fetch_image_metadata_sequence(mock_fetch_sequence, mock_fetch_single):
+async def test_fetch_image_metadata_sequence(mock_fetch_single, mock_cache):
     handler = MapillaryHandler()
     image_id = "123"
     sequence_id = "seq123"
 
-    mock_fetch_sequence.return_value = {"123": mock_image_data}
+    mock_fetch_single.return_value = mock_image_data
 
     result = await handler.fetch_image_metadata(image_id, sequence_id)
 
     assert isinstance(result, MediaImage)
     assert result.id == "123"
-    mock_fetch_sequence.assert_called_once_with(sequence_id)
-    mock_fetch_single.assert_not_called()
+    # New design: it should just check individual cache
+    mock_fetch_single.assert_called_once_with(image_id)
 
 
 @pytest.mark.asyncio
@@ -78,44 +82,46 @@ async def test_fetch_image_metadata_single(mock_fetch_sequence, mock_fetch_singl
 
 
 @pytest.mark.asyncio
-async def test_fetch_image_metadata_fallback_not_implemented(
-    mock_fetch_sequence, mock_fetch_single
+async def test_fetch_collection_populates_caches(
+    mock_fetch_sequence, mock_fetch_single, mock_cache
 ):
-    # This documents current behavior: if sequence provided but image not in it, it raises ValueError, NOT fallback.
     handler = MapillaryHandler()
-    image_id = "123"
     sequence_id = "seq123"
+    mock_fetch_sequence.return_value = {"123": mock_image_data}
 
-    mock_fetch_sequence.return_value = {}  # Image not in sequence
+    await handler.fetch_collection(sequence_id)
 
-    with pytest.raises(ValueError, match="Image data not found in sequence"):
-        await handler.fetch_image_metadata(image_id, sequence_id)
+    # Verify sequence cache populated with IDs
+    mock_cache.set.assert_called_once()
+    args, kwargs = mock_cache.set.call_args
+    assert args[0] == f"curator:mapillary:sequence:{sequence_id}"
+    assert args[1] == ["123"]
+
+    # Verify individual image cache populated
+    mock_cache.set_many.assert_called_once()
+    args, kwargs = mock_cache.set_many.call_args
+    mapping = args[0]
+    assert "curator:mapillary:image:123" in mapping
+    assert mapping["curator:mapillary:image:123"] == mock_image_data
 
 
 @pytest.mark.asyncio
-async def test_fetch_images_by_ids_hashing():
-    image_ids = ["b", "a", "c"]
+async def test_fetch_images_batch_populates_caches(mock_cache):
+    handler = MapillaryHandler()
+    image_ids = ["123"]
     sequence_id = "seq1"
 
-    expected_sorted = ["a", "b", "c"]
-    ids_str = ",".join(expected_sorted)
-    expected_hash = hashlib.sha256(ids_str.encode()).hexdigest()
-
     with patch(
-        "curator.app.handlers.mapillary_handler._fetch_images_internal",
+        "curator.app.handlers.mapillary_handler._fetch_images_by_ids_api",
         new_callable=AsyncMock,
-    ) as mock_internal:
-        mock_internal.return_value = {"a": {}, "b": {}, "c": {}}
+    ) as mock_fetch:
+        mock_fetch.return_value = {"123": mock_image_data}
 
-        result = await _fetch_images_by_ids(image_ids, sequence_id)
+        await handler.fetch_images_batch(image_ids, sequence_id)
 
-        mock_internal.assert_called_once_with(
-            expected_sorted, sequence_id, expected_hash
-        )
-        assert result == {"a": {}, "b": {}, "c": {}}
-
-
-@pytest.mark.asyncio
-async def test_fetch_images_by_ids_empty():
-    result = await _fetch_images_by_ids([], "seq1")
-    assert result == {}
+        # Verify individual image cache populated
+        mock_cache.set_many.assert_called_once()
+        args, kwargs = mock_cache.set_many.call_args
+        mapping = args[0]
+        assert "curator:mapillary:image:123" in mapping
+        assert mapping["curator:mapillary:image:123"] == mock_image_data
