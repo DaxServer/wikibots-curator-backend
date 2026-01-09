@@ -51,7 +51,7 @@ app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    worker_max_tasks_per_child=100,
+    worker_max_tasks_per_child=1000,
     worker_concurrency=CELERY_CONCURRENCY,
     task_routes={
         "curator.workers.tasks.process_upload": {"queue": "uploads"},
