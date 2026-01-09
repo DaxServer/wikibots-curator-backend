@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Optional, Union
 
 import httpx
@@ -8,7 +8,6 @@ from fastapi import Request, WebSocket
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
     WikidataProperty,
-    cache,
 )
 from curator.app.handlers.interfaces import Handler
 from curator.app.wcqs import WcqsSession
@@ -89,7 +88,6 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
     return {str(i["id"]): i for i in images}
 
 
-@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:{sequence_id}")
 async def _get_sequence_ids(sequence_id: str) -> list[str]:
     """
     Fetch sequence image IDs from Mapillary API (no fields)
@@ -133,7 +131,6 @@ async def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
     return {str(k): v for k, v in response.json().items()}
 
 
-@cache(ttl=timedelta(hours=1), key="curator:mapillary:image:{image_id}")
 async def _fetch_single_image(image_id: str) -> dict:
     """
     Fetch single image data from Mapillary API
@@ -158,17 +155,6 @@ class MapillaryHandler(Handler):
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
-        if collection:
-            # Store ID list in sequence cache
-            await cache.set(
-                f"curator:mapillary:sequence:{input}",
-                list(collection.keys()),
-                expire=timedelta(hours=1),
-            )
-            # Store individual images in cache
-            mapping = {f"curator:mapillary:image:{k}": v for k, v in collection.items()}
-            await cache.set_many(mapping, expire=timedelta(hours=1))
-
         return {k: from_mapillary(v) for k, v in collection.items()}
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
@@ -178,10 +164,6 @@ class MapillaryHandler(Handler):
         self, image_ids: list[str], sequence_id: str
     ) -> dict[str, MediaImage]:
         data = await _fetch_images_by_ids_api(image_ids)
-        if data:
-            # Store individual images in cache
-            mapping = {f"curator:mapillary:image:{k}": v for k, v in data.items()}
-            await cache.set_many(mapping, expire=timedelta(hours=1))
         return {k: from_mapillary(v) for k, v in data.items()}
 
     async def fetch_image_metadata(
