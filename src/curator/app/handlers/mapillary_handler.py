@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
@@ -65,7 +64,6 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
     )
 
 
-@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:{sequence_id}")
 async def _fetch_sequence_data(sequence_id: str) -> dict:
     """
     Fetch sequence data from Mapillary API
@@ -91,8 +89,8 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
     return {str(i["id"]): i for i in images}
 
 
-@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:ids:{sequence_id}")
-async def _fetch_sequence_ids(sequence_id: str) -> list[str]:
+@cache(ttl=timedelta(hours=1), key="curator:mapillary:sequence:{sequence_id}")
+async def _get_sequence_ids(sequence_id: str) -> list[str]:
     """
     Fetch sequence image IDs from Mapillary API (no fields)
     """
@@ -112,16 +110,14 @@ async def _fetch_sequence_ids(sequence_id: str) -> list[str]:
     return [str(i["id"]) for i in images]
 
 
-@cache(ttl=timedelta(hours=1), key="curator:mapillary:images:{ids_hash}")
-async def _fetch_images_internal(
-    image_ids: list[str], sequence_id: str, ids_hash: str
-) -> dict[str, dict]:
+async def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
     """
-    Internal function to fetch images with a hashed key for caching.
+    Fetch multiple images by their IDs in a single request.
     """
-    logger.info(
-        f"[mapillary] fetching {len(image_ids)} images by ids for {sequence_id}"
-    )
+    if not image_ids:
+        return {}
+
+    logger.info(f"[mapillary] fetching {len(image_ids)} images by ids")
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -134,26 +130,7 @@ async def _fetch_images_internal(
             timeout=60,
         )
     response.raise_for_status()
-    # Response is a dict image_id -> data
     return {str(k): v for k, v in response.json().items()}
-
-
-async def _fetch_images_by_ids(
-    image_ids: list[str], sequence_id: str
-) -> dict[str, dict]:
-    """
-    Fetch multiple images by their IDs in a single request.
-    Returns a dict mapping image ID to its data.
-    """
-    if not image_ids:
-        return {}
-
-    # Sort ids to ensure consistent hash
-    sorted_ids = sorted(image_ids)
-    ids_str = ",".join(sorted_ids)
-    ids_hash = hashlib.sha256(ids_str.encode()).hexdigest()
-
-    return await _fetch_images_internal(sorted_ids, sequence_id, ids_hash)
 
 
 @cache(ttl=timedelta(hours=1), key="curator:mapillary:image:{image_id}")
@@ -181,32 +158,39 @@ class MapillaryHandler(Handler):
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
+        if collection:
+            # Store ID list in sequence cache
+            await cache.set(
+                f"curator:mapillary:sequence:{input}",
+                list(collection.keys()),
+                expire=timedelta(hours=1),
+            )
+            # Store individual images in cache
+            mapping = {f"curator:mapillary:image:{k}": v for k, v in collection.items()}
+            await cache.set_many(mapping, expire=timedelta(hours=1))
+
         return {k: from_mapillary(v) for k, v in collection.items()}
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
-        return await _fetch_sequence_ids(input)
+        return await _get_sequence_ids(input)
 
     async def fetch_images_batch(
         self, image_ids: list[str], sequence_id: str
     ) -> dict[str, MediaImage]:
-        data = await _fetch_images_by_ids(image_ids, sequence_id)
+        data = await _fetch_images_by_ids_api(image_ids)
+        if data:
+            # Store individual images in cache
+            mapping = {f"curator:mapillary:image:{k}": v for k, v in data.items()}
+            await cache.set_many(mapping, expire=timedelta(hours=1))
         return {k: from_mapillary(v) for k, v in data.items()}
 
     async def fetch_image_metadata(
         self, image_id: str, input: Optional[str] = None
     ) -> MediaImage:
-        if input:
-            collection = await _fetch_sequence_data(input)
-            image = collection.get(image_id)
-        else:
-            # Fallback for legacy uploads where collection/sequence ID is missing
-            image = await _fetch_single_image(image_id)
+        image = await _fetch_single_image(image_id)
 
         if not image:
-            context = "sequence" if input else "Mapillary API"
-            raise ValueError(
-                f"Image data not found in {context} for image_id={image_id}"
-            )
+            raise ValueError(f"Image data not found for image_id={image_id}")
 
         return from_mapillary(image)
 

@@ -4,10 +4,10 @@ import pytest
 
 from curator.app.config import cache
 from curator.app.handlers.mapillary_handler import (
-    _fetch_images_internal,
+    _fetch_images_by_ids_api,
     _fetch_sequence_data,
-    _fetch_sequence_ids,
     _fetch_single_image,
+    _get_sequence_ids,
 )
 
 
@@ -35,7 +35,7 @@ async def test_fetch_sequence_data_timeout():
 
 
 @pytest.mark.asyncio
-async def test_fetch_sequence_ids_timeout():
+async def test_get_sequence_ids_timeout():
     with patch("httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__.return_value = mock_client
@@ -45,13 +45,13 @@ async def test_fetch_sequence_ids_timeout():
         mock_response.json.return_value = {"data": []}
         mock_client.get.return_value = mock_response
 
-        await _fetch_sequence_ids("seq123")
+        await _get_sequence_ids("seq123")
 
         mock_client.get.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_fetch_images_internal_timeout():
+async def test_fetch_images_by_ids_api_timeout():
     with patch("httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__.return_value = mock_client
@@ -61,7 +61,7 @@ async def test_fetch_images_internal_timeout():
         mock_response.json.return_value = {}
         mock_client.get.return_value = mock_response
 
-        await _fetch_images_internal(["img1"], "seq123", "hash")
+        await _fetch_images_by_ids_api(["img1"])
 
         mock_client.get.assert_called_once()
 
