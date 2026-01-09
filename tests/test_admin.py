@@ -88,11 +88,17 @@ async def test_admin_retry_batch_success(mock_session, patch_get_session):
         mock_retry.assert_called_once_with(mock_session, 1, "encrypted_token", "u1")
         assert result == {"message": "Retried 3 uploads"}
 
-        # Verify Celery tasks were queued
+        # Verify Celery tasks were queued with upload_id and edit_group_id
         assert mock_task.call_count == 3
-        mock_task.assert_any_call(1)
-        mock_task.assert_any_call(2)
-        mock_task.assert_any_call(3)
+        # Check that all calls have the correct structure
+        for call in mock_task.call_args_list:
+            assert len(call[0]) == 2  # upload_id and edit_group_id
+            assert isinstance(call[0][0], int)  # upload_id is an integer
+            assert isinstance(call[0][1], str)  # edit_group_id is a string
+            assert len(call[0][1]) == 12  # edit_group_id is 12 characters
+        # Verify the correct upload_ids were called
+        upload_ids = {call[0][0] for call in mock_task.call_args_list}
+        assert upload_ids == {1, 2, 3}
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from curator.app.auth import LoggedInUser
-from curator.app.crypto import encrypt_access_token
+from curator.app.crypto import encrypt_access_token, generate_edit_group_id
 from curator.app.dal import (
     count_all_upload_requests,
     count_batches,
@@ -94,7 +94,8 @@ async def admin_retry_batch(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     # Queue the uploads for processing
+    edit_group_id = generate_edit_group_id()
     for upload_id in reset_ids:
-        process_upload.delay(upload_id)
+        process_upload.delay(upload_id, edit_group_id)
 
     return {"message": f"Retried {len(reset_ids)} uploads"}
