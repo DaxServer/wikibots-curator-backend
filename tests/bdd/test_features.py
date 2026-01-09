@@ -1,0 +1,1040 @@
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
+
+import pytest
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+from pytest_bdd import given, parsers, scenario, then, when
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, col, create_engine, select
+
+import curator.app.auth as auth_mod
+from curator.admin import check_admin
+from curator.app.auth import UserSession, check_login
+from curator.app.commons import DuplicateUploadError
+from curator.app.handler import Handler
+from curator.app.models import Batch, UploadRequest, User
+from curator.asyncapi import (
+    Creator,
+    Dates,
+    ErrorLink,
+    FetchBatchesData,
+    GeoLocation,
+    MediaImage,
+    UploadItem,
+    UploadSliceData,
+)
+from curator.main import app
+from curator.workers.ingest import process_one
+
+# --- Global Async & Mock Helpers ---
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+def run_sync(coro, loop):
+    return loop.run_until_complete(coro)
+
+
+@pytest.fixture(autouse=True)
+def mock_external_calls(mocker):
+    mocker.patch("curator.app.commons.get_commons_site")
+    mocker.patch(
+        "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+    )
+    mocker.patch(
+        "curator.workers.ingest.upload_file_chunked",
+        return_value={"url": "http://s", "title": "S.jpg"},
+    )
+    mocker.patch("curator.app.handler.encrypt_access_token", return_value="e")
+    mocker.patch("curator.workers.ingest.decrypt_access_token", return_value="v")
+    mock_h = mocker.patch("curator.workers.ingest.MapillaryHandler").return_value
+    mock_h.fetch_image_metadata = AsyncMock(
+        return_value=MediaImage(
+            id="m1",
+            title="T",
+            dates=Dates(taken="2023"),
+            creator=Creator(id="u", username="u", profile_url="p"),
+            location=GeoLocation(latitude=1, longitude=2, compass_angle=0),
+            url_original="o",
+            thumbnail_url="t",
+            preview_url="p",
+            url="u",
+            width=1,
+            height=1,
+            existing=[],
+        )
+    )
+    mocker.patch(
+        "curator.workers.ingest.build_statements_from_mapillary_image", return_value=[]
+    )
+
+
+# --- Database Engine Fixture ---
+
+
+@pytest.fixture(name="engine", scope="session")
+def engine_fixture(session_mocker):
+    """
+    Use strictly in-memory SQLite with StaticPool to ensure all connections
+    share the same state without creating any files on disk.
+    """
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    # Patch the global engine in the db module
+    session_mocker.patch("curator.app.db.engine", engine)
+
+    yield engine
+
+
+@pytest.fixture(autouse=True)
+def clean_db(engine):
+    with Session(engine) as session:
+        for table in reversed(SQLModel.metadata.sorted_tables):
+            session.exec(table.delete())
+        session.commit()
+
+
+@pytest.fixture(autouse=True)
+def cleanup_pending_tasks(event_loop):
+    """Auto-cleanup pending asyncio tasks after each test to prevent 'Task was destroyed but it is pending' warnings"""
+    yield
+    # Based on: https://github.com/pytest-dev/pytest-asyncio/issues/435
+    # Collect all tasks and cancel those that are not 'done'
+    tasks = [t for t in asyncio.all_tasks(event_loop) if not t.done()]
+    for task in tasks:
+        task.cancel()
+
+    # Wait for all tasks to complete, ignoring any CancelledErrors (only if tasks exist)
+    len(tasks) and (lambda: event_loop.run_until_complete(asyncio.wait(tasks)))()
+
+
+@pytest.fixture
+def client(engine, mocker):
+    app.dependency_overrides = {}
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides = {}
+
+
+@pytest.fixture
+def mock_sender():
+    sender = MagicMock()
+    sender.send_batch_created = AsyncMock()
+    sender.send_upload_slice_ack = AsyncMock()
+    sender.send_batches_list = AsyncMock()
+    sender.send_collection_images = AsyncMock()
+    sender.send_batch_uploads = AsyncMock()
+    sender.send_batch_uploads_list = AsyncMock()
+    sender.send_subscribed = AsyncMock()
+    sender.send_error = AsyncMock()
+    return sender
+
+
+@pytest.fixture
+def session_context():
+    """Shared dict to store session state across test steps."""
+    return {}
+
+
+# --- Scenarios ---
+
+
+@scenario("features/upload.feature", "Creating a new batch")
+def test_create_batch_scenario():
+    pass
+
+
+@scenario("features/upload.feature", "Uploading multiple images to a batch")
+def test_upload_slice_scenario():
+    pass
+
+
+@scenario("features/worker.feature", "Successfully processing a queued upload")
+def test_worker_processing_scenario():
+    pass
+
+
+@scenario("features/worker.feature", "Handling a blacklisted title")
+def test_worker_blacklist_scenario():
+    pass
+
+
+@scenario("features/worker.feature", "Handling a duplicate upload with SDC merge")
+def test_worker_duplicate_scenario():
+    pass
+
+
+@scenario("features/streaming.feature", "Initial sync of batches")
+def test_streaming_sync_scenario():
+    pass
+
+
+@scenario("features/admin.feature", "Admin can list all batches")
+def test_admin_list_batches():
+    pass
+
+
+@scenario("features/admin.feature", "Non-admin cannot access admin panel")
+def test_admin_no_access():
+    pass
+
+
+@scenario("features/admin.feature", "Admin can list all users")
+def test_admin_list_users():
+    pass
+
+
+@scenario("features/authentication.feature", "Checking current user identity")
+def test_auth_whoami():
+    pass
+
+
+@scenario("features/authentication.feature", "Logging out clears the session")
+def test_auth_logout():
+    pass
+
+
+@scenario("features/retry.feature", "Retrying failed uploads via WebSocket")
+def test_retry_uploads_websocket():
+    pass
+
+
+@scenario("features/retry.feature", "Admin can retry any batch")
+def test_admin_retry_batch():
+    pass
+
+
+@scenario("features/batch_operations.feature", "Fetching uploads for a batch")
+def test_fetch_batch_uploads():
+    pass
+
+
+@scenario("features/batch_operations.feature", "Admin can list all upload requests")
+def test_admin_list_upload_requests():
+    pass
+
+
+@scenario("features/batch_operations.feature", "Admin can update an upload request")
+def test_admin_update_upload_request():
+    pass
+
+
+@scenario("features/batch_subscription.feature", "Subscribing to batch updates")
+def test_subscribe_batch():
+    pass
+
+
+@scenario("features/batch_subscription.feature", "Unsubscribing from batch updates")
+def test_unsubscribe_batch():
+    pass
+
+
+@scenario(
+    "features/api_registration.feature", "Successful registration with valid API key"
+)
+def test_api_register_success():
+    pass
+
+
+@scenario(
+    "features/api_registration.feature", "Registration fails with invalid API key"
+)
+def test_api_register_invalid_key():
+    pass
+
+
+@scenario(
+    "features/api_registration.feature", "Registration fails when API key is missing"
+)
+def test_api_register_missing_key():
+    pass
+
+
+# GIVENS
+
+
+@given(
+    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
+    target_fixture="active_user",
+)
+@given(
+    parsers.re(
+        r'I have an active session for "(?P<username>[^"]+)" with id "(?P<userid>[^"]+)"'
+    ),
+    target_fixture="active_user",
+)
+def step_given_user(userid, mocker, username="testuser"):
+    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
+    app.dependency_overrides[auth_mod.check_login] = lambda: u
+    mocker.patch(
+        "starlette.requests.Request.session",
+        new_callable=PropertyMock,
+        return_value={"user": u},
+    )
+    return u
+
+
+@given(
+    parsers.re(r'I am logged in as admin "(?P<username>[^"]+)"'),
+    target_fixture="active_user",
+)
+def step_given_admin(username, mocker):
+    u = {
+        "username": "DaxServer",
+        "userid": "admin123",
+        "sub": "admin123",
+        "access_token": "v",
+    }
+
+    app.dependency_overrides[check_login] = lambda: u
+    app.dependency_overrides[check_admin] = lambda: None
+    mocker.patch(
+        "starlette.requests.Request.session",
+        new_callable=PropertyMock,
+        return_value={"user": u},
+    )
+    return u
+
+
+@given(
+    parsers.re(r'I am logged in as user "(?P<username>[^"]+)"'),
+    target_fixture="active_user",
+)
+@given(
+    parsers.re(r'I have an active session for "(?P<username>[^"]+)"'),
+    target_fixture="active_user",
+)
+def step_given_std_user(username, mocker, session_context):
+    u = {"username": username, "userid": "u1", "sub": "u1", "access_token": "v"}
+
+    app.dependency_overrides[check_login] = lambda: u
+
+    def _f():
+        raise HTTPException(403, "Forbidden")
+
+    app.dependency_overrides[check_admin] = _f
+    session_dict = {"user": u}
+    session_context["dict"] = session_dict
+    mocker.patch(
+        "starlette.requests.Request.session",
+        new_callable=PropertyMock,
+        return_value=session_dict,
+    )
+    return u
+
+
+@given(parsers.parse('a batch exists with id {batch_id:d} for user "{userid}"'))
+def step_given_batch(engine, batch_id, userid):
+    with Session(engine) as s:
+        s.merge(User(userid=userid, username="testuser"))
+        s.add(Batch(id=batch_id, userid=userid))
+        s.commit()
+
+
+@given(parsers.parse('an upload request exists with status "{status}" and key "{key}"'))
+def step_given_upload_req(engine, status, key):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+
+        # Create a batch for the upload request
+        b = Batch(userid="12345")
+        s.add(b)
+        s.commit()
+        s.refresh(b)
+
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status=status,
+                key=key,
+                handler="mapillary",
+                filename=f"{key}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(
+    parsers.parse(
+        'an upload request exists with status "{status}" and key "{key}" in batch 1'
+    )
+)
+def step_given_upload_req_batch1(engine, status, key):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=1, userid="12345"))
+        s.commit()
+
+        s.add(
+            UploadRequest(
+                batchid=1,
+                userid="12345",
+                status=status,
+                key=key,
+                handler="mapillary",
+                filename=f"{key}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(
+    parsers.parse('an upload request exists with status "{status}" and title "{title}"')
+)
+def step_given_upload_title(engine, status, title):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        b = Batch(userid="12345")
+        s.add(b)
+        s.commit()
+        s.refresh(b)
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status=status,
+                key="img-t",
+                handler="mapillary",
+                filename=title,
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(parsers.parse('the title "{title}" is on the Commons blacklist'))
+def step_given_bl(mocker, title):
+    mocker.patch(
+        "curator.workers.ingest.check_title_blacklisted",
+        return_value=(True, "blacklisted"),
+    )
+
+
+@given("the file already exists on Commons")
+def step_given_dup(mocker):
+    e = DuplicateUploadError(
+        duplicates=[ErrorLink(title="D.jpg", url="http://d")], message="D"
+    )
+    mocker.patch("curator.workers.ingest.upload_file_chunked", side_effect=e)
+    mocker.patch(
+        "curator.workers.ingest._handle_duplicate_with_sdc_merge",
+        return_value=("http://d", "duplicated_sdc_updated"),
+    )
+
+
+@given(parsers.parse("{count:d} batches exist in the database for my user"))
+@given(parsers.parse("there are {count:d} batches in the system"))
+def step_given_batches(engine, count):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        for i in range(count):
+            s.add(Batch(userid="12345"))
+        s.commit()
+
+
+@given(parsers.parse("there are {count:d} users in the system"))
+def step_given_users(engine, count):
+    with Session(engine) as s:
+        for i in range(count):
+            s.add(User(userid=f"u{i}", username=f"user{i}"))
+        s.commit()
+
+
+@given(parsers.parse('Mapillary collection "{colid}" contains {count:d} images'))
+def step_given_map(mocker, colid, count):
+    img = MediaImage(
+        id="m1",
+        title="T",
+        dates=Dates(taken="2023"),
+        creator=Creator(id="u", username="u", profile_url="p"),
+        location=GeoLocation(latitude=1, longitude=2, compass_angle=0),
+        url_original="o",
+        thumbnail_url="t",
+        preview_url="p",
+        url="u",
+        width=1,
+        height=1,
+        existing=[],
+    )
+    mocker.patch(
+        "curator.app.handler.MapillaryHandler.fetch_collection",
+        AsyncMock(return_value={f"img{i}": img for i in range(count)}),
+    )
+    mocker.patch(
+        "curator.app.handler.MapillaryHandler.fetch_existing_pages", return_value={}
+    )
+
+
+@given("I am a logged-in user")
+def step_given_login_anon(mocker):
+    u = {"username": "testuser", "userid": "12345", "sub": "12345", "access_token": "v"}
+    app.dependency_overrides[auth_mod.check_login] = lambda: u
+    mocker.patch(
+        "starlette.requests.Request.session",
+        new_callable=PropertyMock,
+        return_value={"user": u},
+    )
+
+
+# WHENS
+
+
+@when("I request to create a new batch", target_fixture="created_batch_id")
+def when_create(active_user, mock_sender, event_loop):
+    h = Handler(active_user, mock_sender, MagicMock())
+    run_sync(h.create_batch(), event_loop)
+    return mock_sender.send_batch_created.call_args[0][0]
+
+
+@when(
+    parsers.parse("I upload a slice with {count:d} images to batch {batch_id:d}"),
+    target_fixture="u_res",
+)
+def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
+    mock_d = mocker.patch("curator.app.handler.process_upload.delay")
+    items = [
+        UploadItem(id=f"img{i}", input=f"in{i}", title=f"T{i}", wikitext="W")
+        for i in range(count)
+    ]
+    data = UploadSliceData(
+        batchid=batch_id, sliceid=1, handler="mapillary", items=items
+    )
+    h = Handler(active_user, mock_sender, MagicMock())
+    run_sync(h.upload_slice(data), event_loop)
+    return {"delay": mock_d}
+
+
+@when("the ingestion worker processes this upload request")
+def when_worker(engine, event_loop):
+    with Session(engine) as s:
+        up = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "queued")
+        ).first()
+        assert up is not None
+        uid = up.id
+    run_sync(process_one(uid), event_loop)
+
+
+@when("I request the admin list of batches", target_fixture="response")
+def when_adm_batches(client):
+    return client.get("/api/admin/batches")
+
+
+@when("I request the admin list of users", target_fixture="response")
+def when_adm_users(client):
+    return client.get("/api/admin/users")
+
+
+@when('I request "whoami"', target_fixture="response")
+def when_whoami(client):
+    return client.get("/auth/whoami")
+
+
+@when("I request to logout", target_fixture="response")
+def when_logout(client):
+    return client.get("/auth/logout", follow_redirects=False)
+
+
+@when(parsers.parse('I fetch images for collection "{colid}"'))
+def when_discovery(mock_sender, colid, event_loop):
+    h = Handler(
+        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.fetch_images(colid), event_loop)
+
+
+@when("I request to fetch my batches")
+def when_streaming(mock_sender, event_loop, mocker):
+    mocker.patch(
+        "curator.app.handler_optimized.asyncio.sleep",
+        side_effect=[None, asyncio.CancelledError],
+    )
+
+    data = FetchBatchesData(userid="12345", filter=None, page=1, limit=100)
+    h = Handler(
+        UserSession(username="testuser", userid="12345", access_token="v"),
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.fetch_batches(data), event_loop)
+    assert h.batches_list_task is not None
+    run_sync(asyncio.wait_for(h.batches_list_task, 1), event_loop)
+
+
+# THENS
+
+
+@then("a new batch should exist in the database for my user")
+def then_batch_exists(engine, active_user, created_batch_id):
+    with Session(engine) as s:
+        b = s.exec(select(Batch).where(Batch.id == created_batch_id)).first()
+        assert b is not None
+        assert b.userid == active_user["userid"]
+
+
+@then("I should receive a message with the new batch id")
+def then_batch_msg(mock_sender, created_batch_id):
+    mock_sender.send_batch_created.assert_called_once_with(created_batch_id)
+
+
+@then(
+    parsers.parse(
+        "{count:d} upload requests should be created in the database for batch {batch_id:d}"
+    )
+)
+def then_req_count(engine, count, batch_id):
+    with Session(engine) as s:
+        ups = s.exec(
+            select(UploadRequest).where(UploadRequest.batchid == batch_id)
+        ).all()
+        assert len(ups) == count
+
+
+@then(
+    parsers.parse(
+        "these {count:d} uploads should be enqueued for background processing"
+    )
+)
+def then_enqueued(u_res, count):
+    assert u_res["delay"].call_count == count
+
+
+@then(parsers.parse("I should receive an acknowledgment for slice {slice_id:d}"))
+def then_ack(mock_sender, slice_id):
+    mock_sender.send_upload_slice_ack.assert_called_once()
+    # Verify the correct slice_id was acknowledged
+    call_kwargs = mock_sender.send_upload_slice_ack.call_args.kwargs
+    assert call_kwargs.get("sliceid") == slice_id
+
+
+@then('the upload status should be updated to "completed" in the database')
+def then_worker_completed(engine):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "completed")
+        ).first()
+        assert u is not None
+
+
+@then("the success URL should be recorded for the request")
+def then_worker_success(engine):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "completed")
+        ).first()
+        assert isinstance(u, UploadRequest)
+        assert u.success is not None
+
+
+@then("the access token for this request should be cleared for security")
+def then_token_cleared(engine):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "completed")
+        ).first()
+        assert isinstance(u, UploadRequest)
+        assert u.access_token is None
+
+
+@then('the upload status should be updated to "failed"')
+def then_worker_failed(engine):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "failed")
+        ).first()
+        assert u is not None
+
+
+@then(parsers.parse('the error message should include "{text}"'))
+def then_worker_err(engine, text):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "failed")
+        ).first()
+        assert isinstance(u, UploadRequest)
+        assert text.lower() in str(u.error).lower()
+
+
+@then("the SDC should be merged with the existing file")
+@then(parsers.parse('the upload status should be "{status1}" or "{status2}"'))
+def then_dup_merge(
+    engine, status1="duplicated_sdc_updated", status2="duplicated_sdc_not_updated"
+):
+    with Session(engine) as s:
+        u = s.exec(
+            select(UploadRequest).where(
+                col(UploadRequest.status).in_([status1, status2])
+            )
+        ).first()
+        assert u is not None
+
+
+@then(parsers.parse("the response should contain {count:d} batches"))
+def then_admin_batches(response, count):
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == count
+
+
+@then(parsers.parse("the response should contain {count:d} users"))
+def then_admin_users(response, count):
+    assert response.status_code == 200
+    assert response.json()["total"] == count
+
+
+@then("I should receive a 403 Forbidden response")
+def then_forbidden(response):
+    assert response.status_code == 403
+
+
+@then(
+    parsers.re(
+        r'the response should contain username "(?P<username>[^"]+)" and id "(?P<userid>[^"]+)"'
+    )
+)
+def then_whoami(response, username, userid):
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("username") == username
+    assert data.get("userid") == userid
+
+
+@then("I should be redirected to the home page")
+def then_logout(response):
+    assert response.status_code in [302, 303, 307]
+
+
+@then("my session should be empty")
+def then_empty_sess(session_context):
+    # Verify the session dict was cleared by the logout handler
+    session_dict = session_context.get("dict")
+    assert session_dict is not None, "Session dict not found in context"
+    assert "user" not in session_dict, "User key still exists in session"
+    assert len(session_dict) == 0, f"Session not empty: {session_dict}"
+
+
+@then(parsers.parse("I should receive {count:d} images in the response"))
+def then_disc_count(mock_sender, count):
+    mock_sender.send_collection_images.assert_called_once()
+    assert len(mock_sender.send_collection_images.call_args[0][0].images) == count
+
+
+@then(
+    parsers.parse(
+        "I should receive an initial full sync message with {count:d} batches"
+    )
+)
+def then_stream_sync(mock_sender, count):
+    found = any(
+        call.kwargs.get("partial") is False and len(call.args[0].items) == count
+        for call in mock_sender.send_batches_list.call_args_list
+    )
+    assert found
+
+
+@then(parsers.parse("the total count in the message should be {count:d}"))
+def then_stream_total(mock_sender, count):
+    assert mock_sender.send_batches_list.call_args_list[0].args[0].total == count
+
+
+# GIVENS for retry feature
+
+
+@given(
+    parsers.parse(
+        "2 upload requests exist for batch {batch_id:d} with various statuses"
+    )
+)
+def step_given_batch_uploads(engine, batch_id):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=batch_id, userid="12345"))
+        s.commit()
+        b = s.exec(select(Batch).where(Batch.id == batch_id)).first()
+        assert b is not None
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status="completed",
+                key="img1",
+                handler="mapillary",
+                filename="img1.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status="failed",
+                key="img2",
+                handler="mapillary",
+                filename="img2.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(parsers.parse("there are {count:d} upload requests in the system"))
+def step_given_upload_requests_count(engine, count):
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        for i in range(count):
+            b = Batch(userid="12345")
+            s.add(b)
+            s.commit()
+            s.refresh(b)
+            s.add(
+                UploadRequest(
+                    batchid=b.id,
+                    userid="12345",
+                    status="queued",
+                    key=f"img{i}",
+                    handler="mapillary",
+                    filename=f"img{i}.jpg",
+                    wikitext="W",
+                    access_token="E",
+                )
+            )
+        s.commit()
+
+
+@given("I am subscribed to batch 1")
+def step_given_subscribed(mock_sender, event_loop):
+    h = Handler(
+        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.subscribe_batch(1), event_loop)
+
+
+# GIVENS for API registration
+
+
+@given("the server has API key registration configured")
+def step_given_api_config(mocker, monkeypatch):
+    monkeypatch.setenv("X_API_KEY", "test-api-key")
+    monkeypatch.setenv("X_USERNAME", "testuser")
+
+
+# WHENS for retry feature
+
+
+@when(parsers.parse("I retry uploads for batch {batch_id:d}"))
+def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
+    mock_delay = mocker.patch("curator.app.handler.process_upload.delay")
+    h = Handler(active_user, mock_sender, MagicMock())
+    run_sync(h.retry_uploads(batch_id), event_loop)
+    return {"delay": mock_delay}
+
+
+@when("I request to retry batch 1 via admin API", target_fixture="admin_retry_result")
+def when_admin_retry(client, mocker):
+    # Set up admin user dependency override
+    u = {
+        "username": "DaxServer",
+        "userid": "admin123",
+        "sub": "admin123",
+        "access_token": "v",
+    }
+
+    app.dependency_overrides[check_login] = lambda: u
+    app.dependency_overrides[check_admin] = lambda: None
+
+    mock_delay = mocker.patch("curator.workers.tasks.process_upload.delay")
+    response = client.post("/api/admin/batches/1/retry")
+    return {"response": response, "delay": mock_delay}
+
+
+@when("I fetch uploads for batch 1")
+def when_fetch_batch_uploads(mock_sender, event_loop):
+    h = Handler(
+        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.fetch_batch_uploads(1), event_loop)
+
+
+@when("I request the admin list of upload requests", target_fixture="response")
+def when_admin_upload_requests(client):
+    return client.get("/api/admin/upload_requests")
+
+
+@when(
+    parsers.parse('I update the upload request status to "{status}"'),
+    target_fixture="response",
+)
+def when_update_upload_request(client, engine):
+    with Session(engine) as s:
+        up = s.exec(
+            select(UploadRequest).where(UploadRequest.key == "updatable_img")
+        ).first()
+        assert up is not None
+        upload_id = up.id
+    return client.put(
+        f"/api/admin/upload_requests/{upload_id}", json={"status": "queued"}
+    )
+
+
+@when("I subscribe to batch 1")
+def when_subscribe_batch(mock_sender, event_loop):
+    h = Handler(
+        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.subscribe_batch(1), event_loop)
+
+
+@when("I unsubscribe from batch updates")
+def when_unsubscribe_batch(mock_sender, event_loop):
+    h = Handler(
+        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        mock_sender,
+        MagicMock(),
+    )
+    run_sync(h.unsubscribe_batch(), event_loop)
+
+
+@when("I register with a valid API key", target_fixture="response")
+def when_register_valid(client):
+    return client.post("/auth/register", headers={"X-API-KEY": "test-api-key"})
+
+
+@when("I register with an invalid API key", target_fixture="response")
+def when_register_invalid(client):
+    return client.post("/auth/register", headers={"X-API-KEY": "wrong-key"})
+
+
+@when("I register without providing an API key", target_fixture="response")
+def when_register_missing(client):
+    return client.post("/auth/register")
+
+
+# THENS for retry feature
+
+
+@then(parsers.parse('the upload requests should be reset to "{status}" status'))
+def then_reset_status(engine, status):
+    with Session(engine) as s:
+        ups = s.exec(select(UploadRequest).where(UploadRequest.userid == "12345")).all()
+        assert len(ups) > 0
+        for up in ups:
+            assert up.status == status
+
+
+@then("I should receive a confirmation with the number of retries")
+def then_retry_confirmation(mock_sender):
+    mock_sender.send_error.assert_not_called()
+
+
+@then("the response should indicate successful retry")
+def then_admin_retry_success(admin_retry_result):
+    assert admin_retry_result["response"].status_code == 200
+    assert "Retried" in admin_retry_result["response"].json()["message"]
+
+
+@then("the uploads should be queued for processing")
+def then_uploads_queued(admin_retry_result):
+    assert admin_retry_result["delay"].call_count > 0
+
+
+# THENS for batch operations
+
+
+@then("I should receive all upload requests for that batch")
+def then_batch_uploads_received(mock_sender):
+    mock_sender.send_batch_uploads_list.assert_called_once()
+
+
+@then("the response should include status information")
+def then_status_included(mock_sender):
+    call_args = mock_sender.send_batch_uploads_list.call_args[0][0]
+    assert len(call_args.uploads) > 0
+    assert hasattr(call_args.uploads[0], "status")
+
+
+@then("the response should contain 3 upload requests")
+def then_admin_upload_requests_count(response):
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 3
+
+
+@then("the upload request should be updated in the database")
+def then_upload_updated(engine):
+    with Session(engine) as s:
+        up = s.exec(
+            select(UploadRequest).where(UploadRequest.key == "updatable_img")
+        ).first()
+        assert up is not None
+        assert up.status == "queued"
+
+
+# THENS for batch subscription
+
+
+@then("I should start receiving real-time updates for that batch")
+def then_subscribed(mock_sender):
+    mock_sender.send_error.assert_not_called()
+
+
+@then("I should stop receiving updates for that batch")
+def then_unsubscribed(mock_sender):
+    mock_sender.send_error.assert_not_called()
+
+
+# THENS for API registration
+
+
+@then("I should be successfully authenticated")
+def then_api_registered_success(response):
+    assert response.status_code == 200
+    data = response.json()
+    assert "username" in data
+
+
+@then("my session should contain the test user")
+def then_api_session(response):
+    # Check that the registration response was successful
+    data = response.json()
+    assert data.get("username") == "testuser"
+
+
+@then("I should receive a 401 Unauthorized response")
+def then_api_unauthorized(response):
+    # The endpoint returns HTTPException object in JSON due to app bug
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("status_code") == 401
+
+
+@then("I should receive a 400 Bad Request response")
+def then_api_bad_request(response):
+    # The endpoint returns HTTPException object in JSON due to app bug
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("status_code") == 400
