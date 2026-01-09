@@ -2,20 +2,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from curator.app.config import cache
 from curator.app.handlers.mapillary_handler import (
     _fetch_images_by_ids_api,
     _fetch_sequence_data,
     _fetch_single_image,
     _get_sequence_ids,
 )
-
-
-@pytest.fixture(autouse=True)
-def disable_cache():
-    cache.disable()
-    yield
-    cache.enable()
 
 
 @pytest.mark.asyncio

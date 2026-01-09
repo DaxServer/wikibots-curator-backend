@@ -171,29 +171,6 @@ jupyter = ["ipython (>=7.8.0)", "tokenize-rt (>=3.2.0)"]
 uvloop = ["uvloop (>=0.15.2)"]
 
 [[package]]
-name = "cashews"
-version = "7.4.4"
-description = "cache tools with async power"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "cashews-7.4.4-py3-none-any.whl", hash = "sha256:d5b8fc3cb590ed388823388b972947fd5659e2a94109af107cb508a3240f5ef0"},
-    {file = "cashews-7.4.4.tar.gz", hash = "sha256:dca761c60192bfe354abd6e9eb98d6f62c817e675df3fbe7d1bdfaa4303d1320"},
-]
-
-[package.dependencies]
-redis = {version = ">=4.3.1,<5.0.1 || >5.0.1", optional = true, markers = "extra == \"redis\""}
-
-[package.extras]
-dill = ["dill"]
-diskcache = ["diskcache (>=5.0.0)"]
-lint = ["mypy (>=1.5.0)", "types-redis"]
-redis = ["redis (>=4.3.1,!=5.0.1)"]
-speedup = ["bitarray (<4.0.0)", "hiredis", "xxhash (<4.0.0)"]
-tests = ["hypothesis (==6.139.2)", "pytest (==8.4.2)", "pytest-asyncio (==1.1.0)", "pytest-cov (==6.2.1)", "pytest-randomly (==3.16.0)", "pytest-rerunfailures (==16.0.1)"]
-
-[[package]]
 name = "celery"
 version = "5.6.2"
 description = "Distributed Task Queue."
@@ -2087,4 +2064,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "94d09c3b37d245ed626840c24cdc6b208cd2b7d428833c2eb149335e76fb85f0"
+content-hash = "ddd91d13b4f2ff9061412c231ca14f250378b56c4785604b6b578d8e3d281106"
