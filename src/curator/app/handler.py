@@ -8,7 +8,7 @@ from fastapi import WebSocketDisconnect
 
 from curator.app.auth import UserSession
 from curator.app.config import QueuePriority
-from curator.app.crypto import encrypt_access_token
+from curator.app.crypto import encrypt_access_token, generate_edit_group_id
 from curator.app.dal import (
     count_uploads_in_batch,
     create_batch,
@@ -232,8 +232,9 @@ class Handler:
                 )
 
         # Enqueue uploads
+        edit_group_id = generate_edit_group_id()
         for upload in prepared_uploads:
-            process_upload.delay(upload["id"])
+            process_upload.delay(upload["id"], edit_group_id)
 
         logger.info(
             f"[ws] [resp] Batch uploads {len(prepared_uploads)} enqueued for {self.username}"
@@ -301,8 +302,9 @@ class Handler:
                 to_enqueue.append(req.id)
 
         # Enqueue uploads
+        edit_group_id = generate_edit_group_id()
         for upload_id in to_enqueue:
-            process_upload.delay(upload_id)
+            process_upload.delay(upload_id, edit_group_id)
 
         logger.info(
             f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(to_enqueue)} uploads) enqueued for {self.username}"
@@ -387,8 +389,9 @@ class Handler:
             return
 
         # Enqueue retries
+        edit_group_id = generate_edit_group_id()
         for upload_id in retried_ids:
-            process_upload.delay(upload_id)
+            process_upload.delay(upload_id, edit_group_id)
 
         logger.info(
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"

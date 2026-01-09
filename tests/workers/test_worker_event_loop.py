@@ -58,7 +58,7 @@ async def test_process_one_runs_without_event_loop_closed(
         mock_upload.return_value = {"url": "https://commons.example/File:Test.jpg"}
 
         for _ in range(runs):
-            assert await ingest.process_one(1) is True
+            assert await ingest.process_one(1, "test_edit_group_abc123") is True
 
         assert mock_update.call_count >= 2
         assert mock_clear.call_count >= runs

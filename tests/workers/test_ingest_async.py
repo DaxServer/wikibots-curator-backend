@@ -25,7 +25,7 @@ async def test_process_one_runs_async(
     mock_upload_request,
 ):
     # Execute
-    ok = await process_one(1)
+    ok = await process_one(1, "test_edit_group_abc123")
 
     # Verify
     assert ok is True
@@ -57,7 +57,7 @@ async def test_process_one_skips_non_queued_items(
     mock_upload_request.status = status
 
     # Execute
-    ok = await process_one(1)
+    ok = await process_one(1, "test_edit_group_abc123")
 
     # Verify
     assert ok is False
@@ -81,7 +81,7 @@ async def test_process_one_missing_access_token(
     mock_upload_request.sdc = None
 
     # Execute
-    ok = await process_one(1)
+    ok = await process_one(1, "test_edit_group_abc123")
 
     # Verify
     assert ok is False

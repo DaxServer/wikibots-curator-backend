@@ -86,6 +86,7 @@ async def _handle_duplicate_with_sdc_merge(
     username: str,
     sdc: list[Statement] | None,
     duplicate_error: DuplicateUploadError,
+    edit_group_id: str,
 ) -> tuple[str | None, str | None]:
     """
     Handle duplicate upload by attempting to merge SDC
@@ -130,7 +131,8 @@ async def _handle_duplicate_with_sdc_merge(
     else:
         merged_sdc = merge_sdc_statements(existing_sdc, sdc)
         logger.info(
-            f"[{upload_id}/{batch_id}] merged {len(sdc)} new statements with {len(existing_sdc)} existing statements, result: {len(merged_sdc)} statements"
+            f"[{upload_id}/{batch_id}] merged {len(sdc)} new statements with {len(existing_sdc)} "
+            f"existing statements, result: {len(merged_sdc)} statements"
         )
 
     # Check if merged SDC and labels are equal to existing SDC and labels
@@ -148,11 +150,16 @@ async def _handle_duplicate_with_sdc_merge(
         )
         return duplicate_file.url, "duplicated_sdc_not_updated"
 
+    edit_summary = (
+        f"Merging SDC from Mapillary image {key} (batch {batch_id}) "
+        f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
+    )
+
     if apply_sdc(
         site=site,
         file_page=file_page,
         sdc=merged_sdc,
-        edit_summary=f"Merging SDC from Mapillary image {key} (batch {batch_id})",
+        edit_summary=edit_summary,
         labels=item_label,
     ):
         logger.info(
@@ -233,6 +240,7 @@ async def _upload_with_retry(
     username: str,
     image_url: str,
     sdc: list[Statement] | None,
+    edit_group_id: str,
 ):
     """
     Upload a file with retry logic for uploadstash-file-not-found errors
@@ -243,13 +251,18 @@ async def _upload_with_retry(
                 f"[{upload_id}/{batch_id}] uploading file (attempt {attempt + 1}/{MAX_UPLOADSTASH_TRIES})"
             )
 
+            edit_summary = (
+                f"Uploaded via Curator from Mapillary image {key} (batch {batch_id}) "
+                f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
+            )
+
             return upload_file_chunked(
                 upload_id=upload_id,
                 batch_id=batch_id,
                 file_name=filename,
                 file_url=image_url,
                 wikitext=wikitext,
-                edit_summary=f"Uploaded via Curator from Mapillary image {key} (batch {batch_id})",
+                edit_summary=edit_summary,
                 access_token=access_token,
                 username=username,
                 sdc=sdc,
@@ -283,7 +296,7 @@ async def _upload_with_retry(
             raise
 
 
-async def process_one(upload_id: int) -> bool:
+async def process_one(upload_id: int, edit_group_id: str) -> bool:
     logger.info(f"[{upload_id}] processing upload")
 
     # 1. Fetch data and set in_progress (Short session)
@@ -386,6 +399,7 @@ async def process_one(upload_id: int) -> bool:
             username=username,
             image_url=image_url,
             sdc=sdc,
+            edit_group_id=edit_group_id,
         )
 
         logger.info(
@@ -410,6 +424,7 @@ async def process_one(upload_id: int) -> bool:
             username=username,
             sdc=sdc,
             duplicate_error=e,
+            edit_group_id=edit_group_id,
         )
 
         with get_session() as session:

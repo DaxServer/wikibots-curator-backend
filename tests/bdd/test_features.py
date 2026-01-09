@@ -529,7 +529,7 @@ def when_worker(engine, event_loop):
         ).first()
         assert up is not None
         uid = up.id
-    run_sync(process_one(uid), event_loop)
+    run_sync(process_one(uid, "test_edit_group_abc123"), event_loop)
 
 
 @when("I request the admin list of batches", target_fixture="response")

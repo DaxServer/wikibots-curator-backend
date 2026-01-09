@@ -47,7 +47,13 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        mock_process_upload.delay.assert_called_once_with(1)
+        # Check that process_upload.delay was called with upload_id and edit_group_id
+        assert mock_process_upload.delay.call_count == 1
+        call_args = mock_process_upload.delay.call_args
+        assert call_args[0][0] == 1  # First arg is upload_id
+        assert len(call_args[0]) == 2  # Called with 2 args (upload_id, edit_group_id)
+        assert isinstance(call_args[0][1], str)  # Second arg is edit_group_id string
+        assert len(call_args[0][1]) == 12  # edit_group_id is 12 characters
 
         mock_sender.send_upload_slice_ack.assert_called_once_with(
             data=[UploadSliceAckItem(id="img1", status="queued")], sliceid=0

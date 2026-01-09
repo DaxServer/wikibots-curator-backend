@@ -68,7 +68,13 @@ async def test_handle_upload(
 
         await handler_instance.upload(data)
 
-        mock_process_upload.delay.assert_called_once_with(mock_upload_request.id)
+        # Check that process_upload.delay was called with upload_id and edit_group_id
+        assert mock_process_upload.delay.call_count == 1
+        call_args = mock_process_upload.delay.call_args
+        assert call_args[0][0] == mock_upload_request.id
+        assert len(call_args[0]) == 2
+        assert isinstance(call_args[0][1], str)
+        assert len(call_args[0][1]) == 12
         mock_sender.send_upload_created.assert_called_once()
         call_args = mock_sender.send_upload_created.call_args[0][0]
         assert call_args[0].id == mock_upload_request.id
@@ -374,7 +380,13 @@ async def test_upload_with_priority(
 
         await handler_instance.upload(data, priority=priority)
 
-        mock_process_upload.delay.assert_called_once_with(mock_upload_request.id)
+        # Check that process_upload.delay was called with upload_id and edit_group_id
+        assert mock_process_upload.delay.call_count == 1
+        call_args = mock_process_upload.delay.call_args
+        assert call_args[0][0] == mock_upload_request.id
+        assert len(call_args[0]) == 2
+        assert isinstance(call_args[0][1], str)
+        assert len(call_args[0][1]) == 12
         mock_sender.send_upload_created.assert_called_once()
 
 
@@ -394,5 +406,12 @@ async def test_retry_uploads_with_priority(handler_instance, priority):
             await handler_instance.retry_uploads(123)
 
         assert mock_process_upload.delay.call_count == 2
-        mock_process_upload.delay.assert_any_call(1)
-        mock_process_upload.delay.assert_any_call(2)
+        # Check that calls were made with upload_id and edit_group_id
+        calls = mock_process_upload.delay.call_args_list
+        upload_ids = {call[0][0] for call in calls}
+        assert upload_ids == {1, 2}
+        # Verify all calls have edit_group_id
+        for call in calls:
+            assert len(call[0]) == 2
+            assert isinstance(call[0][1], str)
+            assert len(call[0][1]) == 12

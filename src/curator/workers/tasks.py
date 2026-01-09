@@ -31,19 +31,16 @@ def _get_event_loop():
     retry_backoff_max=600,
     retry_jitter=True,
 )
-def process_upload(self, upload_id: int) -> bool:
+def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
     """
-    Process a single upload request.
-
-    Exactly-once semantics are handled by process_one() which checks
-    if the upload status is 'queued' before processing.
+    Process a single upload request
     """
     worker_id = f"{os.getpid()}-{self.request.id}"
     logger.info(f"[celery] [{upload_id}] [{worker_id}] task started")
 
     loop = _get_event_loop()
     try:
-        result = loop.run_until_complete(process_one(upload_id))
+        result = loop.run_until_complete(process_one(upload_id, edit_group_id))
         return result
     except Exception as e:
         logger.error(

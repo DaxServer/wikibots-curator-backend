@@ -73,7 +73,7 @@ async def test_worker_process_one_decrypts_token(mock_session):
             ),
         ),
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
         assert tuple(captured["token"]) == ("t", "s")
 
@@ -148,7 +148,7 @@ async def test_worker_process_one_duplicate_status(mock_session):
             return_value=(None, None),  # (url, status) - None means merge failed
         ),
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert captured_status["status"] == "duplicate"
         assert captured_status["error"].type == "duplicate"
@@ -228,7 +228,7 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
             ),
         ),
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert captured_status["status"] == "failed"
         assert captured_status["error"].type == "title_blacklisted"
@@ -301,7 +301,7 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
         assert (
             len(upload_attempts) == 2
@@ -378,7 +378,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert len(upload_attempts) == 2  # Should have tried 2 times
         assert captured_status["status"] == "failed"
@@ -455,9 +455,81 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),  # Mock sleep to avoid delays
     ):
-        ok = await process_one(1)
+        ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert len(upload_attempts) == 1  # Should have tried only once (no retry)
         assert captured_status["status"] == "failed"
         assert captured_status["error"].type == "error"
         assert "Network timeout or some other error" in captured_status["error"].message
+
+
+@pytest.mark.asyncio
+async def test_worker_process_one_includes_edit_group_id_in_summary(mock_session):
+    """Test that process_one includes edit_group_id in the edit summary."""
+    item = SimpleNamespace(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        filename="File.jpg",
+        wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
+        copyright_override=False,
+        sdc=None,
+        collection="seq",
+        access_token=encrypt_access_token(("t", "s")),
+        user=SimpleNamespace(username="User"),
+        last_edited_by=None,
+        last_editor=None,
+    )
+
+    captured_edit_summary = {}
+
+    def mock_upload_file_chunked(**kwargs):
+        captured_edit_summary["summary"] = kwargs.get("edit_summary", "")
+        return {
+            "result": "success",
+            "title": kwargs["file_name"],
+            "url": kwargs["file_url"],
+        }
+
+    with (
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch("curator.workers.ingest.update_upload_status"),
+        patch(
+            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+        ),
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=mock_upload_file_chunked,
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(
+                id="img1",
+                creator=SimpleNamespace(username="alice"),
+                dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
+                url="https://example.com/photo",
+                url_original="https://example.com/file.jpg",
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
+                width=100,
+                height=200,
+            ),
+        ),
+    ):
+        test_edit_group_id = "abc123def456"
+        ok = await process_one(1, test_edit_group_id)
+        assert ok is True
+        # Verify the edit summary includes the edit group link
+        assert test_edit_group_id in captured_edit_summary["summary"]
+        assert (
+            "[[:toolforge:editgroups-commons/b/curator/"
+            in captured_edit_summary["summary"]
+        )
+        assert "|details]]" in captured_edit_summary["summary"]

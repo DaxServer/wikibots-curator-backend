@@ -159,8 +159,13 @@ def test_ws_upload(mocker, mock_dal, mock_worker, mock_get_session_patch):
         assert items[0]["id"] == 1
         assert items[0]["batchid"] == 100
 
-        # Verify worker was called
-        mock_worker.delay.assert_called_once_with(1)
+        # Verify worker was called with upload_id and edit_group_id
+        assert mock_worker.delay.call_count == 1
+        call_args = mock_worker.delay.call_args
+        assert call_args[0][0] == 1
+        assert len(call_args[0]) == 2
+        assert isinstance(call_args[0][1], str)
+        assert len(call_args[0][1]) == 12
 
 
 def test_ws_invalid_message():

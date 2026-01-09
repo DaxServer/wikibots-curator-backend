@@ -1,4 +1,6 @@
 import json
+import random
+import string
 
 from cryptography.fernet import Fernet
 from mwoauth import AccessToken
@@ -20,3 +22,10 @@ def decrypt_access_token(ciphertext: str) -> AccessToken:
     f = _get_fernet()
     data = f.decrypt(ciphertext.encode())
     return AccessToken(*json.loads(data.decode()))
+
+
+def generate_edit_group_id() -> str:
+    """
+    Generate a 12-character alphanumeric edit group ID
+    """
+    return "".join(random.choices(string.hexdigits, k=12))
