@@ -28,4 +28,4 @@ def generate_edit_group_id() -> str:
     """
     Generate a 12-character alphanumeric edit group ID
     """
-    return "".join(random.choices(string.hexdigits + string.digits, k=12))
+    return "".join(random.choices(string.hexdigits, k=12))
