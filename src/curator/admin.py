@@ -48,7 +48,9 @@ async def admin_get_users(
     with get_session() as session:
         items = get_users(session, offset=offset, limit=limit)
         total = count_users(session)
-    return {"items": items, "total": total}
+        # Serialize User objects to dicts BEFORE session closes
+        serialized = [u.model_dump() for u in items]
+    return {"items": serialized, "total": total}
 
 
 @router.get("/upload_requests")
