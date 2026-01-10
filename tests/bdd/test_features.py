@@ -195,6 +195,14 @@ def test_admin_list_users():
     pass
 
 
+@scenario(
+    "features/admin.feature",
+    "Admin users endpoint returns properly serialized user data",
+)
+def test_admin_users_serialization():
+    pass
+
+
 @scenario("features/authentication.feature", "Checking current user identity")
 def test_auth_whoami():
     pass
@@ -698,6 +706,20 @@ def then_admin_batches(response, count):
 def then_admin_users(response, count):
     assert response.status_code == 200
     assert response.json()["total"] == count
+
+
+@then("each user should have username and userid fields")
+def then_admin_users_serialized(response):
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    items = data["items"]
+    assert len(items) > 0
+    for user in items:
+        assert "username" in user, f"User missing username field: {user}"
+        assert "userid" in user, f"User missing userid field: {user}"
+        assert isinstance(user["username"], str), f"username should be string: {user}"
+        assert isinstance(user["userid"], str), f"userid should be string: {user}"
 
 
 @then("I should receive a 403 Forbidden response")

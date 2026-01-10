@@ -19,3 +19,10 @@ Feature: Admin Panel
     And there are 2 users in the system
     When I request the admin list of users
     Then the response should contain 2 users
+
+  Scenario: Admin users endpoint returns properly serialized user data
+    Given I am logged in as admin "DaxServer"
+    And there are 2 users in the system
+    When I request the admin list of users
+    Then the response should contain 2 users
+    And each user should have username and userid fields
