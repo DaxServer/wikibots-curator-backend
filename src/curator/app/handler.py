@@ -41,6 +41,8 @@ from curator.asyncapi import (
     UploadSliceData,
     UploadUpdateItem,
 )
+from curator.handlers.flickr_handler import FlickrHandler
+from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
 from curator.protocol import AsyncAPIWebSocket
 from curator.workers.celery import app as celery_app
