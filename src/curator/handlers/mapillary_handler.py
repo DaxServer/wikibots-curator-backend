@@ -9,9 +9,9 @@ from curator.app.config import (
     MAPILLARY_API_TOKEN,
     WikidataProperty,
 )
-from curator.app.handlers.interfaces import Handler
 from curator.app.wcqs import WcqsSession
 from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaImage
+from curator.handlers.interfaces import Handler
 
 logger = logging.getLogger(__name__)
 

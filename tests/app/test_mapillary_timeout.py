@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from curator.app.handlers.mapillary_handler import (
+from curator.handlers.mapillary_handler import (
     _fetch_images_by_ids_api,
     _fetch_sequence_data,
     _fetch_single_image,
