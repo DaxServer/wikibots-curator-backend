@@ -38,6 +38,7 @@ from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
 from .GlobeCoordinateValueSnak import GlobeCoordinateValueSnak
+from .ImageHandler import ImageHandler
 from .Label import Label
 from .MediaImage import MediaImage
 from .NoValueSnak import NoValueSnak
@@ -86,6 +87,7 @@ __all__ = [
     "FetchBatchesData",
     "FetchBatchUploads",
     "FetchImages",
+    "ImageHandler",
     "RetryUploads",
     "SubscribeBatch",
     "SubscribeBatchesList",

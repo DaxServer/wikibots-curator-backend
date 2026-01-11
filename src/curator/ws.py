@@ -60,7 +60,7 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 continue
 
             if isinstance(message, FetchImages):
-                await handler.fetch_images(message.data)
+                await handler.fetch_images(message.data, 'mapillary')
                 continue
 
             if isinstance(message, RetryUploads):

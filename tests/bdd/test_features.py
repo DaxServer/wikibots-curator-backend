@@ -12,7 +12,7 @@ import curator.app.auth as auth_mod
 from curator.admin import check_admin
 from curator.app.auth import UserSession, check_login
 from curator.app.commons import DuplicateUploadError
-from curator.app.handler import Handler
+from curator.app.handler import Handler, get_handler_for_handler_type
 from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import (
     CancelBatch,
@@ -21,10 +21,12 @@ from curator.asyncapi import (
     ErrorLink,
     FetchBatchesData,
     GeoLocation,
+    ImageHandler,
     MediaImage,
     UploadItem,
     UploadSliceData,
 )
+from curator.handlers.flickr_handler import FlickrHandler
 from curator.main import app
 from curator.workers.ingest import process_one
 
@@ -1438,3 +1440,33 @@ def step_then_batch_stats_accurate(mock_sender, engine):
         if batch_found:
             break
     assert batch_found, "Batch with id=1 not found in response"
+
+
+# --- Flickr Handler Integration Scenarios ---
+
+
+@scenario(
+    "features/flickr_handler.feature", "Flickr handler enum maps to FlickrHandler"
+)
+def test_flickr_enum_to_handler():
+    pass
+
+
+# --- Flickr Handler Step Definitions ---
+
+
+@given(parsers.parse('the ImageHandler enum value is "{handler_value}"'))
+def step_given_image_handler_enum(handler_value, session_context):
+    session_context["handler_type"] = ImageHandler(handler_value)
+
+
+@when("I get the handler for this type")
+def step_when_get_handler(session_context):
+    handler_type = session_context.get("handler_type")
+    handler = get_handler_for_handler_type(handler_type)
+    session_context["handler"] = handler
+
+
+@then("the FlickrHandler should be returned")
+def step_then_flickr_handler_returned(session_context):
+    assert isinstance(session_context["handler"], FlickrHandler)

@@ -16,11 +16,12 @@ adapter = TypeAdapter(ClientMessage)
 
 
 def test_fetch_images_payload():
-    data = {"type": "FETCH_IMAGES", "data": "Q42"}
+    data = {"type": "FETCH_IMAGES", "data": "Q42", "handler": "mapillary"}
     obj = adapter.validate_python(data)
     assert isinstance(obj, FetchImages)
     assert obj.type == "FETCH_IMAGES"
     assert obj.data == "Q42"
+    assert obj.handler.value == "mapillary"
 
 
 def test_upload_payload():

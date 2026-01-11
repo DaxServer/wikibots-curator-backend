@@ -235,7 +235,9 @@ async def _fetch_photo_details(photo_id: str) -> dict:
 
 
 class FlickrHandler(Handler):
-    name = "flickr"
+    @property
+    def name(self) -> str:
+        return "flickr"
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         """Fetch all images from Flickr album"""
@@ -257,10 +259,10 @@ class FlickrHandler(Handler):
         return await _fetch_album_ids(photoset_id, user_id)
 
     async def fetch_images_batch(
-        self, image_ids: list[str], collection: str
+        self, image_ids: list[str], input: str
     ) -> dict[str, MediaImage]:
         """Fetch batch of images by IDs from the collection"""
-        photoset_id, user_id = parse_album_url(collection)
+        photoset_id, user_id = parse_album_url(input)
         data = await fetch_photos_batch(image_ids, photoset_id, user_id)
         return {k: from_flickr(v, photoset_id) for k, v in data.items()}
 

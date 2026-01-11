@@ -31,6 +31,7 @@ from curator.asyncapi import (
     DuplicatedSdcUpdatedError,
     DuplicateError,
     FetchBatchesData,
+    ImageHandler,
     MediaImage,
     PartialCollectionImagesData,
     SubscribeBatchesListData,
@@ -46,6 +47,15 @@ from curator.workers.celery import app as celery_app
 from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
+
+
+def get_handler_for_handler_type(
+    handler: ImageHandler,
+) -> FlickrHandler | MapillaryHandler:
+    """Return the appropriate handler based on ImageHandler enum."""
+    if handler == ImageHandler.FLICKR:
+        return FlickrHandler()
+    return MapillaryHandler()
 
 
 def handle_exceptions(func):
@@ -85,14 +95,15 @@ class Handler:
             asyncio.create_task(self.batch_streamer.stop_streaming())
 
     @handle_exceptions
-    async def fetch_images(self, collection: str):
-        handler = MapillaryHandler()
+    async def fetch_images(self, collection: str, handler_type: ImageHandler):
+        handler = get_handler_for_handler_type(handler_type)
         loop = asyncio.get_running_loop()
+
         try:
             images = await handler.fetch_collection(collection)
         except httpx.ReadTimeout:
             logger.error(
-                f"[mapillary] API timeout for {collection} for {self.username}"
+                f"[{handler.name}] API timeout for {collection} for {self.username}"
             )
             await self._fetch_images_in_batches(collection, handler, loop)
             return
@@ -102,14 +113,16 @@ class Handler:
                 return
 
             logger.error(
-                f"[mapillary] API error for {collection} for {self.username}: {e}"
+                f"[{handler.name}] API error for {collection} for {self.username}: {e}"
             )
-            await self.socket.send_error(f"Mapillary API Error: {e.response.text}")
+            await self.socket.send_error(
+                f"{handler.name.title()} API Error: {e.response.text}"
+            )
             return
 
         if not images:
             logger.error(
-                f"[mapillary] Collection not found for {collection} for {self.username}"
+                f"[{handler.name}] Collection not found for {collection} for {self.username}"
             )
             await self.socket.send_error("Collection not found")
             return
@@ -119,19 +132,20 @@ class Handler:
     async def _fetch_images_in_batches(
         self,
         collection: str,
-        handler: MapillaryHandler,
+        handler: BaseHandler,
         loop: asyncio.AbstractEventLoop,
     ):
         logger.warning(
-            f"[mapillary] Attempting batch retrieval for {collection} for {self.username}"
+            f"[{handler.name}] Attempting batch retrieval for {collection} for {self.username}"
         )
         await self.socket.send_try_batch_retrieval(
             "Large collection detected. Loading in batches..."
         )
+
         try:
             ids = await handler.fetch_collection_ids(collection)
             logger.info(
-                f"[mapillary] Found {len(ids)} images in collection {collection} for {self.username}"
+                f"[{handler.name}] Found {len(ids)} images in collection {collection} for {self.username}"
             )
 
             if not ids:
@@ -162,18 +176,20 @@ class Handler:
                 )
         except WebSocketDisconnect:
             logger.info(
-                f"[mapillary] User {self.username} disconnected during batch retrieval for {collection}"
+                f"[{handler.name}] User {self.username} disconnected during batch retrieval for {collection}"
             )
             pass
         except Exception as ex:
-            logger.error(f"[mapillary] Batch retrieval failed for {collection}: {ex}")
+            logger.error(
+                f"[{handler.name}] Batch retrieval failed for {collection}: {ex}"
+            )
             await self.socket.send_error(f"Batch retrieval failed: {ex}")
 
     async def _send_full_collection(
         self,
         collection: str,
         images: dict[str, MediaImage],
-        handler: MapillaryHandler,
+        handler: BaseHandler,
         loop: asyncio.AbstractEventLoop,
     ):
         first = next(iter(images.values()))
@@ -191,7 +207,7 @@ class Handler:
             images[image_id].existing = pages
 
         logger.info(
-            f"[mapillary] Sending collection {collection} images for {self.username}"
+            f"[{handler.name}] Sending collection {collection} images for {self.username}"
         )
         await self.socket.send_collection_images(
             CollectionImagesData(images=images, creator=creator)

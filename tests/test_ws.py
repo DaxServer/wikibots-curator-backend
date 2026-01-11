@@ -91,7 +91,9 @@ def test_ws_fetch_images(mock_mapillary_handler):
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
 
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json({"type": "FETCH_IMAGES", "data": "some_input"})
+        websocket.send_json(
+            {"type": "FETCH_IMAGES", "data": "some_input", "handler": "mapillary"}
+        )
 
         data = websocket.receive_json()
         assert data["type"] == "COLLECTION_IMAGES"
@@ -110,7 +112,9 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
     mock_handler_instance.fetch_collection = AsyncMock(return_value={})
 
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json({"type": "FETCH_IMAGES", "data": "bad_input"})
+        websocket.send_json(
+            {"type": "FETCH_IMAGES", "data": "bad_input", "handler": "mapillary"}
+        )
 
         data = websocket.receive_json()
         assert data["type"] == "ERROR"
