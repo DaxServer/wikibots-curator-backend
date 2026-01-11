@@ -74,8 +74,8 @@ def on_worker_init(**kwargs):
 def on_task_postrun(**kwargs):
     with task_counter.get_lock():
         task_counter.value += 1
-        if task_counter.value >= CELERY_TASKS_PER_WORKER:
-            # Gracefully shutdown the main worker process
+        if task_counter.value == CELERY_TASKS_PER_WORKER:
+            logger.info(f"Worker reached task limit ({CELERY_TASKS_PER_WORKER}). Initiating shutdown.")
             os.kill(os.getppid(), signal.SIGTERM)
 
 
