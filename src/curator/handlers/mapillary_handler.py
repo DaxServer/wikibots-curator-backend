@@ -151,7 +151,9 @@ async def _fetch_single_image(image_id: str) -> dict:
 
 
 class MapillaryHandler(Handler):
-    name = "mapillary"
+    @property
+    def name(self) -> str:
+        return "mapillary"
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
@@ -161,7 +163,7 @@ class MapillaryHandler(Handler):
         return await _get_sequence_ids(input)
 
     async def fetch_images_batch(
-        self, image_ids: list[str], sequence_id: str
+        self, image_ids: list[str], input: str
     ) -> dict[str, MediaImage]:
         data = await _fetch_images_by_ids_api(image_ids)
         return {k: from_mapillary(v) for k, v in data.items()}

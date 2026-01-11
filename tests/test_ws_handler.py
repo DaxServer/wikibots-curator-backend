@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -18,12 +18,16 @@ from curator.asyncapi import (
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_image):
-    with patch("curator.app.handler.MapillaryHandler") as MockHandler:
-        handler = MockHandler.return_value
-        handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
-        handler.fetch_existing_pages.return_value = {"img1": []}
+    from curator.asyncapi import ImageHandler
 
-        await handler_instance.fetch_images("some_input")
+    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+        mock_handler = MagicMock()
+        mock_handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
+        mock_handler.fetch_existing_pages.return_value = {"img1": []}
+        mock_handler.name = "mapillary"
+        mock_get_handler.return_value = mock_handler
+
+        await handler_instance.fetch_images("some_input", ImageHandler.MAPILLARY)
 
         assert mock_sender.send_collection_images.call_count == 1
         call_args = mock_sender.send_collection_images.call_args[0][0]
@@ -33,11 +37,15 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_i
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
-    with patch("curator.app.handler.MapillaryHandler") as MockHandler:
-        handler = MockHandler.return_value
-        handler.fetch_collection = AsyncMock(return_value={})
+    from curator.asyncapi import ImageHandler
 
-        await handler_instance.fetch_images("invalid")
+    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+        mock_handler = MagicMock()
+        mock_handler.fetch_collection = AsyncMock(return_value={})
+        mock_handler.name = "mapillary"
+        mock_get_handler.return_value = mock_handler
+
+        await handler_instance.fetch_images("invalid", ImageHandler.MAPILLARY)
 
         mock_sender.send_error.assert_called_once_with("Collection not found")
 
@@ -191,23 +199,24 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_sender):
-    with patch("curator.app.handler.MapillaryHandler") as MockHandler:
-        handler = MockHandler.return_value
+    from curator.asyncapi import ImageHandler
 
-        # Create a mock response with a text property
-        mock_response = mocker.MagicMock()
-        mock_response.status_code = 502
-        mock_response.text = "502 error"
-
-        # Raise HTTPStatusError
-        error = httpx.HTTPStatusError(
-            "Error message", request=mocker.MagicMock(), response=mock_response
+    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+        mock_handler = mocker.MagicMock()
+        mock_handler.fetch_collection = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "Error message",
+                request=mocker.MagicMock(),
+                response=mocker.MagicMock(status_code=502, text="502 error"),
+            )
         )
-        handler.fetch_collection = AsyncMock(side_effect=error)
+        mock_handler.name = "mapillary"
+        mock_get_handler.return_value = mock_handler
 
-        await handler_instance.fetch_images("invalid_collection")
+        await handler_instance.fetch_images(
+            "invalid_collection", ImageHandler.MAPILLARY
+        )
 
-        # The handler should send the error message which includes response.text
         mock_sender.send_error.assert_called_once()
         args = mock_sender.send_error.call_args[0]
         assert "Mapillary API Error" in args[0]

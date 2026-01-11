@@ -7,9 +7,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .ImageHandler import ImageHandler
+
 
 class FetchImages(BaseModel):
     data: str = Field(description="""Collection identifier""")
     type: Literal["FETCH_IMAGES"] = Field(default="FETCH_IMAGES", frozen=True)
+    handler: ImageHandler = Field()
 
     model_config = ConfigDict(populate_by_name=True)
