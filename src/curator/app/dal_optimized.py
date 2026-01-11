@@ -83,6 +83,7 @@ def get_batches_optimized(
             func.sum(case((col(UploadRequest.status) == "in_progress", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "completed", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "failed", 1), else_=0)),
+            func.sum(case((col(UploadRequest.status) == "cancelled", 1), else_=0)),
             func.sum(
                 case(
                     (
@@ -115,6 +116,7 @@ def get_batches_optimized(
             in_progress,
             completed,
             failed,
+            cancelled,
             duplicate,
         ) = row
         if bid in batch_items_map:
@@ -124,6 +126,7 @@ def get_batches_optimized(
                 in_progress=int(in_progress) if in_progress else 0,
                 completed=int(completed) if completed else 0,
                 failed=int(failed) if failed else 0,
+                cancelled=int(cancelled) if cancelled else 0,
                 duplicate=int(duplicate) if duplicate else 0,
             )
 
@@ -252,6 +255,7 @@ def get_batches_minimal(
             func.sum(case((col(UploadRequest.status) == "in_progress", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "completed", 1), else_=0)),
             func.sum(case((col(UploadRequest.status) == "failed", 1), else_=0)),
+            func.sum(case((col(UploadRequest.status) == "cancelled", 1), else_=0)),
             func.sum(
                 case(
                     (
@@ -284,6 +288,7 @@ def get_batches_minimal(
             in_progress,
             completed,
             failed,
+            cancelled,
             duplicate,
         ) = row
         if bid in batch_items_map:
@@ -293,6 +298,7 @@ def get_batches_minimal(
                 in_progress=int(in_progress) if in_progress else 0,
                 completed=int(completed) if completed else 0,
                 failed=int(failed) if failed else 0,
+                cancelled=int(cancelled) if cancelled else 0,
                 duplicate=int(duplicate) if duplicate else 0,
             )
 

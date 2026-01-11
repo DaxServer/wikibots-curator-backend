@@ -10,6 +10,7 @@ from curator.asyncapi import (
     BatchesListData,
     BatchUploadsList,
     BatchUploadsListData,
+    CancelBatch,
     CollectionImageIds,
     CollectionImages,
     CollectionImagesData,
@@ -43,6 +44,8 @@ WS_CHANNEL_ADDRESS: str = "/ws"
 
 ClientMessage = Annotated[
     Union[
+        CancelBatch,
+        CreateBatch,
         FetchBatches,
         FetchBatchUploads,
         FetchImages,
@@ -52,7 +55,6 @@ ClientMessage = Annotated[
         UnsubscribeBatch,
         UnsubscribeBatchesList,
         Upload,
-        CreateBatch,
         UploadSlice,
     ],
     Field(discriminator="type"),

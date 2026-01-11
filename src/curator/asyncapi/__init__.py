@@ -9,6 +9,7 @@ from .BatchStats import BatchStats
 from .BatchUploadItem import BatchUploadItem
 from .BatchUploadsList import BatchUploadsList
 from .BatchUploadsListData import BatchUploadsListData
+from .CancelBatch import CancelBatch
 from .CollectionImageIds import CollectionImageIds
 from .CollectionImages import CollectionImages
 from .CollectionImagesData import CollectionImagesData
@@ -97,6 +98,7 @@ __all__ = [
     "Label",
     "UploadSlice",
     "UploadSliceData",
+    "CancelBatch",
     "BatchCreated",
     "BatchesList",
     "BatchesListData",

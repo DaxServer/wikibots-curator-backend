@@ -10,6 +10,7 @@ from curator.app.auth import UserSession
 from curator.app.config import QueuePriority
 from curator.app.crypto import encrypt_access_token, generate_edit_group_id
 from curator.app.dal import (
+    cancel_batch,
     count_uploads_in_batch,
     create_batch,
     create_upload_request,
@@ -18,6 +19,7 @@ from curator.app.dal import (
     get_batch,
     get_upload_request,
     reset_failed_uploads,
+    update_celery_task_id,
 )
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
@@ -40,6 +42,7 @@ from curator.asyncapi import (
     UploadUpdateItem,
 )
 from curator.protocol import AsyncAPIWebSocket
+from curator.workers.celery import app as celery_app
 from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
@@ -233,8 +236,12 @@ class Handler:
 
         # Enqueue uploads
         edit_group_id = generate_edit_group_id()
-        for upload in prepared_uploads:
-            process_upload.delay(upload["id"], edit_group_id)
+        with get_session() as save_session:
+            for upload in prepared_uploads:
+                task_result = process_upload.delay(upload["id"], edit_group_id)
+                task_id = task_result.id
+                if isinstance(task_id, str):
+                    update_celery_task_id(save_session, upload["id"], task_id)
 
         logger.info(
             f"[ws] [resp] Batch uploads {len(prepared_uploads)} enqueued for {self.username}"
@@ -303,8 +310,13 @@ class Handler:
 
         # Enqueue uploads
         edit_group_id = generate_edit_group_id()
-        for upload_id in to_enqueue:
-            process_upload.delay(upload_id, edit_group_id)
+        with get_session() as save_session:
+            for upload_id in to_enqueue:
+                task_result = process_upload.delay(upload_id, edit_group_id)
+                # Store the task ID for later cancellation (only if it's a real string)
+                task_id = task_result.id
+                if isinstance(task_id, str):
+                    update_celery_task_id(save_session, upload_id, task_id)
 
         logger.info(
             f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(to_enqueue)} uploads) enqueued for {self.username}"
@@ -390,11 +402,44 @@ class Handler:
 
         # Enqueue retries
         edit_group_id = generate_edit_group_id()
-        for upload_id in retried_ids:
-            process_upload.delay(upload_id, edit_group_id)
+        with get_session() as save_session:
+            for upload_id in retried_ids:
+                task_result = process_upload.delay(upload_id, edit_group_id)
+                # Store the task ID for later cancellation (only if it's a real string)
+                task_id = task_result.id
+                if isinstance(task_id, str):
+                    update_celery_task_id(save_session, upload_id, task_id)
 
         logger.info(
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"
+        )
+
+    @handle_exceptions
+    async def cancel_batch(self, batchid: int):
+        userid = self.user["userid"]
+
+        try:
+            with get_session() as session:
+                cancelled_task_ids = cancel_batch(session, batchid, userid)
+        except ValueError:
+            await self.socket.send_error(f"Batch {batchid} not found")
+            return
+        except PermissionError:
+            await self.socket.send_error("Permission denied")
+            return
+
+        if not cancelled_task_ids:
+            logger.info(
+                f"[ws] [resp] No queued items to cancel for batch {batchid} for {self.username}"
+            )
+            await self.socket.send_error("No queued items to cancel")
+            return
+
+        # Revoke Celery tasks (async, fire-and-forget)
+        revoke_celery_tasks_by_id(cancelled_task_ids)
+
+        logger.info(
+            f"[ws] [resp] Cancelled {len(cancelled_task_ids)} uploads for batch {batchid} for {self.username}"
         )
 
     @handle_exceptions
@@ -506,3 +551,25 @@ class Handler:
             await self.batch_streamer.stop_streaming()
 
         logger.info(f"[ws] [resp] Unsubscribed from batches list for {self.username}")
+
+
+def revoke_celery_tasks_by_id(upload_task_ids: dict[int, str]) -> dict[int, bool]:
+    """Revoke Celery tasks for the given upload IDs using their stored task IDs"""
+    results = {}
+    for upload_id, task_id in upload_task_ids.items():
+        try:
+            if not task_id:
+                logger.warning(
+                    f"No task ID for upload {upload_id}, skipping revocation"
+                )
+                results[upload_id] = False
+                continue
+            celery_app.control.revoke(task_id, terminate=False)
+            results[upload_id] = True
+        except Exception as e:
+            logger.warning(
+                f"Failed to revoke task {task_id} for upload {upload_id}: {e}"
+            )
+            results[upload_id] = False
+
+    return results

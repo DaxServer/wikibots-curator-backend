@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from curator.app.auth import LoggedInUser
 from curator.app.handler import Handler
 from curator.asyncapi import (
+    CancelBatch,
     CreateBatch,
     FetchBatches,
     FetchBatchUploads,
@@ -64,6 +65,10 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, RetryUploads):
                 await handler.retry_uploads(message.data)
+                continue
+
+            if isinstance(message, CancelBatch):
+                await handler.cancel_batch(message.data)
                 continue
 
             if isinstance(message, SubscribeBatch):
