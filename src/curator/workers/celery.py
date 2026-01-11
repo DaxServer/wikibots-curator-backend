@@ -1,6 +1,7 @@
 """Celery application configuration"""
 
 import logging
+import multiprocessing
 import os
 import signal
 import sys
@@ -26,9 +27,6 @@ from curator.app.config import (
     CELERY_TASKS_PER_WORKER,
 )
 
-logger = logging.getLogger(__name__)
-
-
 app = Celery("curator")
 app.conf.update(
     broker_url=CELERY_BROKER_URL,
@@ -44,7 +42,6 @@ app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    worker_max_tasks_per_child=CELERY_TASKS_PER_WORKER,
     worker_concurrency=CELERY_CONCURRENCY,
     task_routes={
         "curator.workers.tasks.process_upload": {"queue": "uploads"},
@@ -52,13 +49,18 @@ app.conf.update(
     broker_connection_retry_on_startup=True,
     broker_pool_limit=5,
     worker_ready_timeout=30,
-    worker_shutdown_timeout=30,
+    worker_shutdown_timeout=300,
+    worker_soft_shutdown_timeout=300,
 )
 
 # Import tasks AFTER app is created to avoid circular import
 from curator.workers import tasks  # noqa: F401, E402
 
 HEARTBEAT_FILE = Path(tempfile.gettempdir()) / "celery_worker_heartbeat"
+logger = logging.getLogger(__name__)
+
+# Shared across forked workers
+task_counter = multiprocessing.Value("i", 0)
 
 
 @worker_init.connect
@@ -66,6 +68,15 @@ def on_worker_init(**kwargs):
     """Configure logging for Celery worker processes."""
     # Suppress httpx INFO logs (HTTP Request messages)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+@task_postrun.connect
+def on_task_postrun(**kwargs):
+    with task_counter.get_lock():
+        task_counter.value += 1
+        if task_counter.value >= CELERY_TASKS_PER_WORKER:
+            # Gracefully shutdown the main worker process
+            os.kill(os.getppid(), signal.SIGTERM)
 
 
 @worker_ready.connect
