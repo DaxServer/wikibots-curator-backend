@@ -642,6 +642,22 @@ standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.8)", "htt
 standard-no-fastapi-cloud-cli = ["email-validator (>=2.0.0)", "fastapi-cli[standard-no-fastapi-cloud-cli] (>=0.0.8)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
+name = "flickr-url-parser"
+version = "1.12.0"
+description = "Enter a Flickr URL, and find out what sort of URL it is (single photo, album, gallery, etc.)"
+optional = false
+python-versions = ">=3.12"
+groups = ["main"]
+files = [
+    {file = "flickr_url_parser-1.12.0-py3-none-any.whl", hash = "sha256:d6e20ee97777468101bd6160be755df763f035cfcde873bf9baef4714db6cd35"},
+    {file = "flickr_url_parser-1.12.0.tar.gz", hash = "sha256:2e2de7aee12a232fbfb07b04da232182b643683014e31d97aa3d8c82b8eb4a2c"},
+]
+
+[package.dependencies]
+httpx = "*"
+hyperlink = "*"
+
+[[package]]
 name = "gherkin-official"
 version = "29.0.0"
 description = "Gherkin parser (official, by Cucumber team)"
@@ -774,6 +790,21 @@ cli = ["click (==8.*)", "pygments (==2.*)", "rich (>=10,<14)"]
 http2 = ["h2 (>=3,<5)"]
 socks = ["socksio (==1.*)"]
 zstd = ["zstandard (>=0.18.0)"]
+
+[[package]]
+name = "hyperlink"
+version = "21.0.0"
+description = "A featureful, immutable, and correct URL for Python."
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+groups = ["main"]
+files = [
+    {file = "hyperlink-21.0.0-py2.py3-none-any.whl", hash = "sha256:e6b14c37ecb73e89c77d78cdb4c2cc8f3fb59a885c5b3f819ff4ed80f25af1b4"},
+    {file = "hyperlink-21.0.0.tar.gz", hash = "sha256:427af957daa58bc909471c6c40f74c5450fa123dd093fc53efd2e91d2705a56b"},
+]
+
+[package.dependencies]
+idna = ">=2.5"
 
 [[package]]
 name = "idna"
@@ -2060,4 +2091,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "e093125d7b184c9fc9748fa32a93b498027e01a865f2091b4359e9905713e793"
+content-hash = "37073454075f765520c8d7922f2a77e95994fcca30f0e76fd8dbd2595903043a"
