@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BatchStats(BaseModel):
+    cancelled: int = Field(default=0)
     completed: int = Field(default=0)
     duplicate: int = Field(default=0)
     failed: int = Field(default=0)

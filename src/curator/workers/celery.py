@@ -1,4 +1,4 @@
-"""Celery application configuration."""
+"""Celery application configuration"""
 
 import logging
 import os
@@ -50,7 +50,9 @@ app.conf.update(
         "curator.workers.tasks.process_upload": {"queue": "uploads"},
     },
     broker_connection_retry_on_startup=True,
-    broker_pool_limit=10,
+    broker_pool_limit=5,
+    worker_ready_timeout=30,
+    worker_shutdown_timeout=30,
 )
 
 # Import tasks AFTER app is created to avoid circular import

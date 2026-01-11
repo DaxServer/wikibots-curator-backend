@@ -266,6 +266,8 @@ def get_batches_stats(session: Session, batch_ids: list[int]) -> dict[int, Batch
                 stats[batch_id].completed = count
             elif status == "failed":
                 stats[batch_id].failed = count
+            elif status == "cancelled":
+                stats[batch_id].cancelled = count
             elif status in (
                 DuplicateError.model_fields["type"].default,
                 DuplicatedSdcUpdatedError.model_fields["type"].default,
@@ -452,6 +454,19 @@ def clear_upload_access_token(session: Session, upload_id: int) -> None:
     )
 
 
+def update_celery_task_id(session: Session, upload_id: int, task_id: str) -> None:
+    logger.info(f"[dal] update_celery_task_id: upload_id={upload_id} task_id={task_id}")
+    session.exec(
+        update(UploadRequest)
+        .where(col(UploadRequest.id) == upload_id)
+        .values(celery_task_id=task_id)
+    )
+    session.flush()
+    logger.info(
+        f"[dal] update_celery_task_id: updated task_id for upload_id={upload_id}"
+    )
+
+
 def reset_failed_uploads(
     session: Session, batchid: int, userid: str, encrypted_access_token: str
 ) -> list[int]:
@@ -519,3 +534,49 @@ def retry_batch_as_admin(
 
     session.flush()
     return reset_ids
+
+
+def cancel_batch(session: Session, batchid: int, userid: str) -> dict[int, str]:
+    """
+    Cancel queued uploads in a batch by marking them as cancelled.
+    Only affects uploads with 'queued' status.
+    Only if the batch belongs to the userid.
+
+    Uses row-level locking (SELECT FOR UPDATE) to prevent race conditions
+    with workers picking up tasks between select and update.
+
+    Returns a dict mapping upload_id to celery_task_id for cancelled uploads.
+    The handler should revoke the Celery tasks after this.
+    """
+    batch = session.get(Batch, batchid)
+    if not batch:
+        raise ValueError("Batch not found")
+
+    if batch.userid != userid:
+        raise PermissionError("Permission denied")
+
+    # First, fetch the queued uploads with their task IDs
+    # Use WITH FOR UPDATE to lock the rows and prevent race conditions
+    statement = (
+        select(UploadRequest)
+        .where(UploadRequest.batchid == batchid, UploadRequest.status == "queued")
+        .with_for_update()
+    )
+    queued_uploads = session.exec(statement).all()
+
+    if not queued_uploads:
+        return {}
+
+    # Build dict of upload_id -> task_id
+    cancelled_uploads = {
+        upload.id: (upload.celery_task_id or "") for upload in queued_uploads
+    }
+
+    # Then update their status to cancelled
+    for upload in queued_uploads:
+        upload.status = "cancelled"
+        session.add(upload)
+
+    session.flush()
+
+    return cancelled_uploads

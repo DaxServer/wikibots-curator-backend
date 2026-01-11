@@ -77,10 +77,10 @@ def test_get_batches_optimized_basic(mock_session, mocker):
     ]
 
     # 2. Mock the second call: stats_query for these batches
-    # row format: (bid, total, queued, in_progress, completed, failed, duplicate)
+    # row format: (bid, total, queued, in_progress, completed, failed, duplicate, cancelled)
     mock_session.execute.return_value.all.return_value = [
-        (1, 10, 2, 1, 5, 1, 1),
-        (2, 15, 3, 2, 7, 2, 1),
+        (1, 10, 2, 1, 5, 1, 0, 1),
+        (2, 15, 3, 2, 7, 2, 0, 1),
     ]
 
     # Execute
@@ -113,8 +113,9 @@ def test_get_batches_minimal(mock_session, mocker):
     ]
 
     # 2. Mock the second call: stats_query
+    # row format: (bid, total, queued, in_progress, completed, failed, duplicate, cancelled)
     mock_session.execute.return_value.all.return_value = [
-        (1, 10, 2, 1, 5, 1, 1),
+        (1, 10, 2, 1, 5, 1, 0, 1),
     ]
 
     # Execute

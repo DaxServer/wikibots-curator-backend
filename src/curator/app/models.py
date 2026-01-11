@@ -87,6 +87,7 @@ class UploadRequest(SQLModel, table=True):
     last_edited_by: Optional[str] = Field(
         default=None, foreign_key="users.userid", index=True, max_length=255
     )
+    celery_task_id: Optional[str] = Field(default=None, max_length=255)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
         default_factory=datetime.now,

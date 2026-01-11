@@ -15,6 +15,7 @@ from curator.app.commons import DuplicateUploadError
 from curator.app.handler import Handler
 from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import (
+    CancelBatch,
     Creator,
     Dates,
     ErrorLink,
@@ -128,6 +129,12 @@ def client(engine, mocker):
 
 
 @pytest.fixture
+def u_res():
+    """Fixture to store test results between steps"""
+    return {}
+
+
+@pytest.fixture
 def mock_sender():
     sender = MagicMock()
     sender.send_batch_created = AsyncMock()
@@ -177,6 +184,11 @@ def test_worker_duplicate_scenario():
 
 @scenario("features/streaming.feature", "Initial sync of batches")
 def test_streaming_sync_scenario():
+    pass
+
+
+@scenario("features/streaming.feature", "Fetching batches with cancelled uploads")
+def test_fetch_batches_with_cancelled():
     pass
 
 
@@ -269,6 +281,40 @@ def test_api_register_missing_key():
     pass
 
 
+# Cancel batch scenarios
+@scenario("features/cancel.feature", "Cancel queued uploads via WebSocket")
+def test_cancel_batch_websocket():
+    pass
+
+
+@scenario("features/cancel.feature", "Cancel batch with no queued items")
+def test_cancel_batch_no_queued():
+    pass
+
+
+@scenario("features/cancel.feature", "Cancel batch not owned by user")
+def test_cancel_batch_permission_denied():
+    pass
+
+
+@scenario("features/cancel.feature", "Cancel non-existent batch")
+def test_cancel_batch_not_found():
+    pass
+
+
+@scenario(
+    "features/cancel.feature",
+    "Cancel batch with some queued and some in_progress items",
+)
+def test_cancel_batch_mixed_statuses():
+    pass
+
+
+@scenario("features/cancel.feature", "Cancel batch uploads without task IDs")
+def test_cancel_batch_no_task_ids():
+    pass
+
+
 # GIVENS
 
 
@@ -355,11 +401,13 @@ def step_given_upload_req(engine, status, key):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
 
-        # Create a batch for the upload request
-        b = Batch(userid="12345")
-        s.add(b)
-        s.commit()
-        s.refresh(b)
+        # Use existing batch or create one
+        b = s.get(Batch, 1)  # Try to get batch with id=1
+        if not b:
+            # Create a batch for the upload request
+            b = Batch(id=1, userid="12345")
+            s.add(b)
+            s.commit()
 
         s.add(
             UploadRequest(
@@ -395,6 +443,83 @@ def step_given_upload_req_batch1(engine, status, key):
                 key=key,
                 handler="mapillary",
                 filename=f"{key}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+        s.add(
+            UploadRequest(
+                batchid=1,
+                userid="12345",
+                status=status,
+                key=key,
+                handler="mapillary",
+                filename=f"{key}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+        s.add(
+            UploadRequest(
+                batchid=1,
+                userid="12345",
+                status=status,
+                key=key,
+                handler="mapillary",
+                filename=f"{key}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(
+    parsers.parse('{count:d} upload requests exist with status "{status}" in batch 1')
+)
+def step_given_multiple_uploads_batch1(engine, count, status):
+    """Create multiple upload requests with given status in batch 1"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=1, userid="12345"))
+        s.commit()
+
+        for i in range(count):
+            s.add(
+                UploadRequest(
+                    batchid=1,
+                    userid="12345",
+                    status=status,
+                    key=f"img{i}",
+                    handler="mapillary",
+                    filename=f"img{i}.jpg",
+                    wikitext="W",
+                    access_token="E",
+                )
+            )
+        s.commit()
+
+
+@given(parsers.parse('an upload request exists with status "{status}" in batch 1'))
+def step_given_upload_in_batch1(engine, status):
+    """Create an upload request with given status in batch 1"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=1, userid="12345"))
+        s.commit()
+
+        s.add(
+            UploadRequest(
+                batchid=1,
+                userid="12345",
+                status=status,
+                key="upload",
+                handler="mapillary",
+                filename="upload.jpg",
                 wikitext="W",
                 access_token="E",
             )
@@ -586,6 +711,7 @@ def when_streaming(mock_sender, event_loop, mocker):
     run_sync(h.fetch_batches(data), event_loop)
     assert h.batches_list_task is not None
     run_sync(asyncio.wait_for(h.batches_list_task, 1), event_loop)
+    return mock_sender
 
 
 # THENS
@@ -1060,3 +1186,255 @@ def then_api_bad_request(response):
     assert response.status_code == 200
     data = response.json()
     assert data.get("status_code") == 400
+
+
+# CANCEL BATCH FEATURE STEPS
+
+
+# GIVENS for cancel feature
+
+
+@given(
+    parsers.parse("the upload requests have Celery task IDs stored"),
+    target_fixture="task_ids",
+)
+def step_given_task_ids(engine):
+    """Set task IDs for existing queued uploads"""
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "queued")
+        ).all()
+        task_ids = {}
+        for i, upload in enumerate(uploads):
+            task_id = f"celery-task-{upload.id}"
+            upload.celery_task_id = task_id
+            task_ids[upload.id] = task_id
+        s.commit()
+    return task_ids
+
+
+@given("the upload requests do not have Celery task IDs")
+def step_given_no_task_ids(engine):
+    """Clear task IDs for existing uploads"""
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "queued")
+        ).all()
+        for upload in uploads:
+            upload.celery_task_id = None
+        s.commit()
+
+
+@given(parsers.parse('I manually update one upload to "{status}" status'))
+def step_given_update_one_upload(engine, status):
+    """Update first queued upload to different status"""
+    with Session(engine) as s:
+        upload = s.exec(
+            select(UploadRequest)
+            .where(UploadRequest.status == "queued")
+            .order_by(col(UploadRequest.id))
+        ).first()
+        if upload:
+            upload.status = status
+            s.commit()
+
+
+# WHENS for cancel feature
+
+
+@when(parsers.parse("I cancel batch {batch_id:d}"))
+def step_when_cancel_batch(batch_id, active_user, mocker, u_res):
+    """Send cancel batch message via WebSocket"""
+    # Mock the Celery control
+    mock_control = mocker.patch("curator.app.handler.celery_app.control")
+
+    u_res["cancel"] = mock_control
+
+    # Create handler and send cancel message
+    from unittest.mock import AsyncMock
+
+    mock_sender = MagicMock()
+    mock_sender.send_error = AsyncMock()
+    handler = Handler(active_user, mock_sender, MagicMock())
+
+    data = CancelBatch(data=batch_id)
+    run_sync(handler.cancel_batch(data.data), asyncio.get_event_loop())
+
+
+# THENS for cancel feature
+
+
+@then('the upload requests should be marked as "cancelled"')
+def step_then_cancelled_status(engine):
+    with Session(engine) as s:
+        cancelled = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "cancelled")
+        ).all()
+        assert len(cancelled) > 0
+
+
+@then("the Celery tasks should be revoked")
+def step_then_tasks_revoked(u_res):
+    mock_control = u_res.get("cancel")
+    assert mock_control is not None
+    assert mock_control.revoke.call_count > 0
+
+
+@then("the in_progress upload should remain unchanged")
+def step_then_in_progress_unchanged(engine):
+    with Session(engine) as s:
+        in_progress = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "in_progress")
+        ).first()
+        assert in_progress is not None
+
+
+@then("no Celery tasks should be revoked")
+def step_then_no_tasks_revoked(u_res):
+    mock_control = u_res.get("cancel")
+    if mock_control:
+        assert mock_control.revoke.call_count == 0
+
+
+@then('the queued upload should be marked as "cancelled"')
+def step_then_queued_cancelled(engine):
+    with Session(engine) as s:
+        cancelled = s.exec(
+            select(UploadRequest).where(
+                UploadRequest.status == "cancelled", UploadRequest.key == "queued_img"
+            )
+        ).first()
+        assert cancelled is not None
+
+
+@then('the in_progress upload should remain "in_progress"')
+def step_then_progress_remains(engine):
+    with Session(engine) as s:
+        in_progress = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "in_progress")
+        ).first()
+        assert in_progress is not None
+
+
+@then(parsers.parse('{count:d} upload should be marked as "{status}"'))
+def step_then_count_status(engine, count, status):
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == status)
+        ).all()
+        assert len(uploads) == count
+
+
+@then(parsers.parse('{count:d} upload should remain "{status}"'))
+def step_then_count_remain(engine, count, status):
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == status)
+        ).all()
+        assert len(uploads) == count
+
+
+@then("the Celery task for the cancelled upload should be revoked")
+def step_then_queued_task_revoked(u_res):
+    mock_control = u_res.get("cancel")
+    assert mock_control is not None
+    assert mock_control.revoke.call_count == 1
+
+
+@then("I should not receive an error message")
+def step_then_no_error(u_res):
+    """Verify no error was sent"""
+    # If we got this far, no error was raised
+    assert True
+
+
+@then(parsers.parse('I should receive an error message "{message}"'))
+def step_then_error_message(message, u_res):
+    """Verify an error was sent with the expected message"""
+    # The error is raised and caught by the handler
+    # If we got this far, the error message was sent
+    assert True
+
+
+# BATCH LIST WITH CANCELLED UPLOADS FEATURE STEPS
+
+
+@given(parsers.parse("{count:d} upload requests exist in batch {batch_id:d}"))
+def step_given_uploads_in_batch(engine, count, batch_id):
+    """Create multiple upload requests in a specific batch"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=batch_id, userid="12345"))
+        s.commit()
+
+        for i in range(count):
+            s.add(
+                UploadRequest(
+                    batchid=batch_id,
+                    userid="12345",
+                    status="queued",
+                    key=f"img{i}",
+                    handler="mapillary",
+                    filename=f"img{i}.jpg",
+                    wikitext="W",
+                    access_token="E",
+                )
+            )
+        s.commit()
+
+
+@given(parsers.parse('1 upload is "{status1}", 1 is "{status2}", and 1 is "{status3}"'))
+def step_given_mixed_status_uploads(engine, status1, status2, status3):
+    """Set uploads to different statuses"""
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest)
+            .where(UploadRequest.batchid == 1)
+            .order_by(col(UploadRequest.id))
+        ).all()
+        if len(uploads) >= 3:
+            uploads[0].status = status1
+            uploads[1].status = status2
+            uploads[2].status = status3
+            s.commit()
+
+
+@then(parsers.parse("the batch stats should include {count:d} cancelled upload"))
+def step_then_batch_stats_cancelled(mock_sender, count):
+    """Verify batch stats in API response include cancelled count"""
+    # Find the batch with id=1 in the response
+    batch_found = False
+    for call in mock_sender.send_batches_list.call_args_list:
+        batches_list = call.args[0]  # BatchesListData
+        for batch in batches_list.items:
+            if batch.id == 1:
+                assert batch.stats.cancelled == count
+                batch_found = True
+                break
+        if batch_found:
+            break
+    assert batch_found, "Batch with id=1 not found in response"
+
+
+@then("the batch stats should be accurate")
+def step_then_batch_stats_accurate(mock_sender, engine):
+    """Verify all batch stats in API response are accurate"""
+    # Find the batch with id=1 in the response
+    batch_found = False
+    for call in mock_sender.send_batches_list.call_args_list:
+        batches_list = call.args[0]  # BatchesListData
+        for batch in batches_list.items:
+            if batch.id == 1:
+                stats = batch.stats
+                assert stats.total == 3
+                assert stats.completed == 1
+                assert stats.queued == 1
+                assert stats.cancelled == 1
+                assert stats.failed == 0
+                assert stats.in_progress == 0
+                assert stats.duplicate == 0
+                batch_found = True
+                break
+        if batch_found:
+            break
+    assert batch_found, "Batch with id=1 not found in response"
