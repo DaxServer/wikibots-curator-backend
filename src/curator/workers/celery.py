@@ -18,23 +18,16 @@ from celery.signals import (
     worker_shutdown,
 )
 
-from curator.app.config import CELERY_CONCURRENCY, CELERY_MAXIMUM_WAIT_TIME
-from curator.app.db import DB_URL
+from curator.app.config import (
+    CELERY_BACKEND_URL,
+    CELERY_BROKER_URL,
+    CELERY_CONCURRENCY,
+    CELERY_MAXIMUM_WAIT_TIME,
+    CELERY_TASKS_PER_WORKER,
+)
 
 logger = logging.getLogger(__name__)
 
-# Convert SQLAlchemy URL to Celery-compatible format
-# For broker: use sqlalchemy+ prefix
-# For backend: use db+ prefix
-if "mysql+pymysql://" in DB_URL:
-    CELERY_BROKER_URL = DB_URL.replace(
-        "mysql+pymysql://", "sqlalchemy+mysql+pymysql://"
-    )
-    CELERY_BACKEND_URL = DB_URL.replace("mysql+pymysql://", "db+mysql+pymysql://")
-else:
-    # Fallback for other potential formats
-    CELERY_BROKER_URL = DB_URL.replace("mysql://", "sqlalchemy+mysql+pymysql://")
-    CELERY_BACKEND_URL = DB_URL.replace("mysql://", "db+mysql+pymysql://")
 
 app = Celery("curator")
 app.conf.update(
@@ -51,23 +44,13 @@ app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
-    worker_max_tasks_per_child=1000,
+    worker_max_tasks_per_child=CELERY_TASKS_PER_WORKER,
     worker_concurrency=CELERY_CONCURRENCY,
     task_routes={
         "curator.workers.tasks.process_upload": {"queue": "uploads"},
     },
     broker_connection_retry_on_startup=True,
     broker_pool_limit=10,
-    broker_transport_options={
-        "pool_recycle": 280,
-        "pool_pre_ping": True,
-        "connect_args": {"connect_timeout": 10},
-    },
-    database_engine_options={
-        "pool_recycle": 280,
-        "pool_pre_ping": True,
-        "connect_args": {"connect_timeout": 10},
-    },
 )
 
 # Import tasks AFTER app is created to avoid circular import

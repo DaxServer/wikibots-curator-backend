@@ -37,12 +37,23 @@ TOKEN_ENCRYPTION_KEY = os.environ.get(
 WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 
-CELERY_CONCURRENCY = int(os.getenv("CELERY_CONCURRENCY", 2))
-CELERY_MAXIMUM_WAIT_TIME = int(os.getenv("CELERY_MAXIMUM_WAIT_TIME", 60 * 4))  # minutes
 
 REDIS_PREFIX = "skI4ZdSn18vvLkMHnPk8AEyg/8VjDRT6sY2u+BXIdsk="
-REDIS_URL = os.getenv("TOOL_REDIS_URI", "redis://localhost:6379")
-redis_client = redis.Redis.from_url(REDIS_URL, db=10)
+_REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+_REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+_REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+if _REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{_REDIS_PASSWORD}@{_REDIS_HOST}:{_REDIS_PORT}"
+else:
+    REDIS_URL = f"redis://{_REDIS_HOST}:{_REDIS_PORT}"
+
+redis_client = redis.Redis.from_url(REDIS_URL)
+
+CELERY_CONCURRENCY = int(os.getenv("CELERY_CONCURRENCY", 2))
+CELERY_MAXIMUM_WAIT_TIME = int(os.getenv("CELERY_MAXIMUM_WAIT_TIME", 60 * 4))  # minutes
+CELERY_TASKS_PER_WORKER = int(os.getenv("CELERY_TASKS_PER_WORKER", 1000))
+CELERY_BROKER_URL = REDIS_URL
+CELERY_BACKEND_URL = REDIS_URL
 
 logger = logging.getLogger(__name__)
 
