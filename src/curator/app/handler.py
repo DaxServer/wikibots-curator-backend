@@ -23,7 +23,6 @@ from curator.app.dal import (
 )
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
-from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import UploadItem
 from curator.asyncapi import (
     BatchUploadsListData,
@@ -41,6 +40,7 @@ from curator.asyncapi import (
     UploadSliceData,
     UploadUpdateItem,
 )
+from curator.handlers.mapillary_handler import MapillaryHandler
 from curator.protocol import AsyncAPIWebSocket
 from curator.workers.celery import app as celery_app
 from curator.workers.tasks import process_upload

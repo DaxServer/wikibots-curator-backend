@@ -19,7 +19,6 @@ from curator.app.dal import (
     update_upload_status,
 )
 from curator.app.db import get_session
-from curator.app.handlers.mapillary_handler import MapillaryHandler
 from curator.app.models import (
     StructuredError,
 )
@@ -34,6 +33,7 @@ from curator.asyncapi import (
     Statement,
     TitleBlacklistedError,
 )
+from curator.handlers.mapillary_handler import MapillaryHandler
 
 logger = logging.getLogger(__name__)
 
