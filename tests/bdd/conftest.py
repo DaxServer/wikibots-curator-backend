@@ -115,8 +115,8 @@ def cleanup_pending_tasks(event_loop):
         task.cancel()
 
     # Wait for all tasks to complete, ignoring any CancelledErrors (only if tasks exist)
-    if len(tasks) > 0:
-        event_loop.run_until_complete(asyncio.wait(tasks))
+    if tasks:
+        event_loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
 
 
 @pytest.fixture
