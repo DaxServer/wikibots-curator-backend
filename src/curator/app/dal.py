@@ -536,11 +536,15 @@ def retry_batch_as_admin(
     return reset_ids
 
 
-def cancel_batch(session: Session, batchid: int, userid: str) -> dict[int, str]:
+def cancel_batch(
+    session: Session, batchid: int, userid: str | None = None
+) -> dict[int, str]:
     """
     Cancel queued uploads in a batch by marking them as cancelled.
     Only affects uploads with 'queued' status.
-    Only if the batch belongs to the userid.
+
+    When userid is provided, validates that the batch belongs to the user.
+    When userid is None (admin case), bypasses ownership check.
 
     Uses row-level locking (SELECT FOR UPDATE) to prevent race conditions
     with workers picking up tasks between select and update.
@@ -552,11 +556,9 @@ def cancel_batch(session: Session, batchid: int, userid: str) -> dict[int, str]:
     if not batch:
         raise ValueError("Batch not found")
 
-    if batch.userid != userid:
+    if userid and batch.userid != userid:
         raise PermissionError("Permission denied")
 
-    # First, fetch the queued uploads with their task IDs
-    # Use WITH FOR UPDATE to lock the rows and prevent race conditions
     statement = (
         select(UploadRequest)
         .where(UploadRequest.batchid == batchid, UploadRequest.status == "queued")
@@ -567,12 +569,10 @@ def cancel_batch(session: Session, batchid: int, userid: str) -> dict[int, str]:
     if not queued_uploads:
         return {}
 
-    # Build dict of upload_id -> task_id
     cancelled_uploads = {
         upload.id: (upload.celery_task_id or "") for upload in queued_uploads
     }
 
-    # Then update their status to cancelled
     for upload in queued_uploads:
         upload.status = "cancelled"
         session.add(upload)

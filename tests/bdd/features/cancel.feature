@@ -51,3 +51,37 @@ Feature: Cancel Batch Uploads
     When I cancel batch 1
     Then the upload requests should be marked as "cancelled"
     And no Celery tasks should be revoked
+
+  Scenario: Admin can cancel any batch
+    Given I am logged in as admin "DaxServer"
+    And a batch exists with id 1 for user "67890"
+    And 3 upload requests exist with status "queued" in batch 1
+    And the upload requests have Celery task IDs stored
+    When I cancel batch 1
+    Then the upload requests should be marked as "cancelled"
+    And the Celery tasks should be revoked
+    And I should not receive an error message
+
+  Scenario: Admin cancel batch with no queued items
+    Given I am logged in as admin "DaxServer"
+    And a batch exists with id 1 for user "67890"
+    And an upload request exists with status "in_progress" in batch 1
+    When I cancel batch 1
+    Then I should receive an error message "No queued items to cancel"
+    And the in_progress upload should remain unchanged
+
+  Scenario: Admin cancel non-existent batch
+    Given I am logged in as admin "DaxServer"
+    When I cancel batch 999
+    Then I should receive an error message "Batch 999 not found"
+
+  Scenario: Admin cancel batch with mixed statuses
+    Given I am logged in as admin "DaxServer"
+    And a batch exists with id 1 for user "67890"
+    And 2 upload requests exist with status "queued" in batch 1
+    And I manually update one upload to "in_progress" status
+    And the upload requests have Celery task IDs stored
+    When I cancel batch 1
+    Then 1 upload should be marked as "cancelled"
+    And 1 upload should remain "in_progress"
+    And the Celery task for the cancelled upload should be revoked
