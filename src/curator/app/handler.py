@@ -434,7 +434,8 @@ class Handler:
 
     @handle_exceptions
     async def cancel_batch(self, batchid: int):
-        userid = self.user["userid"]
+        is_admin = self.username == "DaxServer"
+        userid = None if is_admin else self.user["userid"]
 
         try:
             with get_session() as session:
@@ -453,7 +454,6 @@ class Handler:
             await self.socket.send_error("No queued items to cancel")
             return
 
-        # Revoke Celery tasks (async, fire-and-forget)
         revoke_celery_tasks_by_id(cancelled_task_ids)
 
         logger.info(

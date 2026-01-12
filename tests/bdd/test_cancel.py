@@ -48,6 +48,26 @@ def test_cancel_batch_no_task_ids():
     pass
 
 
+@scenario("features/cancel.feature", "Admin can cancel any batch")
+def test_admin_cancel_any_batch():
+    pass
+
+
+@scenario("features/cancel.feature", "Admin cancel batch with no queued items")
+def test_admin_cancel_no_queued():
+    pass
+
+
+@scenario("features/cancel.feature", "Admin cancel non-existent batch")
+def test_admin_cancel_not_found():
+    pass
+
+
+@scenario("features/cancel.feature", "Admin cancel batch with mixed statuses")
+def test_admin_cancel_mixed_statuses():
+    pass
+
+
 # --- GIVENS ---
 
 
