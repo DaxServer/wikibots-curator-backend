@@ -1,11 +1,10 @@
 """BDD tests for streaming.feature"""
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
-import curator.app.auth as auth_mod
 from curator.app.auth import UserSession
 from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest, User
+from curator.app.models import Batch, UploadRequest
 from curator.asyncapi import Creator, Dates, FetchBatchesData, GeoLocation, MediaImage
 from pytest_bdd import given, parsers, scenario, then, when
 
@@ -26,98 +25,6 @@ def test_fetch_batches_with_cancelled():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    from curator.main import app
-
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(parsers.parse("{count:d} batches exist in the database for my user"))
-@given(parsers.parse("there are {count:d} batches in the system"))
-def step_given_batches(engine, count):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-        for i in range(count):
-            s.add(Batch(userid="12345"))
-        s.commit()
-
-
-@given(parsers.parse("the upload requests have Celery task IDs stored"),
-       target_fixture="task_ids")
-def step_given_task_ids(engine):
-    """Set task IDs for existing queued uploads"""
-    from sqlmodel import select, Session
-
-    with Session(engine) as s:
-        uploads = s.exec(
-            select(UploadRequest).where(UploadRequest.status == "queued")
-        ).all()
-        task_ids = {}
-        for i, upload in enumerate(uploads):
-            task_id = f"celery-task-{upload.id}"
-            upload.celery_task_id = task_id
-            task_ids[upload.id] = task_id
-        s.commit()
-    return task_ids
-
-
-@given(parsers.parse("{count:d} upload requests exist in batch {batch_id:d}"))
-def step_given_uploads_in_batch(engine, count, batch_id):
-    """Create multiple upload requests in a specific batch"""
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=batch_id, userid="12345"))
-        s.commit()
-
-        for i in range(count):
-            s.add(
-                UploadRequest(
-                    batchid=batch_id,
-                    userid="12345",
-                    status="queued",
-                    key=f"img{i}",
-                    handler="mapillary",
-                    filename=f"img{i}.jpg",
-                    wikitext="W",
-                    access_token="E",
-                )
-            )
-        s.commit()
-
-
-@given(parsers.parse('1 upload is "{status1}", 1 is "{status2}", and 1 is "{status3}"'))
-def step_given_mixed_status_uploads(engine, status1, status2, status3):
-    """Set uploads to different statuses"""
-    from sqlmodel import select, col, Session
-
-    with Session(engine) as s:
-        uploads = s.exec(
-            select(UploadRequest)
-            .where(UploadRequest.batchid == 1)
-            .order_by(col(UploadRequest.id))
-        ).all()
-        if len(uploads) >= 3:
-            uploads[0].status = status1
-            uploads[1].status = status2
-            uploads[2].status = status3
-            s.commit()
 
 
 # --- WHENS ---

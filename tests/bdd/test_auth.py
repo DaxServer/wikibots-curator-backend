@@ -1,7 +1,4 @@
 """BDD tests for authentication.feature"""
-from unittest.mock import PropertyMock
-
-import curator.app.auth as auth_mod
 from pytest_bdd import given, parsers, scenario, then, when
 
 
@@ -19,61 +16,6 @@ def test_auth_logout():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-@given(
-    parsers.re(
-        r'I have an active session for "(?P<username>[^"]+)" with id "(?P<userid>[^"]+)"'
-    ),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    from curator.main import app
-
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(
-    parsers.re(r'I am logged in as user "(?P<username>[^"]+)"'),
-    target_fixture="active_user",
-)
-@given(
-    parsers.re(r'I have an active session for "(?P<username>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_std_user(username, mocker, session_context):
-    from curator.main import app
-    from curator.app.auth import check_login
-    from curator.admin import check_admin
-    from fastapi import HTTPException
-
-    u = {"username": username, "userid": "u1", "sub": "u1", "access_token": "v"}
-
-    app.dependency_overrides[check_login] = lambda: u
-
-    def _f():
-        raise HTTPException(403, "Forbidden")
-
-    app.dependency_overrides[check_admin] = _f
-    session_dict = {"user": u}
-    session_context["dict"] = session_dict
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value=session_dict,
-    )
-    return u
 
 
 # --- WHENS ---

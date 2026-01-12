@@ -1,7 +1,4 @@
 """BDD tests for worker.feature"""
-from unittest.mock import PropertyMock
-
-import curator.app.auth as auth_mod
 from curator.app.commons import DuplicateUploadError
 from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import Creator, Dates, ErrorLink, GeoLocation, MediaImage
@@ -32,53 +29,6 @@ def test_worker_duplicate_scenario():
 # --- GIVENS ---
 
 
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    from curator.main import app
-
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(
-    parsers.parse('an upload request exists with status "{status}" and key "{key}"')
-)
-def step_given_upload_req(engine, status, key):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-
-        # Use existing batch or create one
-        b = s.get(Batch, 1)  # Try to get batch with id=1
-        if not b:
-            # Create a batch for the upload request
-            b = Batch(id=1, userid="12345")
-            s.add(b)
-            s.commit()
-
-        s.add(
-            UploadRequest(
-                batchid=b.id,
-                userid="12345",
-                status=status,
-                key=key,
-                handler="mapillary",
-                filename=f"{key}.jpg",
-                wikitext="W",
-                access_token="E",
-            )
-        )
-        s.commit()
 
 
 @given(parsers.parse('the title "{title}" is on the Commons blacklist'))

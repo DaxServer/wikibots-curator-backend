@@ -1,11 +1,10 @@
 """BDD tests for retry.feature"""
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
-import curator.app.auth as auth_mod
 from curator.admin import check_admin
 from curator.app.auth import check_login
 from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest, User
+from curator.app.models import UploadRequest
 from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
 from pytest_bdd import given, parsers, scenario, then, when
 
@@ -26,82 +25,6 @@ def test_admin_retry_batch():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    from curator.main import app
-
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(
-    parsers.parse("2 upload requests exist for batch {batch_id:d} with various statuses")
-)
-def step_given_batch_uploads(engine, batch_id):
-    from sqlmodel import select, Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=batch_id, userid="12345"))
-        s.commit()
-        b = s.exec(select(Batch).where(Batch.id == batch_id)).first()
-        assert b is not None
-        s.add(
-            UploadRequest(
-                batchid=b.id,
-                userid="12345",
-                status="completed",
-                key="img1",
-                handler="mapillary",
-                filename="img1.jpg",
-                wikitext="W",
-                access_token="E",
-            )
-        )
-        s.add(
-            UploadRequest(
-                batchid=b.id,
-                userid="12345",
-                status="failed",
-                key="img2",
-                handler="mapillary",
-                filename="img2.jpg",
-                wikitext="W",
-                access_token="E",
-            )
-        )
-        s.commit()
-
-
-@given("I am subscribed to batch 1")
-def step_given_subscribed(mock_sender, event_loop):
-    h = Handler(
-        {"username": "testuser", "userid": "12345", "access_token": "v"},
-        mock_sender,
-        MagicMock(),
-    )
-    run_sync(h.subscribe_batch(1), event_loop)
-
-
-@given(parsers.parse('a batch exists with id {batch_id:d} for user "{userid}"'))
-def step_given_batch(engine, batch_id, userid):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid=userid, username="testuser"))
-        s.add(Batch(id=batch_id, userid=userid))
-        s.commit()
 
 
 # --- WHENS ---

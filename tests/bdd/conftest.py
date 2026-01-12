@@ -115,7 +115,8 @@ def cleanup_pending_tasks(event_loop):
         task.cancel()
 
     # Wait for all tasks to complete, ignoring any CancelledErrors (only if tasks exist)
-    len(tasks) and (lambda: event_loop.run_until_complete(asyncio.wait(tasks)))()
+    if len(tasks) > 0:
+        event_loop.run_until_complete(asyncio.wait(tasks))
 
 
 @pytest.fixture
@@ -461,3 +462,64 @@ def step_given_subscribed(mock_sender, event_loop):
         MagicMock(),
     )
     run_sync(h.subscribe_batch(1), event_loop)
+
+
+@given(
+    parsers.parse("2 upload requests exist for batch {batch_id:d} with various statuses")
+)
+def step_given_batch_uploads(engine, batch_id):
+    """Create 2 upload requests with different statuses (completed and failed) in batch"""
+    from sqlmodel import select, Session
+
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=batch_id, userid="12345"))
+        s.commit()
+        b = s.exec(select(Batch).where(Batch.id == batch_id)).first()
+        assert b is not None
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status="completed",
+                key="img1",
+                handler="mapillary",
+                filename="img1.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.add(
+            UploadRequest(
+                batchid=b.id,
+                userid="12345",
+                status="failed",
+                key="img2",
+                handler="mapillary",
+                filename="img2.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
+
+
+@given(
+    parsers.parse("the upload requests have Celery task IDs stored"),
+    target_fixture="task_ids",
+)
+def step_given_task_ids(engine):
+    """Set task IDs for existing queued uploads"""
+    from sqlmodel import select, Session
+
+    with Session(engine) as s:
+        uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "queued")
+        ).all()
+        task_ids = {}
+        for i, upload in enumerate(uploads):
+            task_id = f"celery-task-{upload.id}"
+            upload.celery_task_id = task_id
+            task_ids[upload.id] = task_id
+        s.commit()
+    return task_ids

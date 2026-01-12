@@ -1,10 +1,6 @@
 """BDD tests for admin.feature"""
-from unittest.mock import PropertyMock
-
-import curator.app.auth as auth_mod
-from curator.admin import check_admin
-from curator.app.auth import check_login
-from curator.app.models import Batch, User
+from curator.app.models import Batch
+from curator.app.models import User
 from pytest_bdd import given, parsers, scenario, then, when
 
 
@@ -35,82 +31,6 @@ def test_admin_users_serialization():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am logged in as admin "(?P<username>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_admin(username, mocker):
-    from curator.main import app
-
-    u = {
-        "username": "DaxServer",
-        "userid": "admin123",
-        "sub": "admin123",
-        "access_token": "v",
-    }
-
-    app.dependency_overrides[check_login] = lambda: u
-    app.dependency_overrides[check_admin] = lambda: None
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(
-    parsers.re(r'I am logged in as user "(?P<username>[^"]+)"'),
-    target_fixture="active_user",
-)
-@given(
-    parsers.re(r'I have an active session for "(?P<username>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_std_user(username, mocker, session_context):
-    from curator.main import app
-
-    u = {"username": username, "userid": "u1", "sub": "u1", "access_token": "v"}
-
-    app.dependency_overrides[check_login] = lambda: u
-
-    def _f():
-        from fastapi import HTTPException
-
-        raise HTTPException(403, "Forbidden")
-
-    app.dependency_overrides[check_admin] = _f
-    session_dict = {"user": u}
-    session_context["dict"] = session_dict
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value=session_dict,
-    )
-    return u
-
-
-@given(parsers.parse("there are {count:d} batches in the system"))
-def step_given_batches(engine, count):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-        for i in range(count):
-            s.add(Batch(userid="12345"))
-        s.commit()
-
-
-@given(parsers.parse("there are {count:d} users in the system"))
-def step_given_users(engine, count):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        for i in range(count):
-            s.add(User(userid=f"u{i}", username=f"user{i}"))
-        s.commit()
 
 
 # --- WHENS ---

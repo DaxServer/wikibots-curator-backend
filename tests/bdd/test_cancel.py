@@ -1,10 +1,9 @@
 """BDD tests for cancel.feature"""
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
-import curator.app.auth as auth_mod
 from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest, User
+from curator.app.models import Batch, UploadRequest
 from curator.asyncapi import CancelBatch, Creator, Dates, GeoLocation, MediaImage
 from pytest_bdd import given, parsers, scenario, then, when
 
@@ -48,82 +47,6 @@ def test_cancel_batch_no_task_ids():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    from curator.main import app
-
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
-
-
-@given(parsers.parse('a batch exists with id {batch_id:d} for user "{userid}"'))
-def step_given_batch(engine, batch_id, userid):
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid=userid, username="testuser"))
-        s.add(Batch(id=batch_id, userid=userid))
-        s.commit()
-
-
-@given(
-    parsers.parse('{count:d} upload requests exist with status "{status}" in batch 1')
-)
-def step_given_multiple_uploads_batch1(engine, count, status):
-    """Create multiple upload requests with given status in batch 1"""
-    from sqlmodel import Session
-
-    with Session(engine) as s:
-        s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
-        s.commit()
-
-        for i in range(count):
-            s.add(
-                UploadRequest(
-                    batchid=1,
-                    userid="12345",
-                    status=status,
-                    key=f"img{i}",
-                    handler="mapillary",
-                    filename=f"img{i}.jpg",
-                    wikitext="W",
-                    access_token="E",
-                )
-            )
-        s.commit()
-
-
-@given(
-    parsers.parse("the upload requests have Celery task IDs stored"),
-    target_fixture="task_ids",
-)
-def step_given_task_ids(engine):
-    """Set task IDs for existing queued uploads"""
-    from sqlmodel import select, Session
-
-    with Session(engine) as s:
-        uploads = s.exec(
-            select(UploadRequest).where(UploadRequest.status == "queued")
-        ).all()
-        task_ids = {}
-        for i, upload in enumerate(uploads):
-            task_id = f"celery-task-{upload.id}"
-            upload.celery_task_id = task_id
-            task_ids[upload.id] = task_id
-        s.commit()
-    return task_ids
 
 
 @given("the upload requests do not have Celery task IDs")

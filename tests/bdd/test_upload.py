@@ -1,9 +1,8 @@
 """BDD tests for upload.feature"""
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
-import curator.app.auth as auth_mod
 from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest, User
+from curator.app.models import Batch, UploadRequest
 from curator.asyncapi import UploadItem, UploadSliceData
 from pytest_bdd import given, parsers, scenario, then, when
 
@@ -24,29 +23,6 @@ def test_upload_slice_scenario():
 
 
 # --- GIVENS ---
-
-
-@given(
-    parsers.re(r'I am a logged-in user with id "(?P<userid>[^"]+)"'),
-    target_fixture="active_user",
-)
-@given(
-    parsers.re(
-        r'I have an active session for "(?P<username>[^"]+)" with id "(?P<userid>[^"]+)"'
-    ),
-    target_fixture="active_user",
-)
-def step_given_user(userid, mocker, username="testuser"):
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
-    from curator.main import app
-
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
 
 
 # --- WHENS ---
