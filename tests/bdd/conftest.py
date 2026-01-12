@@ -2,10 +2,12 @@
 Common fixtures and step definitions for BDD tests.
 Pytest-bdd will automatically discover fixtures and steps in this conftest.py file.
 """
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pytest_bdd import given, parsers
 from sqlalchemy.pool import StaticPool
@@ -13,18 +15,16 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 
 import curator.app.auth as auth_mod
 from curator.admin import check_admin
-from curator.app.auth import UserSession, check_login
+from curator.app.auth import check_login
 from curator.app.handler import Handler
 from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import (
-    CancelBatch,
     Creator,
     Dates,
     GeoLocation,
     MediaImage,
 )
 from curator.main import app
-
 
 # --- Global Async & Mock Helpers ---
 
@@ -158,31 +158,6 @@ def session_context():
     return {}
 
 
-# --- Import AsyncAPI models for use in tests ---
-# These are made available globally so step definitions can use them
-from curator.asyncapi import (
-    ErrorLink,
-    FetchBatchesData,
-    ImageHandler,
-    UploadItem,
-    UploadSliceData,
-)
-
-__all__ = [
-    "CancelBatch",
-    "Creator",
-    "Dates",
-    "ErrorLink",
-    "FetchBatchesData",
-    "GeoLocation",
-    "ImageHandler",
-    "MediaImage",
-    "UploadItem",
-    "UploadSliceData",
-    "run_sync",
-]
-
-
 # --- Common Step Definitions ---
 # These step definitions are shared across multiple BDD test files
 
@@ -239,8 +214,6 @@ def step_given_admin(username, mocker):
     target_fixture="active_user",
 )
 def step_given_std_user(username, mocker, session_context):
-    from fastapi import HTTPException
-
     u = {"username": username, "userid": "u1", "sub": "u1", "access_token": "v"}
 
     app.dependency_overrides[check_login] = lambda: u
@@ -267,9 +240,7 @@ def step_given_batch(engine, batch_id, userid):
         s.commit()
 
 
-@given(
-    parsers.parse('an upload request exists with status "{status}" and key "{key}"')
-)
+@given(parsers.parse('an upload request exists with status "{status}" and key "{key}"'))
 def step_given_upload_req(engine, status, key):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
@@ -390,7 +361,7 @@ def step_given_users(engine, count):
         s.commit()
 
 
-@given(parsers.parse('{count:d} upload requests exist in batch {batch_id:d}'))
+@given(parsers.parse("{count:d} upload requests exist in batch {batch_id:d}"))
 def step_given_uploads_in_batch(engine, count, batch_id):
     """Create multiple upload requests in a specific batch"""
     with Session(engine) as s:
@@ -465,12 +436,12 @@ def step_given_subscribed(mock_sender, event_loop):
 
 
 @given(
-    parsers.parse("2 upload requests exist for batch {batch_id:d} with various statuses")
+    parsers.parse(
+        "2 upload requests exist for batch {batch_id:d} with various statuses"
+    )
 )
 def step_given_batch_uploads(engine, batch_id):
     """Create 2 upload requests with different statuses (completed and failed) in batch"""
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
         s.merge(Batch(id=batch_id, userid="12345"))
@@ -510,8 +481,6 @@ def step_given_batch_uploads(engine, batch_id):
 )
 def step_given_task_ids(engine):
     """Set task IDs for existing queued uploads"""
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         uploads = s.exec(
             select(UploadRequest).where(UploadRequest.status == "queued")

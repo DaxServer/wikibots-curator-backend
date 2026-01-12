@@ -1,6 +1,6 @@
 """BDD tests for authentication.feature"""
-from pytest_bdd import given, parsers, scenario, then, when
 
+from pytest_bdd import parsers, scenario, then, when
 
 # --- Scenarios ---
 

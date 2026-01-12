@@ -1,9 +1,6 @@
 """BDD tests for api_registration.feature"""
-from unittest.mock import PropertyMock
 
-import curator.app.auth as auth_mod
 from pytest_bdd import given, scenario, then, when
-
 
 # --- Scenarios ---
 

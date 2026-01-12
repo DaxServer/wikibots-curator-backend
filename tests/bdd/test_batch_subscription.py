@@ -1,12 +1,12 @@
 """BDD tests for batch_subscription.feature"""
-from unittest.mock import AsyncMock, MagicMock
+
+from unittest.mock import MagicMock
+
+from pytest_bdd import scenario, then, when
 
 from curator.app.handler import Handler
-from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
-from pytest_bdd import given, parsers, scenario, then, when
 
 from .conftest import run_sync
-
 
 # --- Scenarios ---
 

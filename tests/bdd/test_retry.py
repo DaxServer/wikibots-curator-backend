@@ -1,15 +1,16 @@
 """BDD tests for retry.feature"""
-from unittest.mock import AsyncMock, MagicMock
+
+from unittest.mock import MagicMock
+
+from pytest_bdd import parsers, scenario, then, when
+from sqlmodel import Session, select
 
 from curator.admin import check_admin
 from curator.app.auth import check_login
 from curator.app.handler import Handler
 from curator.app.models import UploadRequest
-from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
-from pytest_bdd import given, parsers, scenario, then, when
 
 from .conftest import run_sync
-
 
 # --- Scenarios ---
 
@@ -63,8 +64,6 @@ def when_admin_retry(client, mocker):
 
 @then(parsers.parse('the upload requests should be reset to "{status}" status'))
 def then_reset_status(engine, status):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         ups = s.exec(select(UploadRequest).where(UploadRequest.userid == "12345")).all()
         assert len(ups) > 0

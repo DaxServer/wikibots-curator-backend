@@ -1,14 +1,16 @@
 """BDD tests for cancel.feature"""
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest
-from curator.asyncapi import CancelBatch, Creator, Dates, GeoLocation, MediaImage
 from pytest_bdd import given, parsers, scenario, then, when
+from sqlmodel import Session, col, select
+
+from curator.app.handler import Handler
+from curator.app.models import UploadRequest
+from curator.asyncapi import CancelBatch
 
 from .conftest import run_sync
-
 
 # --- Scenarios ---
 
@@ -52,8 +54,6 @@ def test_cancel_batch_no_task_ids():
 @given("the upload requests do not have Celery task IDs")
 def step_given_no_task_ids(engine):
     """Clear task IDs for existing uploads"""
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         uploads = s.exec(
             select(UploadRequest).where(UploadRequest.status == "queued")
@@ -66,8 +66,6 @@ def step_given_no_task_ids(engine):
 @given(parsers.parse('I manually update one upload to "{status}" status'))
 def step_given_update_one_upload(engine, status):
     """Update first queued upload to different status"""
-    from sqlmodel import select, col, Session
-
     with Session(engine) as s:
         upload = s.exec(
             select(UploadRequest)
@@ -104,8 +102,6 @@ def step_when_cancel_batch(batch_id, active_user, mocker, u_res):
 
 @then('the upload requests should be marked as "cancelled"')
 def step_then_cancelled_status(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         cancelled = s.exec(
             select(UploadRequest).where(UploadRequest.status == "cancelled")
@@ -122,8 +118,6 @@ def step_then_tasks_revoked(u_res):
 
 @then("the in_progress upload should remain unchanged")
 def step_then_in_progress_unchanged(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         in_progress = s.exec(
             select(UploadRequest).where(UploadRequest.status == "in_progress")
@@ -140,8 +134,6 @@ def step_then_no_tasks_revoked(u_res):
 
 @then('the queued upload should be marked as "cancelled"')
 def step_then_queued_cancelled(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         cancelled = s.exec(
             select(UploadRequest).where(
@@ -153,8 +145,6 @@ def step_then_queued_cancelled(engine):
 
 @then('the in_progress upload should remain "in_progress"')
 def step_then_progress_remains(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         in_progress = s.exec(
             select(UploadRequest).where(UploadRequest.status == "in_progress")
@@ -164,8 +154,6 @@ def step_then_progress_remains(engine):
 
 @then(parsers.parse('{count:d} upload should be marked as "{status}"'))
 def step_then_count_status(engine, count, status):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         uploads = s.exec(
             select(UploadRequest).where(UploadRequest.status == status)
@@ -175,8 +163,6 @@ def step_then_count_status(engine, count, status):
 
 @then(parsers.parse('{count:d} upload should remain "{status}"'))
 def step_then_count_remain(engine, count, status):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         uploads = s.exec(
             select(UploadRequest).where(UploadRequest.status == status)

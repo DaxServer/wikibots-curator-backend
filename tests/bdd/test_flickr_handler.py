@@ -1,9 +1,10 @@
 """BDD tests for flickr_handler.feature"""
+
+from pytest_bdd import given, parsers, scenario, then, when
+
 from curator.app.handler import get_handler_for_handler_type
 from curator.asyncapi import ImageHandler
 from curator.handlers.flickr_handler import FlickrHandler
-from pytest_bdd import given, parsers, scenario, then, when
-
 
 # --- Scenarios ---
 

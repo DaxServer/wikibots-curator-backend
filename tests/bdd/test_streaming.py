@@ -1,15 +1,15 @@
 """BDD tests for streaming.feature"""
+
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
+
+from pytest_bdd import parsers, scenario, then, when
 
 from curator.app.auth import UserSession
 from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest
-from curator.asyncapi import Creator, Dates, FetchBatchesData, GeoLocation, MediaImage
-from pytest_bdd import given, parsers, scenario, then, when
+from curator.asyncapi import FetchBatchesData
 
 from .conftest import run_sync
-
 
 # --- Scenarios ---
 
@@ -53,7 +53,9 @@ def when_streaming(mock_sender, event_loop, mocker):
 
 
 @then(
-    parsers.parse("I should receive an initial full sync message with {count:d} batches")
+    parsers.parse(
+        "I should receive an initial full sync message with {count:d} batches"
+    )
 )
 def then_stream_sync(mock_sender, count):
     found = any(

@@ -1,12 +1,14 @@
 """BDD tests for worker.feature"""
+
+from pytest_bdd import given, parsers, scenario, then, when
+from sqlmodel import Session, col, select
+
 from curator.app.commons import DuplicateUploadError
 from curator.app.models import Batch, UploadRequest, User
-from curator.asyncapi import Creator, Dates, ErrorLink, GeoLocation, MediaImage
-from pytest_bdd import given, parsers, scenario, then, when
-
-from .conftest import run_sync
+from curator.asyncapi import ErrorLink
 from curator.workers.ingest import process_one
 
+from .conftest import run_sync
 
 # --- Scenarios ---
 
@@ -29,8 +31,6 @@ def test_worker_duplicate_scenario():
 # --- GIVENS ---
 
 
-
-
 @given(parsers.parse('the title "{title}" is on the Commons blacklist'))
 def step_given_bl(mocker, title):
     mocker.patch(
@@ -51,10 +51,10 @@ def step_given_dup(mocker):
     )
 
 
-@given(parsers.parse('an upload request exists with status "{status}" and title "{title}"'))
+@given(
+    parsers.parse('an upload request exists with status "{status}" and title "{title}"')
+)
 def step_given_upload_title(engine, status, title):
-    from sqlmodel import Session
-
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
         b = Batch(userid="12345")
@@ -81,8 +81,6 @@ def step_given_upload_title(engine, status, title):
 
 @when("the ingestion worker processes this upload request")
 def when_worker(engine, event_loop):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         up = s.exec(
             select(UploadRequest).where(UploadRequest.status == "queued")
@@ -97,8 +95,6 @@ def when_worker(engine, event_loop):
 
 @then('the upload status should be updated to "completed" in the database')
 def then_worker_completed(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(UploadRequest.status == "completed")
@@ -108,8 +104,6 @@ def then_worker_completed(engine):
 
 @then("the success URL should be recorded for the request")
 def then_worker_success(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(UploadRequest.status == "completed")
@@ -120,8 +114,6 @@ def then_worker_success(engine):
 
 @then("the access token for this request should be cleared for security")
 def then_token_cleared(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(UploadRequest.status == "completed")
@@ -132,8 +124,6 @@ def then_token_cleared(engine):
 
 @then('the upload status should be updated to "failed"')
 def then_worker_failed(engine):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(UploadRequest.status == "failed")
@@ -143,8 +133,6 @@ def then_worker_failed(engine):
 
 @then(parsers.parse('the error message should include "{text}"'))
 def then_worker_err(engine, text):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(UploadRequest.status == "failed")
@@ -158,8 +146,6 @@ def then_worker_err(engine, text):
 def then_dup_merge(
     engine, status1="duplicated_sdc_updated", status2="duplicated_sdc_not_updated"
 ):
-    from sqlmodel import select, col, Session
-
     with Session(engine) as s:
         u = s.exec(
             select(UploadRequest).where(

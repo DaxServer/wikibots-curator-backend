@@ -1,13 +1,15 @@
 """BDD tests for upload.feature"""
-from unittest.mock import AsyncMock, MagicMock
+
+from unittest.mock import MagicMock
+
+from pytest_bdd import parsers, scenario, then, when
+from sqlmodel import Session, select
 
 from curator.app.handler import Handler
 from curator.app.models import Batch, UploadRequest
 from curator.asyncapi import UploadItem, UploadSliceData
-from pytest_bdd import given, parsers, scenario, then, when
 
 from .conftest import run_sync
-
 
 # --- Scenarios ---
 
@@ -58,8 +60,6 @@ def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
 
 @then("a new batch should exist in the database for my user")
 def then_batch_exists(engine, active_user, created_batch_id):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         b = s.exec(select(Batch).where(Batch.id == created_batch_id)).first()
         assert b is not None
@@ -77,8 +77,6 @@ def then_batch_msg(mock_sender, created_batch_id):
     )
 )
 def then_req_count(engine, count, batch_id):
-    from sqlmodel import select, Session
-
     with Session(engine) as s:
         ups = s.exec(
             select(UploadRequest).where(UploadRequest.batchid == batch_id)
@@ -87,7 +85,9 @@ def then_req_count(engine, count, batch_id):
 
 
 @then(
-    parsers.parse("these {count:d} uploads should be enqueued for background processing")
+    parsers.parse(
+        "these {count:d} uploads should be enqueued for background processing"
+    )
 )
 def then_enqueued(u_res, count):
     assert u_res["delay"].call_count == count

@@ -1,10 +1,10 @@
-from httpx import HTTPError
 import logging
 from datetime import datetime
 from typing import Any, Optional, Union
 
 import httpx
 from fastapi import Request, WebSocket
+from httpx import HTTPError
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -142,6 +142,7 @@ async def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
         )
     response.raise_for_status()
     return {str(k): v for k, v in response.json().items()}
+
 
 @retry(
     retry=retry_if_exception_type((HTTPError)),

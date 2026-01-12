@@ -1,8 +1,6 @@
 """BDD tests for admin.feature"""
-from curator.app.models import Batch
-from curator.app.models import User
-from pytest_bdd import given, parsers, scenario, then, when
 
+from pytest_bdd import parsers, scenario, then, when
 
 # --- Scenarios ---
 
