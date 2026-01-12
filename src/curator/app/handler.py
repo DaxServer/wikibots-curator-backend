@@ -3,7 +3,7 @@ import functools
 import logging
 from typing import Any, Optional, cast
 
-import httpx
+import requests
 from fastapi import WebSocketDisconnect
 
 from curator.app.auth import UserSession
@@ -103,13 +103,13 @@ class Handler:
 
         try:
             images = await handler.fetch_collection(collection)
-        except httpx.ReadTimeout:
+        except requests.Timeout:
             logger.error(
                 f"[{handler.name}] API timeout for {collection} for {self.username}"
             )
             await self._fetch_images_in_batches(collection, handler, loop)
             return
-        except httpx.HTTPStatusError as e:
+        except requests.HTTPError as e:
             if e.response.status_code == 500:
                 await self._fetch_images_in_batches(collection, handler, loop)
                 return

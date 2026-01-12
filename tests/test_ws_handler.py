@@ -1,8 +1,8 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
+import requests
 
 from curator.app.config import QueuePriority
 from curator.asyncapi import (
@@ -204,9 +204,8 @@ async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_send
     with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = mocker.MagicMock()
         mock_handler.fetch_collection = AsyncMock(
-            side_effect=httpx.HTTPStatusError(
+            side_effect=requests.HTTPError(
                 "Error message",
-                request=mocker.MagicMock(),
                 response=mocker.MagicMock(status_code=502, text="502 error"),
             )
         )

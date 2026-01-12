@@ -2,8 +2,15 @@ import logging
 from datetime import datetime
 from typing import Any, Optional, Union
 
-import httpx
+import requests
 from fastapi import Request, WebSocket
+from requests.exceptions import ConnectionError, HTTPError, Timeout
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
@@ -63,22 +70,23 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
     )
 
 
-async def _fetch_sequence_data(sequence_id: str) -> dict:
+def _fetch_sequence_data(sequence_id: str) -> dict:
     """
     Fetch sequence data from Mapillary API
     """
     logger.info(f"[mapillary] fetching sequence data for {sequence_id}")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://graph.mapillary.com/images",
-            params={
-                "access_token": MAPILLARY_API_TOKEN,
-                "sequence_ids": sequence_id,
-                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
-            },
-            timeout=60,
-        )
+    response = requests.get(
+        "https://graph.mapillary.com/images",
+        params={
+            "sequence_ids": sequence_id,
+            "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+        },
+        headers={
+            "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
+        },
+        timeout=60,
+    )
     response.raise_for_status()
     images = response.json()["data"]
 
@@ -88,64 +96,74 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
     return {str(i["id"]): i for i in images}
 
 
-async def _get_sequence_ids(sequence_id: str) -> list[str]:
+def _get_sequence_ids(sequence_id: str) -> list[str]:
     """
     Fetch sequence image IDs from Mapillary API (no fields)
     """
     logger.info(f"[mapillary] fetching sequence ids for {sequence_id}")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://graph.mapillary.com/images",
-            params={
-                "access_token": MAPILLARY_API_TOKEN,
-                "sequence_ids": sequence_id,
-            },
-            timeout=60,
-        )
+    response = requests.get(
+        "https://graph.mapillary.com/images",
+        params={
+            "sequence_ids": sequence_id,
+        },
+        headers={
+            "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
+        },
+        timeout=60,
+    )
     response.raise_for_status()
     images = response.json()["data"]
     return [str(i["id"]) for i in images]
 
 
-async def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
+def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
     """
-    Fetch multiple images by their IDs in a single request.
+    Fetch multiple images by their IDs in a single request
     """
     if not image_ids:
         return {}
 
     logger.info(f"[mapillary] fetching {len(image_ids)} images by ids")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://graph.mapillary.com",
-            params={
-                "access_token": MAPILLARY_API_TOKEN,
-                "ids": ",".join(image_ids),
-                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
-            },
-            timeout=60,
-        )
+    response = requests.get(
+        "https://graph.mapillary.com",
+        params={
+            "ids": ",".join(image_ids),
+            "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+        },
+        headers={
+            "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
+        },
+        timeout=60,
+    )
     response.raise_for_status()
     return {str(k): v for k, v in response.json().items()}
 
 
-async def _fetch_single_image(image_id: str) -> dict:
+@retry(
+    retry=retry_if_exception_type((ConnectionError, Timeout, HTTPError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+)
+def _fetch_single_image(image_id: str) -> dict:
     """
     Fetch single image data from Mapillary API
+
+    Retries on connection errors, timeouts, and HTTP errors with exponential backoff.
     """
     logger.info(f"[mapillary] fetching single image data for {image_id}")
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"https://graph.mapillary.com/{image_id}",
-            params={
-                "access_token": MAPILLARY_API_TOKEN,
-                "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
-            },
-            timeout=60,
-        )
+    response = requests.get(
+        f"https://graph.mapillary.com/{image_id}",
+        params={
+            "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+        },
+        headers={
+            "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
+        },
+        timeout=60,
+    )
     response.raise_for_status()
     return response.json()
 
@@ -156,22 +174,22 @@ class MapillaryHandler(Handler):
         return "mapillary"
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
-        collection = await _fetch_sequence_data(input)
+        collection = _fetch_sequence_data(input)
         return {k: from_mapillary(v) for k, v in collection.items()}
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
-        return await _get_sequence_ids(input)
+        return _get_sequence_ids(input)
 
     async def fetch_images_batch(
         self, image_ids: list[str], input: str
     ) -> dict[str, MediaImage]:
-        data = await _fetch_images_by_ids_api(image_ids)
+        data = _fetch_images_by_ids_api(image_ids)
         return {k: from_mapillary(v) for k, v in data.items()}
 
     async def fetch_image_metadata(
         self, image_id: str, input: Optional[str] = None
     ) -> MediaImage:
-        image = await _fetch_single_image(image_id)
+        image = _fetch_single_image(image_id)
 
         if not image:
             raise ValueError(f"Image data not found for image_id={image_id}")

@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
-import httpx
 import pytest
+import requests
 
 from curator.app.handler import Handler
 from curator.asyncapi import (
@@ -61,9 +61,8 @@ async def test_fetch_images_batch_retrieval_on_500(
 
         mock_response = mocker.MagicMock()
         mock_response.status_code = 500
-        error = httpx.HTTPStatusError(
+        error = requests.HTTPError(
             "500 Internal Server Error",
-            request=mocker.MagicMock(),
             response=mock_response,
         )
         handler.fetch_collection.side_effect = error
@@ -102,9 +101,7 @@ async def test_fetch_images_batch_retrieval_on_timeout(
     with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
         handler = mock_get_handler.return_value
 
-        handler.fetch_collection.side_effect = httpx.ReadTimeout(
-            "Read timed out", request=mocker.MagicMock()
-        )
+        handler.fetch_collection.side_effect = requests.Timeout("Read timed out")
 
         handler.fetch_collection_ids = AsyncMock(return_value=["id1", "id2"])
 
@@ -142,9 +139,8 @@ async def test_fetch_images_batch_retrieval_fail_after_ids(
 
         mock_response = mocker.MagicMock()
         mock_response.status_code = 500
-        error = httpx.HTTPStatusError(
+        error = requests.HTTPError(
             "500 Internal Server Error",
-            request=mocker.MagicMock(),
             response=mock_response,
         )
         handler.fetch_collection.side_effect = error
@@ -168,9 +164,8 @@ async def test_fetch_images_batch_empty_collection(
 
         mock_response = mocker.MagicMock()
         mock_response.status_code = 500
-        error = httpx.HTTPStatusError(
+        error = requests.HTTPError(
             "500 Internal Server Error",
-            request=mocker.MagicMock(),
             response=mock_response,
         )
         handler.fetch_collection.side_effect = error

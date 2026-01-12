@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,7 +10,7 @@ from curator.handlers.mapillary_handler import MapillaryHandler
 def mock_fetch_sequence():
     with patch(
         "curator.handlers.mapillary_handler._fetch_sequence_data",
-        new_callable=AsyncMock,
+        new_callable=MagicMock,
     ) as mock:
         yield mock
 
@@ -19,7 +19,7 @@ def mock_fetch_sequence():
 def mock_fetch_single():
     with patch(
         "curator.handlers.mapillary_handler._fetch_single_image",
-        new_callable=AsyncMock,
+        new_callable=MagicMock,
     ) as mock:
         yield mock
 
