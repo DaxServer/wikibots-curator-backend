@@ -118,3 +118,7 @@ class UploadItem(SQLModel):
     labels: Optional[Label] = None
     copyright_override: bool = False
     sdc: Optional[list[Statement]] = []
+
+
+class RetrySelectedUploadsRequest(SQLModel):
+    upload_ids: list[int]
