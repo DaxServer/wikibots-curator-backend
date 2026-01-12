@@ -1,9 +1,16 @@
+from httpx import HTTPError
 import logging
 from datetime import datetime
 from typing import Any, Optional, Union
 
 import httpx
 from fastapi import Request, WebSocket
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from curator.app.config import (
     MAPILLARY_API_TOKEN,
@@ -73,9 +80,11 @@ async def _fetch_sequence_data(sequence_id: str) -> dict:
         response = await client.get(
             "https://graph.mapillary.com/images",
             params={
-                "access_token": MAPILLARY_API_TOKEN,
                 "sequence_ids": sequence_id,
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            headers={
+                "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
             },
             timeout=60,
         )
@@ -98,8 +107,10 @@ async def _get_sequence_ids(sequence_id: str) -> list[str]:
         response = await client.get(
             "https://graph.mapillary.com/images",
             params={
-                "access_token": MAPILLARY_API_TOKEN,
                 "sequence_ids": sequence_id,
+            },
+            headers={
+                "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
             },
             timeout=60,
         )
@@ -121,16 +132,22 @@ async def _fetch_images_by_ids_api(image_ids: list[str]) -> dict[str, dict]:
         response = await client.get(
             "https://graph.mapillary.com",
             params={
-                "access_token": MAPILLARY_API_TOKEN,
                 "ids": ",".join(image_ids),
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            headers={
+                "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
             },
             timeout=60,
         )
     response.raise_for_status()
     return {str(k): v for k, v in response.json().items()}
 
-
+@retry(
+    retry=retry_if_exception_type((HTTPError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+)
 async def _fetch_single_image(image_id: str) -> dict:
     """
     Fetch single image data from Mapillary API
@@ -141,8 +158,10 @@ async def _fetch_single_image(image_id: str) -> dict:
         response = await client.get(
             f"https://graph.mapillary.com/{image_id}",
             params={
-                "access_token": MAPILLARY_API_TOKEN,
                 "fields": "captured_at,compass_angle,creator,geometry,height,is_pano,make,model,thumb_256_url,thumb_1024_url,thumb_original_url,width",
+            },
+            headers={
+                "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
             },
             timeout=60,
         )
