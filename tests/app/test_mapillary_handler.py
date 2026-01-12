@@ -3,7 +3,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from curator.asyncapi import MediaImage
-from curator.handlers.mapillary_handler import MapillaryHandler
+from curator.handlers.mapillary_handler import (
+    MapillaryHandler,
+    from_mapillary,
+)
 
 
 @pytest.fixture
@@ -70,3 +73,36 @@ async def test_fetch_image_metadata_single(mock_fetch_sequence, mock_fetch_singl
     assert result.id == "123"
     mock_fetch_single.assert_called_once_with(image_id)
     mock_fetch_sequence.assert_not_called()
+
+
+def test_from_mapillary_converts_none_string_for_camera_make():
+    data = mock_image_data.copy()
+    data["make"] = "none"
+    data["model"] = "EOS 5D"
+
+    result = from_mapillary(data)
+
+    assert result.camera_make is None
+    assert result.camera_model == "EOS 5D"
+
+
+def test_from_mapillary_converts_none_string_for_camera_model():
+    data = mock_image_data.copy()
+    data["make"] = "Canon"
+    data["model"] = "none"
+
+    result = from_mapillary(data)
+
+    assert result.camera_make == "Canon"
+    assert result.camera_model is None
+
+
+def test_from_mapillary_converts_none_string_for_both_camera_fields():
+    data = mock_image_data.copy()
+    data["make"] = "none"
+    data["model"] = "none"
+
+    result = from_mapillary(data)
+
+    assert result.camera_make is None
+    assert result.camera_model is None

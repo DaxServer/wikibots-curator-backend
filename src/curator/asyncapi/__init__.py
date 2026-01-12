@@ -82,6 +82,7 @@ from .UrlValueSnak import UrlValueSnak
 from .WikibaseEntityType import WikibaseEntityType
 
 __all__ = [
+    "CancelBatch",
     "CreateBatch",
     "FetchBatches",
     "FetchBatchesData",
@@ -100,7 +101,6 @@ __all__ = [
     "Label",
     "UploadSlice",
     "UploadSliceData",
-    "CancelBatch",
     "BatchCreated",
     "BatchesList",
     "BatchesListData",
