@@ -515,19 +515,18 @@ def retry_selected_uploads(
     if not upload_ids:
         return []
 
-    # Query uploads by IDs and collect IDs that are not in_progress
-    uploads = session.exec(
-        select(UploadRequest).where(UploadRequest.id.in_(upload_ids))
+    reset_ids = session.exec(
+        select(col(UploadRequest.id))
+        .where(col(UploadRequest.id).in_(upload_ids))
+        .where(col(UploadRequest.status) != "in_progress")
     ).all()
-
-    reset_ids = [u.id for u in uploads if u.status != "in_progress"]
 
     if not reset_ids:
         return []
 
     session.exec(
         update(UploadRequest)
-        .where(UploadRequest.id.in_(reset_ids))
+        .where(col(UploadRequest.id).in_(reset_ids))
         .values(
             status="queued",
             error=None,
@@ -539,7 +538,7 @@ def retry_selected_uploads(
     )
     session.flush()
 
-    return reset_ids
+    return list(reset_ids)
 
 
 def cancel_batch(
