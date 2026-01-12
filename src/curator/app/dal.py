@@ -500,29 +500,30 @@ def reset_failed_uploads(
     return reset_ids
 
 
-def retry_batch_as_admin(
+def retry_selected_uploads(
     session: Session,
-    batchid: int,
+    upload_ids: list[int],
     encrypted_access_token: str,
     admin_userid: str,
 ) -> list[int]:
     """
-    Reset status of ALL uploads in a batch to 'queued', except those in 'in_progress'.
+    Reset status of specific uploads to 'queued', except those in 'in_progress'.
+    Silently ignores non-existent upload IDs.
     Updates the access token for the retry to the admin's token.
+    Returns list of upload IDs that were actually reset.
     """
-    batch = session.get(Batch, batchid)
-    if not batch:
-        raise ValueError("Batch not found")
+    if not upload_ids:
+        return []
 
-    # Select all uploads that are NOT in_progress
-    statement = select(UploadRequest).where(
-        UploadRequest.batchid == batchid,
-        UploadRequest.status != "in_progress",
-    )
-    uploads_to_retry = session.exec(statement).all()
+    # Query uploads by IDs
+    statement = select(UploadRequest).where(UploadRequest.id.in_(upload_ids))
+    uploads = session.exec(statement).all()
 
     reset_ids = []
-    for upload in uploads_to_retry:
+    for upload in uploads:
+        # Skip uploads that are in_progress
+        if upload.status == "in_progress":
+            continue
         upload.status = "queued"
         upload.error = None
         upload.result = None

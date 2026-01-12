@@ -1,14 +1,14 @@
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
 
 from curator.admin import (
     admin_get_batches,
     admin_get_upload_requests,
     admin_get_users,
-    admin_retry_batch,
+    admin_retry_uploads,
 )
+from curator.app.models import RetrySelectedUploadsRequest
 
 
 @pytest.mark.asyncio
@@ -67,26 +67,33 @@ async def test_admin_get_upload_requests_success(mock_session, patch_get_session
 
 
 @pytest.mark.asyncio
-async def test_admin_retry_batch_success(mock_session, patch_get_session):
+async def test_admin_retry_uploads_success(mock_session, patch_get_session):
     patch_get_session("curator.admin.get_session")
     user = {
         "username": "DaxServer",
         "userid": "u1",
         "access_token": ("token", "secret"),
     }
+    request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3])
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
-        patch("curator.admin.retry_batch_as_admin") as mock_retry,
+        patch("curator.admin.retry_selected_uploads") as mock_retry,
         patch("curator.workers.tasks.process_upload.delay") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
         mock_retry.return_value = [1, 2, 3]
 
-        result = await admin_retry_batch(batch_id=1, user=user)
+        result = await admin_retry_uploads(request, user)
 
         mock_encrypt.assert_called_once_with(("token", "secret"))
-        mock_retry.assert_called_once_with(mock_session, 1, "encrypted_token", "u1")
-        assert result == {"message": "Retried 3 uploads"}
+        mock_retry.assert_called_once_with(
+            mock_session, [1, 2, 3], "encrypted_token", "u1"
+        )
+        assert result == {
+            "message": "Retried 3 uploads",
+            "retried_count": 3,
+            "requested_count": 3,
+        }
 
         # Verify Celery tasks were queued with upload_id and edit_group_id
         assert mock_task.call_count == 3
@@ -102,21 +109,61 @@ async def test_admin_retry_batch_success(mock_session, patch_get_session):
 
 
 @pytest.mark.asyncio
-async def test_admin_retry_batch_not_found(mock_session, patch_get_session):
+async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
+    """Test admin retry when some uploads are in_progress and skipped"""
     patch_get_session("curator.admin.get_session")
     user = {
         "username": "DaxServer",
         "userid": "u1",
         "access_token": ("token", "secret"),
     }
+    # Request 4 uploads, but only 2 are actually retried (others are in_progress)
+    request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3, 4])
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
-        patch("curator.admin.retry_batch_as_admin") as mock_retry,
+        patch("curator.admin.retry_selected_uploads") as mock_retry,
+        patch("curator.workers.tasks.process_upload.delay") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.side_effect = ValueError("Batch not found")
+        mock_retry.return_value = [1, 3]  # Only 1 and 3 were retried
 
-        with pytest.raises(HTTPException) as exc:
-            await admin_retry_batch(batch_id=1, user=user)
+        result = await admin_retry_uploads(request, user)
 
-        assert exc.value.status_code == 404
+        assert result == {
+            "message": "Retried 2 uploads",
+            "retried_count": 2,
+            "requested_count": 4,
+        }
+
+        # Only 2 tasks should be queued
+        assert mock_task.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
+    """Test admin retry with empty upload_ids list"""
+    patch_get_session("curator.admin.get_session")
+    user = {
+        "username": "DaxServer",
+        "userid": "u1",
+        "access_token": ("token", "secret"),
+    }
+    request = RetrySelectedUploadsRequest(upload_ids=[])
+    with (
+        patch("curator.admin.encrypt_access_token") as mock_encrypt,
+        patch("curator.admin.retry_selected_uploads") as mock_retry,
+        patch("curator.workers.tasks.process_upload.delay") as mock_task,
+    ):
+        mock_encrypt.return_value = "encrypted_token"
+        mock_retry.return_value = []
+
+        result = await admin_retry_uploads(request, user)
+
+        assert result == {
+            "message": "Retried 0 uploads",
+            "retried_count": 0,
+            "requested_count": 0,
+        }
+
+        # No tasks should be queued
+        assert mock_task.call_count == 0

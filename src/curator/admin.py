@@ -9,10 +9,10 @@ from curator.app.dal import (
     get_all_upload_requests,
     get_batches,
     get_users,
-    retry_batch_as_admin,
+    retry_selected_uploads,
 )
 from curator.app.db import get_session
-from curator.app.models import UploadRequest
+from curator.app.models import RetrySelectedUploadsRequest, UploadRequest
 from curator.workers.tasks import process_upload
 
 
@@ -80,24 +80,25 @@ async def admin_update_upload_request(
     return {"message": "Upload request updated successfully"}
 
 
-@router.post("/batches/{batch_id}/retry")
-async def admin_retry_batch(
-    batch_id: int,
+@router.post("/retry")
+async def admin_retry_uploads(
+    request: RetrySelectedUploadsRequest,
     user: LoggedInUser,
 ):
     with get_session() as session:
         encrypted_token = encrypt_access_token(user["access_token"])
 
-        try:
-            reset_ids = retry_batch_as_admin(
-                session, batch_id, encrypted_token, user["userid"]
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        reset_ids = retry_selected_uploads(
+            session, request.upload_ids, encrypted_token, user["userid"]
+        )
 
     # Queue the uploads for processing
     edit_group_id = generate_edit_group_id()
     for upload_id in reset_ids:
         process_upload.delay(upload_id, edit_group_id)
 
-    return {"message": f"Retried {len(reset_ids)} uploads"}
+    return {
+        "message": f"Retried {len(reset_ids)} uploads",
+        "retried_count": len(reset_ids),
+        "requested_count": len(request.upload_ids),
+    }

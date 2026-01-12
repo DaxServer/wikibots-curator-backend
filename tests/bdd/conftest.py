@@ -492,3 +492,64 @@ def step_given_task_ids(engine):
             task_ids[upload.id] = task_id
         s.commit()
     return task_ids
+
+
+@given(parsers.parse("there are {count:d} batches in the system"))
+def step_given_batches_exist(engine, count):
+    """Create multiple batches for testing"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        for i in range(1, count + 1):
+            s.merge(Batch(id=i, userid="12345"))
+        s.commit()
+
+
+@given(parsers.parse('upload requests exist with status "{status}"'))
+def step_given_upload_requests_exist(engine, status):
+    """Create multiple upload requests with given status"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=1, userid="12345"))
+        s.commit()
+        for i in range(1, 4):
+            s.add(
+                UploadRequest(
+                    id=i,
+                    batchid=1,
+                    userid="12345",
+                    status=status,
+                    key=f"img{i}",
+                    handler="mapillary",
+                    filename=f"img{i}.jpg",
+                    wikitext="W",
+                    access_token="E",
+                )
+            )
+        s.commit()
+
+
+@given(
+    parsers.parse(
+        'an upload request exists with status "{status}" and ID {upload_id:d}'
+    )
+)
+def step_given_upload_with_id(engine, status, upload_id):
+    """Create an upload request with specific status and ID"""
+    with Session(engine) as s:
+        s.merge(User(userid="12345", username="testuser"))
+        s.merge(Batch(id=1, userid="12345"))
+        s.commit()
+        s.add(
+            UploadRequest(
+                id=upload_id,
+                batchid=1,
+                userid="12345",
+                status=status,
+                key=f"img{upload_id}",
+                handler="mapillary",
+                filename=f"img{upload_id}.jpg",
+                wikitext="W",
+                access_token="E",
+            )
+        )
+        s.commit()
