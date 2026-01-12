@@ -515,25 +515,30 @@ def retry_selected_uploads(
     if not upload_ids:
         return []
 
-    # Query uploads by IDs
-    statement = select(UploadRequest).where(UploadRequest.id.in_(upload_ids))
-    uploads = session.exec(statement).all()
+    # Query uploads by IDs and collect IDs that are not in_progress
+    uploads = session.exec(
+        select(UploadRequest).where(UploadRequest.id.in_(upload_ids))
+    ).all()
 
-    reset_ids = []
-    for upload in uploads:
-        # Skip uploads that are in_progress
-        if upload.status == "in_progress":
-            continue
-        upload.status = "queued"
-        upload.error = None
-        upload.result = None
-        upload.success = None
-        upload.access_token = encrypted_access_token
-        upload.last_edited_by = admin_userid
-        session.add(upload)
-        reset_ids.append(upload.id)
+    reset_ids = [u.id for u in uploads if u.status != "in_progress"]
 
+    if not reset_ids:
+        return []
+
+    session.exec(
+        update(UploadRequest)
+        .where(UploadRequest.id.in_(reset_ids))
+        .values(
+            status="queued",
+            error=None,
+            result=None,
+            success=None,
+            access_token=encrypted_access_token,
+            last_edited_by=admin_userid,
+        )
+    )
     session.flush()
+
     return reset_ids
 
 
