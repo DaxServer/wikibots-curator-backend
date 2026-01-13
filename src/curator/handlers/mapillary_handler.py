@@ -63,8 +63,8 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
         preview_url=str(image.get("thumb_1024_url", "")),
         width=int(image.get("width", 0)),
         height=int(image.get("height", 0)),
-        camera_make=None if image.get("make") == "none" else image.get("make"),
-        camera_model=None if image.get("model") == "none" else image.get("model"),
+        camera_make=None if (make := image.get("make")) == "none" else make,
+        camera_model=None if (model := image.get("model")) == "none" else model,
         is_pano=image.get("is_pano"),
         existing=[],
     )

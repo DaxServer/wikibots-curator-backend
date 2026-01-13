@@ -69,12 +69,9 @@ def mapillary_response():
 def step_given_mapillary_response_with_make_model(
     make, model, mapillary_response, session_context
 ):
-    # Parse the string values - remove quotes from the parsed values
-    make_value = make.strip('"') if make != "null" else None
-    model_value = model.strip('"') if model != "null" else None
-
-    mapillary_response["make"] = make_value
-    mapillary_response["model"] = model_value
+    # Remove quotes from the parsed values
+    mapillary_response["make"] = make.strip('"')
+    mapillary_response["model"] = model.strip('"')
 
     session_context["mapillary_response"] = mapillary_response
 
@@ -108,8 +105,7 @@ def step_then_camera_make(session_context, expected):
         assert media_image.camera_make is None
     else:
         # Strip quotes from expected value
-        expected_value = expected.strip('"')
-        assert media_image.camera_make == expected_value
+        assert media_image.camera_make == expected.strip('"')
 
 
 @then(parsers.parse("the MediaImage camera_model should be {expected}"))
@@ -119,5 +115,4 @@ def step_then_camera_model(session_context, expected):
         assert media_image.camera_model is None
     else:
         # Strip quotes from expected value
-        expected_value = expected.strip('"')
-        assert media_image.camera_model == expected_value
+        assert media_image.camera_model == expected.strip('"')

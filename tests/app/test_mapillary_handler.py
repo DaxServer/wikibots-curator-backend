@@ -75,34 +75,22 @@ async def test_fetch_image_metadata_single(mock_fetch_sequence, mock_fetch_singl
     mock_fetch_sequence.assert_not_called()
 
 
-def test_from_mapillary_converts_none_string_for_camera_make():
+@pytest.mark.parametrize(
+    "make, model, expected_make, expected_model",
+    [
+        ("none", "EOS 5D", None, "EOS 5D"),
+        ("Canon", "none", "Canon", None),
+        ("none", "none", None, None),
+    ],
+)
+def test_from_mapillary_converts_none_string(
+    make, model, expected_make, expected_model
+):
     data = mock_image_data.copy()
-    data["make"] = "none"
-    data["model"] = "EOS 5D"
+    data["make"] = make
+    data["model"] = model
 
     result = from_mapillary(data)
 
-    assert result.camera_make is None
-    assert result.camera_model == "EOS 5D"
-
-
-def test_from_mapillary_converts_none_string_for_camera_model():
-    data = mock_image_data.copy()
-    data["make"] = "Canon"
-    data["model"] = "none"
-
-    result = from_mapillary(data)
-
-    assert result.camera_make == "Canon"
-    assert result.camera_model is None
-
-
-def test_from_mapillary_converts_none_string_for_both_camera_fields():
-    data = mock_image_data.copy()
-    data["make"] = "none"
-    data["model"] = "none"
-
-    result = from_mapillary(data)
-
-    assert result.camera_make is None
-    assert result.camera_model is None
+    assert result.camera_make == expected_make
+    assert result.camera_model == expected_model
