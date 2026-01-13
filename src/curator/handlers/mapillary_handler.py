@@ -17,7 +17,16 @@ from curator.app.config import (
     WikidataProperty,
 )
 from curator.app.wcqs import WcqsSession
-from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaImage
+from curator.asyncapi import (
+    CameraInfo,
+    Creator,
+    Dates,
+    ExistingPage,
+    GeoLocation,
+    ImageDimensions,
+    ImageUrls,
+    MediaImage,
+)
 from curator.handlers.interfaces import Handler
 
 logger = logging.getLogger(__name__)
@@ -49,6 +58,24 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
     if captured_at is None:
         raise ValueError(f"Image {image.get('id')} has no captured_at")
 
+    urls = ImageUrls(
+        url=f"https://www.mapillary.com/app/?pKey={image.get('id')}&focus=photo",
+        original=str(image.get("thumb_original_url", "")),
+        preview=str(image.get("thumb_1024_url", "")),
+        thumbnail=str(image.get("thumb_256_url", "")),
+    )
+
+    dimensions = ImageDimensions(
+        width=int(image.get("width", 0)),
+        height=int(image.get("height", 0)),
+    )
+
+    camera = CameraInfo(
+        make=None if (make := image.get("make")) == "none" else make,
+        model=None if (model := image.get("model")) == "none" else model,
+        is_pano=bool(image.get("is_pano")),
+    )
+
     dt = datetime.fromtimestamp(captured_at / 1000.0)
     date = dt.date().isoformat()
     return MediaImage(
@@ -57,15 +84,9 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
         dates=Dates(taken=dt.isoformat()),
         creator=creator,
         location=loc,
-        url_original=str(image.get("thumb_original_url", "")),
-        url=f"https://www.mapillary.com/app/?pKey={image.get('id')}&focus=photo",
-        thumbnail_url=str(image.get("thumb_256_url", "")),
-        preview_url=str(image.get("thumb_1024_url", "")),
-        width=int(image.get("width", 0)),
-        height=int(image.get("height", 0)),
-        camera_make=None if (make := image.get("make")) == "none" else make,
-        camera_model=None if (model := image.get("model")) == "none" else model,
-        is_pano=image.get("is_pano"),
+        urls=urls,
+        dimensions=dimensions,
+        camera=camera,
         existing=[],
     )
 

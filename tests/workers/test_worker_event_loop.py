@@ -3,7 +3,15 @@ from unittest.mock import patch
 import pytest
 
 from curator.app.models import UploadRequest, User
-from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
+from curator.asyncapi import (
+    CameraInfo,
+    Creator,
+    Dates,
+    GeoLocation,
+    ImageDimensions,
+    ImageUrls,
+    MediaImage,
+)
 from curator.workers import ingest
 
 
@@ -15,12 +23,14 @@ def make_image():
         creator=Creator(id="1", username="u", profile_url="p"),
         location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
         existing=[],
-        url_original="https://example.com/file.jpg",
-        thumbnail_url="t",
-        preview_url="p",
-        url="u",
-        width=1,
-        height=1,
+        urls=ImageUrls(
+            original="https://example.com/file.jpg",
+            thumbnail="t",
+            preview="p",
+            url="u",
+        ),
+        dimensions=ImageDimensions(width=1, height=1),
+        camera=CameraInfo(is_pano=False),
     )
 
 

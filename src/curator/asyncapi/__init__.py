@@ -9,6 +9,7 @@ from .BatchStats import BatchStats
 from .BatchUploadItem import BatchUploadItem
 from .BatchUploadsList import BatchUploadsList
 from .BatchUploadsListData import BatchUploadsListData
+from .CameraInfo import CameraInfo
 from .CancelBatch import CancelBatch
 from .CollectionImageIds import CollectionImageIds
 from .CollectionImages import CollectionImages
@@ -38,7 +39,9 @@ from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
 from .GlobeCoordinateValueSnak import GlobeCoordinateValueSnak
+from .ImageDimensions import ImageDimensions
 from .ImageHandler import ImageHandler
+from .ImageUrls import ImageUrls
 from .Label import Label
 from .MediaImage import MediaImage
 from .NoValueSnak import NoValueSnak
@@ -119,10 +122,13 @@ __all__ = [
     "CollectionImages",
     "CollectionImagesData",
     "MediaImage",
+    "CameraInfo",
     "Creator",
     "Dates",
+    "ImageDimensions",
     "ExistingPage",
     "GeoLocation",
+    "ImageUrls",
     "Error",
     "PartialCollectionImages",
     "PartialCollectionImagesData",

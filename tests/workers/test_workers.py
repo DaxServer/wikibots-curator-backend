@@ -63,13 +63,17 @@ async def test_worker_process_one_decrypts_token(mock_session):
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
     ):
@@ -131,13 +135,17 @@ async def test_worker_process_one_duplicate_status(mock_session):
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
         # Mock the entire SDC merge handler to return None (merge failed)
@@ -218,13 +226,17 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
     ):
@@ -290,13 +302,17 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
@@ -367,13 +383,17 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
@@ -444,13 +464,17 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),  # Mock sleep to avoid delays
@@ -513,13 +537,17 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(mock_session
                 id="img1",
                 creator=SimpleNamespace(username="alice"),
                 dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
-                url="https://example.com/photo",
-                url_original="https://example.com/file.jpg",
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
                 location=SimpleNamespace(
                     latitude=1.0, longitude=2.0, compass_angle=3.0
                 ),
-                width=100,
-                height=200,
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
             ),
         ),
     ):

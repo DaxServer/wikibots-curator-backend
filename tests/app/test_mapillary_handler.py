@@ -92,5 +92,5 @@ def test_from_mapillary_converts_none_string(
 
     result = from_mapillary(data)
 
-    assert result.camera_make == expected_make
-    assert result.camera_model == expected_model
+    assert result.camera.make == expected_make
+    assert result.camera.model == expected_model

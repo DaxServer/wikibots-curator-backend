@@ -102,17 +102,17 @@ def step_when_convert_from_mapillary(session_context):
 def step_then_camera_make(session_context, expected):
     media_image = session_context["media_image"]
     if expected == "None":
-        assert media_image.camera_make is None
+        assert media_image.camera.make is None
     else:
         # Strip quotes from expected value
-        assert media_image.camera_make == expected.strip('"')
+        assert media_image.camera.make == expected.strip('"')
 
 
 @then(parsers.parse("the MediaImage camera_model should be {expected}"))
 def step_then_camera_model(session_context, expected):
     media_image = session_context["media_image"]
     if expected == "None":
-        assert media_image.camera_model is None
+        assert media_image.camera.model is None
     else:
         # Strip quotes from expected value
-        assert media_image.camera_model == expected.strip('"')
+        assert media_image.camera.model == expected.strip('"')

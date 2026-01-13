@@ -6,7 +6,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from curator.app.auth import check_login
-from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
+from curator.asyncapi import (
+    CameraInfo,
+    Creator,
+    Dates,
+    GeoLocation,
+    ImageDimensions,
+    ImageUrls,
+    MediaImage,
+)
 from curator.main import app
 from curator.protocol import WS_CHANNEL_ADDRESS
 
@@ -68,17 +76,16 @@ def test_ws_fetch_images(mock_mapillary_handler):
         title="Image 1",
         dates=Dates(taken="2023-01-01"),
         creator=Creator(id="c1", username="creator1", profile_url="http://profile"),
-        url_original="http://original",
-        thumbnail_url="http://thumb",
-        preview_url="http://preview",
-        url="http://url",
-        width=100,
-        height=100,
+        urls=ImageUrls(
+            url="http://url",
+            original="http://original",
+            preview="http://preview",
+            thumbnail="http://thumb",
+        ),
+        dimensions=ImageDimensions(width=100, height=100),
+        camera=CameraInfo(make="Canon", model="EOS", is_pano=False),
         description="desc",
         location=GeoLocation(latitude=10.0, longitude=10.0, compass_angle=0.0),
-        camera_make="Canon",
-        camera_model="EOS",
-        is_pano=False,
         license="CC",
         tags=["tag1"],
         existing=[],

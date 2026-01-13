@@ -7,31 +7,28 @@ from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .CameraInfo import CameraInfo
 from .Creator import Creator
 from .Dates import Dates
 from .ExistingPage import ExistingPage
 from .GeoLocation import GeoLocation
+from .ImageDimensions import ImageDimensions
+from .ImageUrls import ImageUrls
 
 
 class MediaImage(BaseModel):
-    camera_make: Optional[str] = Field(default=None)
-    camera_model: Optional[str] = Field(default=None)
+    camera: CameraInfo = Field()
     creator: Creator = Field()
     dates: Dates = Field()
     description: Optional[str] = Field(default=None)
+    dimensions: ImageDimensions = Field()
     existing: List[ExistingPage] = Field()
-    height: int = Field()
     id: str = Field()
-    is_pano: Optional[bool] = Field(default=None)
     license: Optional[str] = Field(default=None)
     location: GeoLocation = Field()
-    preview_url: str = Field()
     tags: List[str] = Field(default=[])
-    thumbnail_url: str = Field()
     title: str = Field()
-    url: str = Field()
-    url_original: str = Field()
-    width: int = Field()
+    urls: ImageUrls = Field()
 
     model_config = ConfigDict(populate_by_name=True)
 
