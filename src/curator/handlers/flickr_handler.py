@@ -8,7 +8,16 @@ from flickr_url_parser import parse_flickr_url
 from flickr_url_parser.exceptions import NotAFlickrUrl
 
 from curator.app.config import FLICKR_API_KEY
-from curator.asyncapi import Creator, Dates, ExistingPage, GeoLocation, MediaImage
+from curator.asyncapi import (
+    CameraInfo,
+    Creator,
+    Dates,
+    ExistingPage,
+    GeoLocation,
+    ImageDimensions,
+    ImageUrls,
+    MediaImage,
+)
 from curator.handlers.interfaces import Handler
 
 logger = logging.getLogger(__name__)
@@ -100,15 +109,30 @@ def from_flickr(photo: dict, album_id: str) -> MediaImage:
         dates=Dates(taken=dt.isoformat()),
         creator=creator,
         location=location,
-        url_original=str(photo.get("url_o", "")),
-        thumbnail_url=str(photo.get("url_q") or photo.get("url_s", "")),
-        preview_url=str(photo.get("url_l", "")),
-        url=f"https://www.flickr.com/photos/{path_alias}/{photo_id}",
-        width=int(
-            photo.get("width_o") or photo.get("o_width") or photo.get("width_l") or 0
+        urls=ImageUrls(
+            url=f"https://www.flickr.com/photos/{path_alias}/{photo_id}",
+            original=str(photo.get("url_o", "")),
+            preview=str(photo.get("url_l", "")),
+            thumbnail=str(photo.get("url_q") or photo.get("url_s", "")),
         ),
-        height=int(
-            photo.get("height_o") or photo.get("o_height") or photo.get("height_l") or 0
+        dimensions=ImageDimensions(
+            width=int(
+                photo.get("width_o")
+                or photo.get("o_width")
+                or photo.get("width_l")
+                or 0
+            ),
+            height=int(
+                photo.get("height_o")
+                or photo.get("o_height")
+                or photo.get("height_l")
+                or 0
+            ),
+        ),
+        camera=CameraInfo(
+            make=None,
+            model=None,
+            is_pano=False,
         ),
         license=str(photo.get("license", "")),
         tags=tags,

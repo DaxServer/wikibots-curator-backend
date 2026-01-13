@@ -242,7 +242,9 @@ def build_statements_from_mapillary_image(
                 _create_wikibase_item_snak(
                     WIKIDATA_PROPERTY["Operator"], WIKIDATA_ENTITY["Mapillary"]
                 ),
-                _create_string_snak(WIKIDATA_PROPERTY["DescribedAtUrl"], image.url),
+                _create_string_snak(
+                    WIKIDATA_PROPERTY["DescribedAtUrl"], image.urls.url
+                ),
             ],
         )
     )
@@ -284,14 +286,18 @@ def build_statements_from_mapillary_image(
     claims.append(
         _create_statement(
             _create_quantity_snak(
-                WIKIDATA_PROPERTY["Width"], image.width, WIKIDATA_ENTITY["Pixel"]
+                WIKIDATA_PROPERTY["Width"],
+                image.dimensions.width,
+                WIKIDATA_ENTITY["Pixel"],
             )
         )
     )
     claims.append(
         _create_statement(
             _create_quantity_snak(
-                WIKIDATA_PROPERTY["Height"], image.height, WIKIDATA_ENTITY["Pixel"]
+                WIKIDATA_PROPERTY["Height"],
+                image.dimensions.height,
+                WIKIDATA_ENTITY["Pixel"],
             )
         )
     )

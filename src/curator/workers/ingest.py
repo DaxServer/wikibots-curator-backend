@@ -380,7 +380,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
         )
         handler = MapillaryHandler()
         image = await handler.fetch_image_metadata(key, collection)
-        image_url = image.url_original
+        image_url = image.urls.original
 
         sdc = build_statements_from_mapillary_image(
             image=image,

@@ -19,9 +19,12 @@ from curator.app.auth import check_login
 from curator.app.handler import Handler
 from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import (
+    CameraInfo,
     Creator,
     Dates,
     GeoLocation,
+    ImageDimensions,
+    ImageUrls,
     MediaImage,
 )
 from curator.main import app
@@ -60,12 +63,9 @@ def mock_external_calls(mocker):
             dates=Dates(taken="2023"),
             creator=Creator(id="u", username="u", profile_url="p"),
             location=GeoLocation(latitude=1, longitude=2, compass_angle=0),
-            url_original="o",
-            thumbnail_url="t",
-            preview_url="p",
-            url="u",
-            width=1,
-            height=1,
+            urls=ImageUrls(url="u", original="o", preview="p", thumbnail="t"),
+            dimensions=ImageDimensions(width=1, height=1),
+            camera=CameraInfo(make=None, model=None, is_pano=False),
             existing=[],
         )
     )

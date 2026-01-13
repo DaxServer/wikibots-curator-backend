@@ -6,7 +6,15 @@ from cryptography.fernet import Fernet
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
 
-from curator.asyncapi import Creator, Dates, GeoLocation, MediaImage
+from curator.asyncapi import (
+    CameraInfo,
+    Creator,
+    Dates,
+    GeoLocation,
+    ImageDimensions,
+    ImageUrls,
+    MediaImage,
+)
 from curator.asyncapi.GenericError import GenericError
 
 # Set up encryption key for tests
@@ -105,13 +113,15 @@ def mock_image():
             id="u1", username="user1", profile_url="https://example.com/u1"
         ),
         location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
+        urls=ImageUrls(
+            url="https://example.com/photo",
+            original="https://example.com/file.jpg",
+            preview="https://example.com/preview.jpg",
+            thumbnail="https://example.com/thumb.jpg",
+        ),
+        dimensions=ImageDimensions(width=100, height=100),
+        camera=CameraInfo(make="Canon", model="EOS 5D", is_pano=False),
         existing=[],
-        url_original="https://example.com/file.jpg",
-        thumbnail_url="https://example.com/thumb.jpg",
-        preview_url="https://example.com/preview.jpg",
-        url="https://example.com/photo",
-        width=100,
-        height=100,
     )
 
 

@@ -5,10 +5,13 @@ import pytest
 
 from curator.app.handler import Handler
 from curator.asyncapi import (
+    CameraInfo,
     Creator,
     Dates,
     GeoLocation,
+    ImageDimensions,
     ImageHandler,
+    ImageUrls,
     MediaImage,
     PartialCollectionImagesData,
 )
@@ -36,15 +39,14 @@ def create_test_image(image_id: str) -> MediaImage:
     return MediaImage(
         id=image_id,
         title=f"T{image_id}",
-        url_original=f"u{image_id}",
-        thumbnail_url=f"t{image_id}",
-        preview_url=f"p{image_id}",
-        url=f"l{image_id}",
-        width=100,
-        height=100,
-        camera_make="M1",
-        camera_model="MOD1",
-        is_pano=False,
+        urls=ImageUrls(
+            original=f"u{image_id}",
+            thumbnail=f"t{image_id}",
+            preview=f"p{image_id}",
+            url=f"l{image_id}",
+        ),
+        dimensions=ImageDimensions(width=100, height=100),
+        camera=CameraInfo(make="M1", model="MOD1", is_pano=False),
         location=GeoLocation(latitude=1, longitude=1, compass_angle=0),
         existing=[],
         creator=Creator(id="c1", username="u1", profile_url="p1"),

@@ -56,11 +56,11 @@ class TestFromFlickr:
         assert result.location.latitude == 0.0
         assert result.location.longitude == 0.0
         assert result.location.compass_angle == 0.0
-        assert result.url_original == photo["url_o"]
-        assert result.preview_url == photo["url_l"]
-        assert result.thumbnail_url == photo["url_q"]
-        assert result.width == int(photo["width_o"])
-        assert result.height == int(photo["height_o"])
+        assert result.urls.original == photo["url_o"]
+        assert result.urls.preview == photo["url_l"]
+        assert result.urls.thumbnail == photo["url_q"]
+        assert result.dimensions.width == int(photo["width_o"])
+        assert result.dimensions.height == int(photo["height_o"])
 
     def test_from_flickr_without_geo(self, mock_flickr_photo_no_geo):
         """Test photo without geo data uses defaults"""
