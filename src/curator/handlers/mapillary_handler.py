@@ -52,7 +52,7 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
 
     # Omit compass_angle if not strictly between 0 and 360 (exclusive)
     raw_angle = float(image.get("compass_angle", 0.0))
-    compass_angle = None if raw_angle <= 0 or raw_angle >= 360 else raw_angle
+    compass_angle = raw_angle if 0 < raw_angle < 360 else None
 
     loc = GeoLocation(
         latitude=float(coords[1]),
