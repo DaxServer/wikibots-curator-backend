@@ -62,7 +62,7 @@ def mock_external_calls(mocker):
             title="T",
             dates=Dates(taken="2023"),
             creator=Creator(id="u", username="u", profile_url="p"),
-            location=GeoLocation(latitude=1, longitude=2, compass_angle=0),
+            location=GeoLocation(latitude=1, longitude=2),
             urls=ImageUrls(url="u", original="o", preview="p", thumbnail="t"),
             dimensions=ImageDimensions(width=1, height=1),
             camera=CameraInfo(make=None, model=None, is_pano=False),

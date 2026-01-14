@@ -49,10 +49,15 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
         username=str(owner.get("username", "Unknown")),
         profile_url=f"https://www.mapillary.com/app/user/{owner.get('username', 'unknown')}",
     )
+
+    # Omit compass_angle if not strictly between 0 and 360 (exclusive)
+    raw_angle = float(image.get("compass_angle", 0.0))
+    compass_angle = raw_angle if 0 < raw_angle < 360 else None
+
     loc = GeoLocation(
         latitude=float(coords[1]),
         longitude=float(coords[0]),
-        compass_angle=float(image.get("compass_angle", 0.0)),
+        compass_angle=compass_angle,
     )
     captured_at = image.get("captured_at")
     if captured_at is None:

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class GeoLocation(BaseModel):
     accuracy: Optional[int] = Field(default=None)
-    compass_angle: float = Field()
+    compass_angle: Optional[float] = Field(default=None)
     latitude: float = Field()
     longitude: float = Field()
 

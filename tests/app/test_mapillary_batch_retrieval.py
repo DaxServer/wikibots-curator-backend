@@ -47,7 +47,7 @@ def create_test_image(image_id: str) -> MediaImage:
         ),
         dimensions=ImageDimensions(width=100, height=100),
         camera=CameraInfo(make="M1", model="MOD1", is_pano=False),
-        location=GeoLocation(latitude=1, longitude=1, compass_angle=0),
+        location=GeoLocation(latitude=1, longitude=1),
         existing=[],
         creator=Creator(id="c1", username="u1", profile_url="p1"),
         dates=Dates(taken="2023-01-01"),

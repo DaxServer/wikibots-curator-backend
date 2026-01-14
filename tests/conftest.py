@@ -112,7 +112,7 @@ def mock_image():
         creator=Creator(
             id="u1", username="user1", profile_url="https://example.com/u1"
         ),
-        location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
+        location=GeoLocation(latitude=0.0, longitude=0.0),
         urls=ImageUrls(
             url="https://example.com/photo",
             original="https://example.com/file.jpg",

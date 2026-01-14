@@ -83,14 +83,14 @@ def from_flickr(photo: dict, album_id: str) -> MediaImage:
         location = GeoLocation(
             latitude=float(geo["latitude"]),
             longitude=float(geo["longitude"]),
-            compass_angle=0.0,
+            compass_angle=None,
             accuracy=int(geo["accuracy"]) if "accuracy" in geo else None,
         )
     else:
         location = GeoLocation(
             latitude=0.0,
             longitude=0.0,
-            compass_angle=0.0,
+            compass_angle=None,
         )
 
     tags = photo.get("tags", "").split() if photo.get("tags") else []

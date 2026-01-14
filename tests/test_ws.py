@@ -85,7 +85,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
         dimensions=ImageDimensions(width=100, height=100),
         camera=CameraInfo(make="Canon", model="EOS", is_pano=False),
         description="desc",
-        location=GeoLocation(latitude=10.0, longitude=10.0, compass_angle=0.0),
+        location=GeoLocation(latitude=10.0, longitude=10.0),
         license="CC",
         tags=["tag1"],
         existing=[],
