@@ -94,3 +94,29 @@ def test_from_mapillary_converts_none_string(
 
     assert result.camera.make == expected_make
     assert result.camera.model == expected_model
+
+
+@pytest.mark.parametrize(
+    "compass_angle, expected_compass_angle",
+    [
+        (0, None),  # 0 should be omitted (not > 0)
+        (360, None),  # 360 should be omitted (not < 360)
+        (180, 180),  # 180 should be kept (0 < 180 < 360)
+        (90, 90),  # 90 should be kept (0 < 90 < 360)
+        (270, 270),  # 270 should be kept (0 < 270 < 360)
+        (0.1, 0.1),  # 0.1 should be kept (0 < 0.1 < 360)
+        (359.9, 359.9),  # 359.9 should be kept (0 < 359.9 < 360)
+        (-90, None),  # negative should be omitted (not > 0)
+        (450, None),  # > 360 should be omitted (not < 360)
+        (-180, None),  # negative should be omitted (not > 0)
+        (720, None),  # > 360 should be omitted (not < 360)
+    ],
+)
+def test_from_mapillary_compass_angle_range(compass_angle, expected_compass_angle):
+    """Test compass_angle is omitted when <= 0 or >= 360, kept otherwise"""
+    data = mock_image_data.copy()
+    data["compass_angle"] = compass_angle
+
+    result = from_mapillary(data)
+
+    assert result.location.compass_angle == expected_compass_angle

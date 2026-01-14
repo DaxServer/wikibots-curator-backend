@@ -55,7 +55,7 @@ class TestFromFlickr:
         assert result.dates.taken.startswith("2023-12-09")
         assert result.location.latitude == 0.0
         assert result.location.longitude == 0.0
-        assert result.location.compass_angle == 0.0
+        assert result.location.compass_angle is None
         assert result.urls.original == photo["url_o"]
         assert result.urls.preview == photo["url_l"]
         assert result.urls.thumbnail == photo["url_q"]
@@ -68,7 +68,7 @@ class TestFromFlickr:
 
         assert result.location.latitude == 0.0
         assert result.location.longitude == 0.0
-        assert result.location.compass_angle == 0.0
+        assert result.location.compass_angle is None
         # When lat/lon are 0, accuracy is None (treated as no geo data)
         assert result.location.accuracy is None
 

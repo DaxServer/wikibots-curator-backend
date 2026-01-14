@@ -249,6 +249,16 @@ def build_statements_from_mapillary_image(
         )
     )
 
+    heading_qualifiers = []
+    if image.location.compass_angle is not None:
+        heading_qualifiers.append(
+            _create_quantity_snak(
+                WIKIDATA_PROPERTY["Heading"],
+                image.location.compass_angle,
+                WIKIDATA_ENTITY["Degree"],
+            )
+        )
+
     claims.append(
         _create_statement(
             _create_globe_coordinate_snak(
@@ -256,13 +266,7 @@ def build_statements_from_mapillary_image(
                 image.location.latitude,
                 image.location.longitude,
             ),
-            [
-                _create_quantity_snak(
-                    WIKIDATA_PROPERTY["Heading"],
-                    image.location.compass_angle,
-                    WIKIDATA_ENTITY["Degree"],
-                )
-            ],
+            heading_qualifiers,
         )
     )
 

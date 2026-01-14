@@ -21,7 +21,7 @@ def make_image():
         title="Test",
         dates=Dates(taken="2023-01-01T00:00:00Z"),
         creator=Creator(id="1", username="u", profile_url="p"),
-        location=GeoLocation(latitude=0.0, longitude=0.0, compass_angle=0.0),
+        location=GeoLocation(latitude=0.0, longitude=0.0),
         existing=[],
         urls=ImageUrls(
             original="https://example.com/file.jpg",
