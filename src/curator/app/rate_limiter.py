@@ -5,6 +5,7 @@ and spaces out Celery task enqueueing to match the allowed rate, preventing API 
 """
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 
@@ -19,6 +20,9 @@ from curator.app.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Threading lock to protect pywikibot global state from race conditions
+_pywikibot_lock = threading.Lock()
 
 # Cache key template for tracking next available upload slot
 _NEXT_AVAILABLE_KEY = f"{REDIS_PREFIX}:ratelimit:{{userid}}:next_available"
@@ -47,8 +51,10 @@ def get_rate_limit_for_batch(
 ) -> RateLimitInfo:
     """Get rate limit info for a user by checking privileged status"""
     try:
-        site = get_commons_site(access_token, username)
-        is_privileged = site.has_group("patroller") or site.has_group("sysop")
+        # Use lock to prevent race conditions on pywikibot global state
+        with _pywikibot_lock:
+            site = get_commons_site(access_token, username)
+            is_privileged = site.has_group("patroller") or site.has_group("sysop")
 
         logger.info(f"[rate_limiter] User {username} privileged={is_privileged}")
 

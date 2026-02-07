@@ -330,7 +330,8 @@ class Handler:
                 to_enqueue.append(req.id)
 
         # Enqueue uploads with rate limit spacing
-        rate_limit = get_rate_limit_for_batch(
+        rate_limit = await asyncio.to_thread(
+            get_rate_limit_for_batch,
             userid=self.user["userid"],
             access_token=self.user.get("access_token"),
             username=self.username,
@@ -339,7 +340,9 @@ class Handler:
         edit_group_id = generate_edit_group_id()
         with get_session() as save_session:
             for upload_id in to_enqueue:
-                delay = get_next_upload_delay(self.user["userid"], rate_limit)
+                delay = await asyncio.to_thread(
+                    get_next_upload_delay, self.user["userid"], rate_limit
+                )
 
                 task_result = (
                     process_upload.apply_async(

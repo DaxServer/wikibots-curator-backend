@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from curator.app.handler import Handler
 from curator.app.models import Batch, UploadRequest
+from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceData
 
 from .conftest import run_sync
@@ -42,10 +43,19 @@ def when_create(active_user, mock_sender, event_loop):
     target_fixture="u_res",
 )
 def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
-    # Mock both delay and apply_async to handle rate limiting
+    # Mock process_upload and rate limiter functions
     mock_process = mocker.patch("curator.app.handler.process_upload")
     mock_process.delay = mocker.MagicMock()
     mock_process.apply_async = mocker.MagicMock()
+
+    # Mock rate limiter to return privileged user (no delay)
+    mock_get_rate_limit = mocker.patch("curator.app.handler.get_rate_limit_for_batch")
+    mock_get_delay = mocker.patch("curator.app.handler.get_next_upload_delay")
+    mock_get_rate_limit.return_value = RateLimitInfo(
+        uploads_per_period=999, period_seconds=1, is_privileged=True
+    )
+    mock_get_delay.return_value = 0.0
+
     items = [
         UploadItem(id=f"img{i}", input=f"in{i}", title=f"T{i}", wikitext="W")
         for i in range(count)

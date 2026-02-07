@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceAckItem, UploadSliceData
 
 
@@ -30,10 +31,18 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         ) as mock_create_reqs,
         patch("curator.app.handler.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
+        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
+        patch("curator.app.handler.get_next_upload_delay") as mock_get_delay,
     ):
         # Mock both delay and apply_async
         mock_process_upload.delay = mocker.MagicMock()
         mock_process_upload.apply_async = mocker.MagicMock()
+
+        # Mock rate limiter to return privileged user (no delay)
+        mock_get_rate_limit.return_value = RateLimitInfo(
+            uploads_per_period=999, period_seconds=1, is_privileged=True
+        )
+        mock_get_delay.return_value = 0.0
 
         mock_req = mocker.MagicMock()
         mock_req.id = 1
@@ -90,10 +99,18 @@ async def test_upload_slice_multiple_items(
         ) as mock_create_reqs,
         patch("curator.app.handler.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
+        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
+        patch("curator.app.handler.get_next_upload_delay") as mock_get_delay,
     ):
         # Mock both delay and apply_async
         mock_process_upload.delay = mocker.MagicMock()
         mock_process_upload.apply_async = mocker.MagicMock()
+
+        # Mock rate limiter to return privileged user (no delay)
+        mock_get_rate_limit.return_value = RateLimitInfo(
+            uploads_per_period=999, period_seconds=1, is_privileged=True
+        )
+        mock_get_delay.return_value = 0.0
 
         mock_req1 = mocker.MagicMock()
         mock_req1.id = 1
