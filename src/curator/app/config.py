@@ -48,7 +48,7 @@ if _REDIS_PASSWORD:
 else:
     REDIS_URL = f"redis://{_REDIS_HOST}:{_REDIS_PORT}"
 
-redis_client = redis.Redis.from_url(REDIS_URL)
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 CELERY_CONCURRENCY = int(os.getenv("CELERY_CONCURRENCY", 2))
 CELERY_MAXIMUM_WAIT_TIME = int(os.getenv("CELERY_MAXIMUM_WAIT_TIME", 60 * 4))  # minutes
@@ -56,11 +56,19 @@ CELERY_TASKS_PER_WORKER = int(os.getenv("CELERY_TASKS_PER_WORKER", 1000))
 CELERY_BROKER_URL = REDIS_URL
 CELERY_BACKEND_URL = REDIS_URL
 
+# Rate limiting configuration
+RATE_LIMIT_DEFAULT_NORMAL = int(
+    os.getenv("RATE_LIMIT_DEFAULT_NORMAL", 4)
+)  # 4 per minute
+RATE_LIMIT_DEFAULT_PERIOD = int(
+    os.getenv("RATE_LIMIT_DEFAULT_PERIOD", 60)
+)  # 60 seconds
+
 logger = logging.getLogger(__name__)
 
 
 class QueuePriority(Enum):
-    """Queue priority levels."""
+    """Queue priority levels"""
 
     URGENT = "urgent"
     NORMAL = "normal"

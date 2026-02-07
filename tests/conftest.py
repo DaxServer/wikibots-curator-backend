@@ -155,6 +155,15 @@ def mock_requests_response():
     return response
 
 
+@pytest.fixture(autouse=True)
+def mock_commons_functions(mocker):
+    """Auto-mock commons.py functions that make Pywikibot API calls"""
+    mock_site = MagicMock()
+    mock_site.has_group = MagicMock(return_value=False)
+    mocker.patch("curator.app.commons.get_commons_site", return_value=mock_site)
+    mocker.patch("curator.app.rate_limiter.get_commons_site", return_value=mock_site)
+
+
 @pytest.fixture
 def mock_sender():
     """Comprehensive mock WebSocket sender covering all AsyncAPI messages"""

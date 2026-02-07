@@ -24,6 +24,10 @@ from curator.app.dal import (
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.app.models import UploadItem
+from curator.app.rate_limiter import (
+    get_next_upload_delay,
+    get_rate_limit_for_batch,
+)
 from curator.asyncapi import (
     BatchUploadsListData,
     CollectionImagesData,
@@ -54,7 +58,7 @@ logger = logging.getLogger(__name__)
 def get_handler_for_handler_type(
     handler: ImageHandler,
 ) -> FlickrHandler | MapillaryHandler:
-    """Return the appropriate handler based on ImageHandler enum."""
+    """Return the appropriate handler based on ImageHandler enum"""
     if handler == ImageHandler.FLICKR:
         return FlickrHandler()
     return MapillaryHandler()
@@ -289,7 +293,6 @@ class Handler:
             batch_id = batch.id
 
         logger.info(f"[ws] [resp] Batch {batch_id} created for {self.username}")
-
         await self.socket.send_batch_created(batch_id)
 
     @handle_exceptions
@@ -326,12 +329,29 @@ class Handler:
                 prepared_uploads[req.key] = req.status
                 to_enqueue.append(req.id)
 
-        # Enqueue uploads
+        # Enqueue uploads with rate limit spacing
+        rate_limit = await asyncio.to_thread(
+            get_rate_limit_for_batch,
+            userid=self.user["userid"],
+            access_token=self.user.get("access_token"),
+            username=self.username,
+        )
+
         edit_group_id = generate_edit_group_id()
         with get_session() as save_session:
             for upload_id in to_enqueue:
-                task_result = process_upload.delay(upload_id, edit_group_id)
-                # Store the task ID for later cancellation (only if it's a real string)
+                delay = await asyncio.to_thread(
+                    get_next_upload_delay, self.user["userid"], rate_limit
+                )
+
+                task_result = (
+                    process_upload.apply_async(
+                        args=[upload_id, edit_group_id], countdown=delay
+                    )
+                    if delay > 0
+                    else process_upload.delay(upload_id, edit_group_id)
+                )
+
                 task_id = task_result.id
                 if isinstance(task_id, str):
                     update_celery_task_id(save_session, upload_id, task_id)
@@ -350,7 +370,7 @@ class Handler:
 
     @handle_exceptions
     async def fetch_batches(self, data: FetchBatchesData):
-        """Fetch batches and automatically subscribe to updates."""
+        """Fetch batches and automatically subscribe to updates"""
         if self.batches_list_task and not self.batches_list_task.done():
             self.batches_list_task.cancel()
             try:
