@@ -26,7 +26,7 @@ poetry run alembic upgrade head  # Apply migrations
 **Project-Specific Development Workflow:**
 After completing backend tasks, always run in order:
 ```bash
-poetry run pytest -q && poetry run ruff check && poetry run ty check && poetry run isort . && poetry run ruff format
+poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run ty check && poetry run pytest -q
 ```
 
 ## Architecture
