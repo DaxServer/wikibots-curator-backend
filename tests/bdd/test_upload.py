@@ -42,7 +42,10 @@ def when_create(active_user, mock_sender, event_loop):
     target_fixture="u_res",
 )
 def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
-    mock_d = mocker.patch("curator.app.handler.process_upload.delay")
+    # Mock both delay and apply_async to handle rate limiting
+    mock_process = mocker.patch("curator.app.handler.process_upload")
+    mock_process.delay = mocker.MagicMock()
+    mock_process.apply_async = mocker.MagicMock()
     items = [
         UploadItem(id=f"img{i}", input=f"in{i}", title=f"T{i}", wikitext="W")
         for i in range(count)
@@ -52,7 +55,7 @@ def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
     )
     h = Handler(active_user, mock_sender, MagicMock())
     run_sync(h.upload_slice(data), event_loop)
-    return {"delay": mock_d}
+    return {"delay": mock_process.delay, "apply_async": mock_process.apply_async}
 
 
 # --- THENS ---
@@ -90,7 +93,9 @@ def then_req_count(engine, count, batch_id):
     )
 )
 def then_enqueued(u_res, count):
-    assert u_res["delay"].call_count == count
+    # Tasks are enqueued via either delay() or apply_async()
+    total_calls = u_res["delay"].call_count + u_res["apply_async"].call_count
+    assert total_calls == count
 
 
 @then(parsers.parse("I should receive an acknowledgment for slice {slice_id:d}"))
