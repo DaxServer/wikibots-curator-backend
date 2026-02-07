@@ -35,7 +35,7 @@ def test_query_success(wcqs_session, mock_redis, mock_requests_response):
     # Verify
     assert result == {"results": {}}
     mock_post.assert_called_once()
-    mock_redis.get.assert_called_once_with(f"{wcqs.REDIS_PREFIX}:wcqs:retry-after")
+    mock_redis.get.assert_called_once_with("wcqs:retry-after")
 
 
 def test_query_rate_limited_in_redis(wcqs_session, mock_redis, mock_requests_response):
@@ -57,7 +57,7 @@ def test_query_rate_limited_in_redis(wcqs_session, mock_redis, mock_requests_res
     ):
         wcqs_session.query("SELECT * WHERE { ?s ?p ?o }")
 
-    mock_redis.get.assert_called_once_with(f"{wcqs.REDIS_PREFIX}:wcqs:retry-after")
+    mock_redis.get.assert_called_once_with("wcqs:retry-after")
 
 
 def test_query_rate_limited_response(wcqs_session, mock_redis, mock_requests_response):
@@ -77,7 +77,7 @@ def test_query_rate_limited_response(wcqs_session, mock_redis, mock_requests_res
 
     mock_redis.setex.assert_called_once()
     args, _ = mock_redis.setex.call_args
-    assert args[0] == f"{wcqs.REDIS_PREFIX}:wcqs:retry-after"
+    assert args[0] == "wcqs:retry-after"
     assert args[1] == 30
 
 
