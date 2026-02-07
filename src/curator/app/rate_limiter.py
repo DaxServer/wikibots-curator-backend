@@ -15,7 +15,6 @@ from curator.app.commons import get_commons_site
 from curator.app.config import (
     RATE_LIMIT_DEFAULT_NORMAL,
     RATE_LIMIT_DEFAULT_PERIOD,
-    REDIS_PREFIX,
     redis_client,
 )
 
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 _pywikibot_lock = threading.Lock()
 
 # Cache key template for tracking next available upload slot
-_NEXT_AVAILABLE_KEY = f"{REDIS_PREFIX}:ratelimit:{{userid}}:next_available"
+_NEXT_AVAILABLE_KEY = "ratelimit:{userid}:next_available"
 
 
 @dataclass

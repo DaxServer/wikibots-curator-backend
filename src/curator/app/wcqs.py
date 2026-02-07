@@ -24,7 +24,7 @@ from urllib.parse import quote_plus
 import requests
 from fastapi import Request, WebSocket
 
-from curator.app.config import REDIS_PREFIX, USER_AGENT, WCQS_OAUTH_TOKEN, redis_client
+from curator.app.config import USER_AGENT, WCQS_OAUTH_TOKEN, redis_client
 
 
 class WcqsSession:
@@ -93,7 +93,7 @@ class WcqsSession:
 
     def _check_retry(self):
         """Checks if we're rate limited before making SPARQL requests."""
-        retry_after = redis_client.get(f"{REDIS_PREFIX}:wcqs:retry-after")
+        retry_after = redis_client.get("wcqs:retry-after")
 
         if retry_after:
             retry_after_str = (
@@ -112,7 +112,7 @@ class WcqsSession:
         retry_after_ts = datetime.now(timezone.utc) + timedelta(seconds=retry_after)
 
         redis_client.setex(
-            f"{REDIS_PREFIX}:wcqs:retry-after",
+            "wcqs:retry-after",
             retry_after,
             retry_after_ts.replace(tzinfo=timezone.utc).isoformat(),
         )
@@ -120,7 +120,7 @@ class WcqsSession:
     def _set_cookies(self):
         """Load authentication cookies into the session."""
         cookies = json.loads(
-            self._request_session.get(f"{REDIS_PREFIX}:wcqs_cookies", "[]")
+            self._request_session.get("wcqs_cookies", "[]")
         )
         cookie_dict = {(cookie["domain"], cookie["name"]): cookie for cookie in cookies}
 
