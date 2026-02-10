@@ -1,3 +1,4 @@
+import asyncio
 import os
 from unittest.mock import AsyncMock, MagicMock
 
@@ -98,8 +99,27 @@ def mock_batch():
     batch.id = 123
     batch.userid = "user123"
     batch.name = "Test Batch"
-    batch.description = "Test Description"
     return batch
+
+
+@pytest.fixture
+def mock_isolated_site():
+    """Mock isolated site with async run support"""
+    mock_site = AsyncMock()
+    # has_group is synchronous in real code, but mock it appropriately
+    mock_site.has_group = MagicMock(return_value=False)
+
+    async def run_side_effect(func, *args, **kwargs):
+        # We need to inject a mock site object if the function expects 'site'
+        # The real IsolatedSite.run passes a pywikibot.Site object
+        # Here we just pass an AsyncMock or MagicMock
+        res = func(AsyncMock(), *args, **kwargs)
+        if asyncio.iscoroutine(res):
+            return await res
+        return res
+
+    mock_site.run.side_effect = run_side_effect
+    return mock_site
 
 
 @pytest.fixture
@@ -160,8 +180,7 @@ def mock_commons_functions(mocker):
     """Auto-mock commons.py functions that make Pywikibot API calls"""
     mock_site = MagicMock()
     mock_site.has_group = MagicMock(return_value=False)
-    mocker.patch("curator.app.commons.get_commons_site", return_value=mock_site)
-    mocker.patch("curator.app.rate_limiter.get_commons_site", return_value=mock_site)
+    mocker.patch("curator.app.commons.create_isolated_site", return_value=mock_site)
 
 
 @pytest.fixture

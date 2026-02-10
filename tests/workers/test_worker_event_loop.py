@@ -15,6 +15,14 @@ from curator.asyncapi import (
 from curator.workers import ingest
 
 
+@pytest.fixture(autouse=True)
+def setup_mock_isolated_site(mocker, mock_isolated_site):
+    """Patch create_isolated_site to return the shared mock site"""
+    return mocker.patch(
+        "curator.workers.ingest.create_isolated_site", return_value=mock_isolated_site
+    )
+
+
 def make_image():
     return MediaImage(
         id="123",

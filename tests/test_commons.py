@@ -5,13 +5,10 @@ import pytest
 from curator.app.commons import (
     apply_sdc,
     build_file_page,
-    check_title_blacklisted,
     download_file,
     ensure_uploaded,
     find_duplicates,
-    get_commons_site,
     perform_upload,
-    upload_file_chunked,
 )
 from curator.asyncapi import Label, Statement
 from curator.asyncapi.ErrorLink import ErrorLink
@@ -21,24 +18,14 @@ from curator.asyncapi.Rank import Rank
 
 @pytest.fixture
 def mock_commons_site(mocker):
-    """Mock the get_commons_site function"""
-    return mocker.patch("curator.app.commons.get_commons_site")
+    """Mock the create_isolated_site function"""
+    return mocker.patch("curator.app.commons.create_isolated_site")
 
 
-def test_get_commons_site_sets_auth_and_logs_in(mocker):
-    """Test that get_commons_site sets authentication and logs in"""
-    with (
-        patch("curator.app.commons.config") as mock_config,
-        patch("curator.app.commons.pywikibot") as mock_pywikibot,
-        patch("curator.app.commons.OAUTH_KEY", "key"),
-        patch("curator.app.commons.OAUTH_SECRET", "secret"),
-    ):
-        access_token = ("access_token", "access_secret")
-        get_commons_site(access_token, "user")
-        mock_config.authenticate.__setitem__.assert_called()
-        mock_config.usernames.__getitem__.assert_called_with("commons")
-        mock_pywikibot.Site.assert_called_with("commons", "commons", user="user")
-        mock_pywikibot.Site.return_value.login.assert_called_once()
+@pytest.fixture
+def mock_isolated_site(mocker):
+    """Mock the create_isolated_site function"""
+    return mocker.patch("curator.app.commons.create_isolated_site")
 
 
 def test_download_file_returns_bytes(mocker, mock_get, mock_requests_response):
@@ -115,165 +102,6 @@ def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
     apply_sdc(site, fp, sdc=sdc, edit_summary="summary", labels=None)
     site.simple_request.assert_called()
     fp.save.assert_called()
-
-
-def test_upload_file_chunked(mocker, mock_commons_site):
-    """Test that upload_file_chunked works correctly"""
-    with (
-        patch("curator.app.commons.download_file") as mock_download,
-        patch("curator.app.commons.compute_file_hash") as mock_hash,
-        patch("curator.app.commons.find_duplicates") as mock_find_duplicates,
-        patch("curator.app.commons.build_file_page") as mock_build_page,
-        patch("curator.app.commons.ensure_uploaded") as mock_ensure,
-        patch("curator.app.commons.apply_sdc") as mock_apply_sdc,
-    ):
-        site = mocker.MagicMock()
-        mock_commons_site.return_value = site
-        mock_download.return_value = b"data"
-        mock_hash.return_value = "hash"
-        mock_find_duplicates.return_value = []
-        mock_ensure.return_value = True
-        file_page = mocker.MagicMock()
-        mock_build_page.return_value = file_page
-        file_page.full_url.return_value = "url"
-        file_page.title.return_value = "t"
-
-        access_token = mocker.MagicMock()
-        username = "user"
-
-        no_value_snak = NoValueSnak(property="P180")
-        statement = Statement(
-            mainsnak=no_value_snak,
-            rank=Rank.NORMAL,
-        )
-        sdc = [statement]
-
-        label = Label(language="en", value="Example label")
-        labels = label
-
-        result = upload_file_chunked(
-            file_name="x.jpg",
-            file_url="url",
-            wikitext="w",
-            edit_summary="s",
-            access_token=access_token,
-            username=username,
-            upload_id=1,
-            batch_id=1,
-            sdc=sdc,
-            labels=labels,
-        )
-
-        assert result == {
-            "result": "success",
-            "title": "t",
-            "url": "url",
-        }
-        mock_apply_sdc.assert_called_with(site, file_page, sdc, "s", labels)
-
-
-def test_check_title_blacklisted_returns_true_when_blacklisted(
-    mocker, mock_commons_site
-):
-    """Test check_title_blacklisted when title is blacklisted."""
-    access_token = mocker.MagicMock()
-    username = "testuser"
-
-    # Mock get_commons_site
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    mock_commons_site.return_value = site
-    site.simple_request.return_value = req
-
-    # Mock the API response for blacklisted title
-    req.submit.return_value = {
-        "titleblacklist": {
-            "result": "blacklisted",
-            "reason": "Title contains blacklisted pattern",
-        }
-    }
-
-    is_blacklisted, reason = check_title_blacklisted(
-        access_token, username, "test_file.jpg", 1, 1
-    )
-
-    assert is_blacklisted is True
-    assert reason == "Title contains blacklisted pattern"
-    site.simple_request.assert_called_with(
-        action="titleblacklist",
-        tbaction="create",
-        tbtitle="File:test_file.jpg",
-        format="json",
-    )
-
-
-def test_check_title_blacklisted_returns_false_when_not_blacklisted(
-    mocker, mock_commons_site
-):
-    """Test check_title_blacklisted when title is not blacklisted."""
-    access_token = mocker.MagicMock()
-    username = "testuser"
-
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    mock_commons_site.return_value = site
-    site.simple_request.return_value = req
-
-    # Mock the API response for non-blacklisted title
-    req.submit.return_value = {"titleblacklist": {"result": "ok"}}
-
-    is_blacklisted, reason = check_title_blacklisted(
-        access_token, username, "test_file.jpg", 1, 1
-    )
-
-    assert is_blacklisted is False
-    assert reason == ""
-    site.simple_request.assert_called_with(
-        action="titleblacklist",
-        tbaction="create",
-        tbtitle="File:test_file.jpg",
-        format="json",
-    )
-
-
-def test_check_title_blacklisted_returns_false_on_api_error(mocker, mock_commons_site):
-    """Test check_title_blacklisted when API call fails."""
-    access_token = mocker.MagicMock()
-    username = "testuser"
-
-    site = mocker.MagicMock()
-    mock_commons_site.return_value = site
-    site.simple_request.side_effect = Exception("API Error")
-
-    is_blacklisted, reason = check_title_blacklisted(
-        access_token, username, "test_file.jpg", 1, 1
-    )
-
-    assert is_blacklisted is False
-    assert reason == ""
-
-
-def test_check_title_blacklisted_uses_default_reason_when_missing(
-    mocker, mock_commons_site
-):
-    """Test check_title_blacklisted uses default reason when not provided."""
-    access_token = mocker.MagicMock()
-    username = "testuser"
-
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    mock_commons_site.return_value = site
-    site.simple_request.return_value = req
-
-    # Mock the API response for blacklisted title without reason
-    req.submit.return_value = {"titleblacklist": {"result": "blacklisted"}}
-
-    is_blacklisted, reason = check_title_blacklisted(
-        access_token, username, "test_file.jpg", 1, 1
-    )
-
-    assert is_blacklisted is True
-    assert reason == "Title is blacklisted"
 
 
 def test_apply_sdc_without_labels(mocker):
