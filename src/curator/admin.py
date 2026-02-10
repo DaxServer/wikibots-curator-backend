@@ -13,6 +13,7 @@ from curator.app.dal import (
 )
 from curator.app.db import get_session
 from curator.app.models import RetrySelectedUploadsRequest, UploadRequest
+from curator.workers.celery import QUEUE_PRIVILEGED
 from curator.workers.tasks import process_upload
 
 
@@ -92,10 +93,13 @@ async def admin_retry_uploads(
             session, request.upload_ids, encrypted_token, user["userid"]
         )
 
-    # Queue the uploads for processing
+    # Queue the uploads for processing (admin retries always use privileged queue)
     edit_group_id = generate_edit_group_id()
+
     for upload_id in reset_ids:
-        process_upload.delay(upload_id, edit_group_id)
+        process_upload.apply_async(
+            args=[upload_id, edit_group_id], queue=QUEUE_PRIVILEGED
+        )
 
     return {
         "message": f"Retried {len(reset_ids)} uploads",

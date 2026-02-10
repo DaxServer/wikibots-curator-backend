@@ -88,8 +88,11 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 
 ### Rate Limiting with Privileged Users
 - Rate limiting checks user groups (`patroller`, `sysop`) using `site.has_group()` - privileged users get effectively no limit
+- Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
 - Celery tasks are spaced out to match allowed rate, preventing API throttling
+- Tasks dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
+- Queue constants defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
 - Pywikibot global state is protected by threading lock (`_pywikibot_lock`) due to race conditions
 - When removing Redis caching functionality, remove both the usage code AND the key constant
 
@@ -131,9 +134,11 @@ poetry run alembic upgrade head
 ## Testing
 
 - `pytest` with tests in `tests/`
+- **Import placement:** All imports must be at the top of test files, never inline in test functions
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
 - **pytest timeout:** Configured to `0` (disabled) in `pytest.ini` - tests have no timeout limit
 - **Mock Structure:** Mock objects must match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
+- **Celery task mocks:** When mocking `process_upload.apply_async()`, check `call[1]["queue"]` and `call[1]["args"]` for kwargs
 - **AsyncMock Assertions:** Use `assert_called_once_with()` for keyword arguments
 
 ## Configuration

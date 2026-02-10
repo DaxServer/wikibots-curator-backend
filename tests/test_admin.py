@@ -9,6 +9,7 @@ from curator.admin import (
     admin_retry_uploads,
 )
 from curator.app.models import RetrySelectedUploadsRequest
+from curator.workers.celery import QUEUE_PRIVILEGED
 
 
 @pytest.mark.asyncio
@@ -78,7 +79,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
         patch("curator.admin.retry_selected_uploads") as mock_retry,
-        patch("curator.workers.tasks.process_upload.delay") as mock_task,
+        patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
         mock_retry.return_value = [1, 2, 3]
@@ -95,16 +96,19 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
             "requested_count": 3,
         }
 
-        # Verify Celery tasks were queued with upload_id and edit_group_id
+        # Verify Celery tasks were queued with upload_id, edit_group_id, and privileged queue
         assert mock_task.call_count == 3
         # Check that all calls have the correct structure
         for call in mock_task.call_args_list:
-            assert len(call[0]) == 2  # upload_id and edit_group_id
-            assert isinstance(call[0][0], int)  # upload_id is an integer
-            assert isinstance(call[0][1], str)  # edit_group_id is a string
-            assert len(call[0][1]) == 12  # edit_group_id is 12 characters
+            assert len(call[1]["args"]) == 2  # upload_id and edit_group_id
+            assert isinstance(call[1]["args"][0], int)  # upload_id is an integer
+            assert isinstance(call[1]["args"][1], str)  # edit_group_id is a string
+            assert len(call[1]["args"][1]) == 12  # edit_group_id is 12 characters
+            assert (
+                call[1]["queue"] == QUEUE_PRIVILEGED
+            )  # Admin retries use privileged queue
         # Verify the correct upload_ids were called
-        upload_ids = {call[0][0] for call in mock_task.call_args_list}
+        upload_ids = {call[1]["args"][0] for call in mock_task.call_args_list}
         assert upload_ids == {1, 2, 3}
 
 
@@ -122,7 +126,7 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
         patch("curator.admin.retry_selected_uploads") as mock_retry,
-        patch("curator.workers.tasks.process_upload.delay") as mock_task,
+        patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
         mock_retry.return_value = [1, 3]  # Only 1 and 3 were retried
@@ -137,6 +141,9 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
 
         # Only 2 tasks should be queued
         assert mock_task.call_count == 2
+        # Verify both use privileged queue
+        for call in mock_task.call_args_list:
+            assert call[1]["queue"] == QUEUE_PRIVILEGED
 
 
 @pytest.mark.asyncio
@@ -152,7 +159,7 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
         patch("curator.admin.retry_selected_uploads") as mock_retry,
-        patch("curator.workers.tasks.process_upload.delay") as mock_task,
+        patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
         mock_retry.return_value = []

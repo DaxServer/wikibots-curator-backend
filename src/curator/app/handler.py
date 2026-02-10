@@ -13,7 +13,6 @@ from curator.app.dal import (
     cancel_batch,
     count_uploads_in_batch,
     create_batch,
-    create_upload_request,
     create_upload_requests_for_batch,
     ensure_user,
     get_batch,
@@ -39,8 +38,6 @@ from curator.asyncapi import (
     MediaImage,
     PartialCollectionImagesData,
     SubscribeBatchesListData,
-    UploadCreatedItem,
-    UploadData,
     UploadSliceAckItem,
     UploadSliceData,
     UploadUpdateItem,
@@ -49,6 +46,7 @@ from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
 from curator.protocol import AsyncAPIWebSocket
+from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
 from curator.workers.celery import app as celery_app
 from curator.workers.tasks import process_upload
 
@@ -282,12 +280,11 @@ class Handler:
                     get_next_upload_delay, self.user["userid"], rate_limit
                 )
 
-                task_result = (
-                    process_upload.apply_async(
-                        args=[upload_id, edit_group_id], countdown=delay
-                    )
-                    if delay > 0
-                    else process_upload.delay(upload_id, edit_group_id)
+                queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
+                task_result = process_upload.apply_async(
+                    args=[upload_id, edit_group_id],
+                    countdown=delay,
+                    queue=queue,
                 )
 
                 task_id = task_result.id
@@ -378,9 +375,20 @@ class Handler:
 
         # Enqueue retries
         edit_group_id = generate_edit_group_id()
+        # Get rate limit to determine queue
+        rate_limit = await asyncio.to_thread(
+            get_rate_limit_for_batch,
+            userid=self.user["userid"],
+            access_token=self.user.get("access_token"),
+            username=self.username,
+        )
+        queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
         with get_session() as save_session:
             for upload_id in retried_ids:
-                task_result = process_upload.delay(upload_id, edit_group_id)
+                task_result = process_upload.apply_async(
+                    args=[upload_id, edit_group_id],
+                    queue=queue,
+                )
                 # Store the task ID for later cancellation (only if it's a real string)
                 task_id = task_result.id
                 if isinstance(task_id, str):

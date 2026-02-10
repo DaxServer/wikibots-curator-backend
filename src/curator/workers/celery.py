@@ -27,6 +27,10 @@ from curator.app.config import (
     CELERY_TASKS_PER_WORKER,
 )
 
+# Queue names for tier-based worker separation
+QUEUE_PRIVILEGED = "uploads-privileged"
+QUEUE_NORMAL = "uploads-normal"
+
 app = Celery("curator")
 app.conf.update(
     broker_url=CELERY_BROKER_URL,
@@ -43,9 +47,7 @@ app.conf.update(
     accept_content=["json"],
     result_serializer="json",
     worker_concurrency=CELERY_CONCURRENCY,
-    task_routes={
-        "curator.workers.tasks.process_upload": {"queue": "uploads"},
-    },
+    task_routes={},  # Queues specified dynamically at dispatch time
     broker_connection_retry_on_startup=True,
     broker_pool_limit=5,
     worker_ready_timeout=30,
@@ -160,10 +162,21 @@ def start():
     if sys.platform == "darwin":
         os.environ.setdefault("NO_PROXY", "*")
 
+    # Determine which queue(s) this worker should process
+    worker_queue = os.environ.get("WORKER_QUEUE")
+
+    if worker_queue == "privileged":
+        queues = QUEUE_PRIVILEGED
+    elif worker_queue == "normal":
+        queues = QUEUE_NORMAL
+    else:
+        # Default: process both queues (backward compatible)
+        queues = f"{QUEUE_PRIVILEGED},{QUEUE_NORMAL}"
+
     app.worker_main(
         [
             "worker",
-            "--queues=uploads",
+            f"--queues={queues}",
             "--loglevel=INFO",
             "-E",
         ]

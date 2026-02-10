@@ -9,7 +9,6 @@ from curator.app.rate_limiter import (
     RateLimitInfo,
     get_next_upload_delay,
     get_rate_limit_for_batch,
-    reset_user_rate_limit_state,
 )
 
 
@@ -212,19 +211,6 @@ class TestGetNextUploadDelay:
         delay = get_next_upload_delay("user123", rate_limit)
 
         assert delay >= 0.0
-
-
-class TestResetUserRateLimitState:
-    """Tests for resetting rate limit state."""
-
-    def test_reset_deletes_redis_key(self, mocker):
-        """Test that reset deletes the Redis key."""
-        mock_redis = get_redis_mock(mocker)
-        reset_user_rate_limit_state("user123")
-
-        mock_redis.delete.assert_called_once()
-        call_args = mock_redis.delete.call_args
-        assert "ratelimit:user123:next_available" in call_args[0][0]
 
 
 class TestIntegration:

@@ -119,9 +119,7 @@ class WcqsSession:
 
     def _set_cookies(self):
         """Load authentication cookies into the session."""
-        cookies = json.loads(
-            self._request_session.get("wcqs_cookies", "[]")
-        )
+        cookies = json.loads(self._request_session.get("wcqs_cookies", "[]"))
         cookie_dict = {(cookie["domain"], cookie["name"]): cookie for cookie in cookies}
 
         # wcqsOauth is a long lived cookie that wcqs uses to authenticate the
