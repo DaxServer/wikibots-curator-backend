@@ -4,6 +4,7 @@ import pytest
 
 from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceAckItem, UploadSliceData
+from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
 
 
 @pytest.mark.asyncio
@@ -60,29 +61,21 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        # Check that process_upload methods were called once (delay or apply_async)
-        total_calls = (
-            mock_process_upload.delay.call_count
-            + mock_process_upload.apply_async.call_count
-        )
-        assert total_calls == 1
+        # Check that process_upload.apply_async was called once
+        assert mock_process_upload.apply_async.call_count == 1
 
-        # Check the call arguments (works for both delay and apply_async)
-        if mock_process_upload.delay.call_count > 0:
-            call_args = mock_process_upload.delay.call_args[0]
-            assert call_args[0] == 1  # First arg is upload_id
-            assert len(call_args) == 2  # Called with 2 args (upload_id, edit_group_id)
-            assert isinstance(call_args[1], str)  # Second arg is edit_group_id string
-            assert len(call_args[1]) == 12  # edit_group_id is 12 characters
-        else:
-            # apply_async uses args as keyword argument
-            call_args = mock_process_upload.apply_async.call_args
-            assert call_args[1]["args"][0] == 1  # First arg is upload_id
-            assert len(call_args[1]["args"]) == 2  # Called with 2 args
-            assert isinstance(
-                call_args[1]["args"][1], str
-            )  # Second arg is edit_group_id string
-            assert len(call_args[1]["args"][1]) == 12  # edit_group_id is 12 characters
+        # Check the call arguments (apply_async uses kwargs)
+        call_kwargs = mock_process_upload.apply_async.call_args[1]
+        assert call_kwargs["args"][0] == 1  # First arg is upload_id
+        assert len(call_kwargs["args"]) == 2  # Called with 2 args
+        assert isinstance(
+            call_kwargs["args"][1], str
+        )  # Second arg is edit_group_id string
+        assert len(call_kwargs["args"][1]) == 12  # edit_group_id is 12 characters
+        assert call_kwargs["queue"] in [
+            QUEUE_PRIVILEGED,
+            QUEUE_NORMAL,
+        ]  # Check queue parameter
 
         mock_sender.send_upload_slice_ack.assert_called_once_with(
             data=[UploadSliceAckItem(id="img1", status="queued")], sliceid=0
@@ -135,12 +128,11 @@ async def test_upload_slice_multiple_items(
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        # Verify process_upload methods were called twice total (delay or apply_async)
-        total_calls = (
-            mock_process_upload.delay.call_count
-            + mock_process_upload.apply_async.call_count
-        )
-        assert total_calls == 2
+        # Verify process_upload.apply_async was called twice
+        assert mock_process_upload.apply_async.call_count == 2
+        # Verify both calls have queue parameter
+        for call in mock_process_upload.apply_async.call_args_list:
+            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
 
         # Verify send_upload_slice_ack was called with data and sliceid
         mock_sender.send_upload_slice_ack.assert_called_once()

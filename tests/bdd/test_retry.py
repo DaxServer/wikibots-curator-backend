@@ -71,10 +71,14 @@ def _setup_admin_dependencies(app, admin_user):
 
 @when(parsers.parse("I retry uploads for batch {batch_id:d}"))
 def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
-    mock_delay = mocker.patch("curator.app.handler.process_upload.delay")
+    mock_apply_async = mocker.patch("curator.app.handler.process_upload.apply_async")
+    mocker.patch(
+        "curator.app.handler.get_rate_limit_for_batch",
+        return_value=mocker.MagicMock(is_privileged=False),
+    )
     h = Handler(active_user, mock_sender, MagicMock())
     run_sync(h.retry_uploads(batch_id), event_loop)
-    return {"delay": mock_delay}
+    return {"apply_async": mock_apply_async}
 
 
 @when(
@@ -83,10 +87,10 @@ def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
 )
 def when_admin_retry(client, ids, mocker, admin_user):
     _setup_admin_dependencies(app, admin_user)
-    mock_delay = mocker.patch("curator.workers.tasks.process_upload.delay")
+    mock_apply_async = mocker.patch("curator.workers.tasks.process_upload.apply_async")
     upload_ids = json.loads(ids)
     response = client.post("/api/admin/retry", json={"upload_ids": upload_ids})
-    return {"response": response, "delay": mock_delay}
+    return {"response": response, "apply_async": mock_apply_async}
 
 
 @when(
@@ -95,9 +99,9 @@ def when_admin_retry(client, ids, mocker, admin_user):
 )
 def when_admin_retry_empty(client, mocker, admin_user):
     _setup_admin_dependencies(app, admin_user)
-    mock_delay = mocker.patch("curator.workers.tasks.process_upload.delay")
+    mock_apply_async = mocker.patch("curator.workers.tasks.process_upload.apply_async")
     response = client.post("/api/admin/retry", json={"upload_ids": []})
-    return {"response": response, "delay": mock_delay}
+    return {"response": response, "apply_async": mock_apply_async}
 
 
 # --- THENS ---
@@ -126,7 +130,7 @@ def then_admin_retry_success(admin_retry_result):
 
 @then("only the selected uploads should be queued for processing")
 def then_selected_uploads_queued(admin_retry_result):
-    assert admin_retry_result["delay"].call_count > 0
+    assert admin_retry_result["apply_async"].call_count > 0
 
 
 @then(parsers.parse("upload ID {upload_id:d} should remain in_progress"))

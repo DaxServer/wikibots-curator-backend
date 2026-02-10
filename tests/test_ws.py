@@ -48,7 +48,7 @@ def mock_mapillary_handler():
 @pytest.fixture
 def mock_dal():
     with (
-        patch("curator.app.handler.create_upload_request") as mock_create,
+        patch("curator.app.dal.create_upload_request") as mock_create,
         patch("curator.app.handler.get_upload_request") as mock_get,
         patch("curator.app.handler.count_uploads_in_batch") as mock_count,
     ):

@@ -103,10 +103,3 @@ def get_next_upload_delay(userid: str, rate_limit: RateLimitInfo) -> float:
     )
 
     return delay
-
-
-def reset_user_rate_limit_state(userid: str) -> None:
-    """Reset rate limit state for a user. Deletes the next_available timestamp from Redis."""
-    cache_key = _NEXT_AVAILABLE_KEY.format(userid=userid)
-    redis_client.delete(cache_key)
-    logger.info(f"[rate_limiter] Reset rate limit state for user {userid}")

@@ -5,7 +5,8 @@
       "Bash(poetry run ruff:*)",
       "Bash(poetry run ty check:*)",
       "Bash(poetry run isort:*)",
-      "Bash(poetry run ruff format:*)"
+      "Bash(poetry run ruff format:*)",
+      "WebSearch"
     ]
   }
 }
