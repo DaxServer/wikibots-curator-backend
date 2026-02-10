@@ -220,68 +220,6 @@ class Handler:
         )
 
     @handle_exceptions
-    async def upload(
-        self, data: UploadData, priority: Optional[QueuePriority] = QueuePriority.NORMAL
-    ):
-        """
-        Deprecated. Use create_batch and upload_slice instead.
-        """
-        items = data.items
-        handler_name = data.handler
-        encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
-
-        logger.info(f"[mapillary] Uploading {len(items)} items for {self.username}")
-
-        with get_session() as session:
-            reqs = create_upload_request(
-                session=session,
-                username=self.username,
-                userid=self.user["userid"],
-                payload=cast(list[UploadItem], items),
-                handler=handler_name,
-                encrypted_access_token=encrypted_access_token,
-            )
-
-            # Prepare data while session is open to avoid DetachedInstanceError
-            prepared_uploads = []
-            for i, req in enumerate(reqs):
-                session.refresh(req)
-                prepared_uploads.append(
-                    {
-                        "id": req.id,
-                        "status": req.status,
-                        "key": req.key,
-                        "batchid": req.batchid,
-                        "input": items[i].input,
-                    }
-                )
-
-        # Enqueue uploads
-        edit_group_id = generate_edit_group_id()
-        with get_session() as save_session:
-            for upload in prepared_uploads:
-                task_result = process_upload.delay(upload["id"], edit_group_id)
-                task_id = task_result.id
-                if isinstance(task_id, str):
-                    update_celery_task_id(save_session, upload["id"], task_id)
-
-        logger.info(
-            f"[ws] [resp] Batch uploads {len(prepared_uploads)} enqueued for {self.username}"
-        )
-        await self.socket.send_upload_created(
-            [
-                UploadCreatedItem(
-                    id=u["id"],
-                    status=u["status"],
-                    image_id=u["key"],
-                    input=u["input"],
-                    batchid=u["batchid"],
-                )
-                for u in prepared_uploads
-            ]
-        )
-
-    @handle_exceptions
     async def create_batch(self):
         with get_session() as session:
             ensure_user(

@@ -51,44 +51,6 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-async def test_handle_upload(
-    mocker, handler_instance, mock_sender, mock_upload_request
-):
-    with (
-        patch("curator.app.handler.create_upload_request") as mock_create,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
-    ):
-        mock_upload_request._sa_instance_state = mocker.MagicMock()
-        mock_upload_request._sa_instance_state.class_.__name__ = "UploadRequest"
-        mock_create.return_value = [mock_upload_request]
-
-        data = UploadData(
-            items=[
-                UploadItem(
-                    input="test",
-                    id="1",
-                    title="Test Title",
-                    wikitext="Test Wikitext",
-                )
-            ],
-            handler="mapillary",
-        )
-
-        await handler_instance.upload(data)
-
-        # Check that process_upload.delay was called with upload_id and edit_group_id
-        assert mock_process_upload.delay.call_count == 1
-        call_args = mock_process_upload.delay.call_args
-        assert call_args[0][0] == mock_upload_request.id
-        assert len(call_args[0]) == 2
-        assert isinstance(call_args[0][1], str)
-        assert len(call_args[0][1]) == 12
-        mock_sender.send_upload_created.assert_called_once()
-        call_args = mock_sender.send_upload_created.call_args[0][0]
-        assert call_args[0].id == mock_upload_request.id
-
-
-@pytest.mark.asyncio
 async def test_handle_subscribe_batch(handler_instance, mock_sender):
     # Mock stream_uploads to return a coroutine
     mock_stream = AsyncMock()
