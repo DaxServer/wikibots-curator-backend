@@ -128,57 +128,6 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         assert data["data"] == "Collection not found"
 
 
-def test_ws_upload(mocker, mock_dal, mock_worker, mock_get_session_patch):
-    mock_create, _, _ = mock_dal
-
-    # Mock create_upload_request return value
-    mock_req = mocker.MagicMock()
-    mock_req.id = 1
-    mock_req.status = "pending"
-    mock_req.key = "img1"
-    mock_req.batchid = 100
-
-    mock_create.return_value = [mock_req]
-
-    with (
-        patch(
-            "curator.app.handler.encrypt_access_token", return_value="encrypted_token"
-        ),
-        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
-    ):
-        websocket.send_json(
-            {
-                "type": "UPLOAD",
-                "data": {
-                    "items": [
-                        {
-                            "input": "test",
-                            "id": "img1",
-                            "title": "Test Title",
-                            "wikitext": "Test Wikitext",
-                        }
-                    ],
-                    "handler": "mapillary",
-                },
-            }
-        )
-
-        data = websocket.receive_json()
-        assert data["type"] == "UPLOAD_CREATED"
-        items = data["data"]
-        assert len(items) == 1
-        assert items[0]["id"] == 1
-        assert items[0]["batchid"] == 100
-
-        # Verify worker was called with upload_id and edit_group_id
-        assert mock_worker.delay.call_count == 1
-        call_args = mock_worker.delay.call_args
-        assert call_args[0][0] == 1
-        assert len(call_args[0]) == 2
-        assert isinstance(call_args[0][1], str)
-        assert len(call_args[0][1]) == 12
-
-
 def test_ws_invalid_message():
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json({"invalid": "json"})
