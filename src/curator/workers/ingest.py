@@ -8,8 +8,8 @@ from curator.app.commons import (
     DuplicateUploadError,
     apply_sdc,
     check_title_blacklisted,
+    create_isolated_site,
     fetch_sdc_from_api,
-    get_commons_site,
     upload_file_chunked,
 )
 from curator.app.crypto import decrypt_access_token
@@ -39,6 +39,29 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of retries for uploadstash-file-not-found errors
 MAX_UPLOADSTASH_TRIES = 2
+
+
+def _fetch_duplicate_data_wrapper(site, duplicate_title):
+    """Wrapper to fetch SDC data in thread context"""
+    file_page = FilePage(Page(site, title=duplicate_title, ns=6))
+    # We need pageid, which might require API call if not loaded
+    if not file_page.pageid:
+        file_page.get()
+
+    existing_sdc, existing_labels = fetch_sdc_from_api(site, f"M{file_page.pageid}")
+    return existing_sdc, existing_labels
+
+
+def _apply_sdc_wrapper(site, duplicate_title, sdc, edit_summary, labels):
+    """Wrapper to apply SDC in thread context"""
+    file_page = FilePage(Page(site, title=duplicate_title, ns=6))
+    return apply_sdc(
+        site=site,
+        file_page=file_page,
+        sdc=sdc,
+        edit_summary=edit_summary,
+        labels=labels,
+    )
 
 
 def _cleanup(session, upload_id: int):
@@ -82,8 +105,7 @@ async def _handle_duplicate_with_sdc_merge(
     batch_id: int,
     key: str,
     labels: dict | Label | None,
-    access_token: str,
-    username: str,
+    site,
     sdc: list[Statement] | None,
     duplicate_error: DuplicateUploadError,
     edit_group_id: str,
@@ -108,10 +130,9 @@ async def _handle_duplicate_with_sdc_merge(
         f"[{upload_id}/{batch_id}] merging SDC with existing file {duplicate_title}"
     )
 
-    site = get_commons_site(access_token, username)
-
-    file_page = FilePage(Page(site, title=duplicate_title, ns=6))
-    existing_sdc, existing_labels = fetch_sdc_from_api(site, f"M{file_page.pageid}")
+    existing_sdc, existing_labels = await site.run(
+        _fetch_duplicate_data_wrapper, duplicate_title
+    )
 
     # Convert labels to Label model if it's a dict (from JSON storage)
     item_label = None
@@ -155,9 +176,9 @@ async def _handle_duplicate_with_sdc_merge(
         f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
     )
 
-    if apply_sdc(
-        site=site,
-        file_page=file_page,
+    if await site.run(
+        _apply_sdc_wrapper,
+        duplicate_title=duplicate_title,
         sdc=merged_sdc,
         edit_summary=edit_summary,
         labels=item_label,
@@ -236,8 +257,7 @@ async def _upload_with_retry(
     key: str,
     wikitext: str,
     labels: Label | None,
-    access_token: str,
-    username: str,
+    site,
     image_url: str,
     sdc: list[Statement] | None,
     edit_group_id: str,
@@ -256,17 +276,16 @@ async def _upload_with_retry(
                 f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
             )
 
-            return upload_file_chunked(
-                upload_id=upload_id,
-                batch_id=batch_id,
-                file_name=filename,
-                file_url=image_url,
-                wikitext=wikitext,
-                edit_summary=edit_summary,
-                access_token=access_token,
-                username=username,
-                sdc=sdc,
-                labels=labels,
+            return await site.run(
+                upload_file_chunked,
+                filename,
+                image_url,
+                wikitext,
+                edit_summary,
+                upload_id,
+                batch_id,
+                sdc,
+                labels,
             )
         except DuplicateUploadError:
             # Let DuplicateUploadError pass through to be handled by the outer exception handler
@@ -358,11 +377,17 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
 
     # 2. Long running operations (NO DB SESSION)
     try:
+        # Create isolated site wrapper for this job
+        site = create_isolated_site(access_token, username)
+
         # Check if the title is blacklisted
         logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")
-        is_blacklisted, reason = check_title_blacklisted(
-            access_token, username, filename, upload_id, batchid
+
+        # Run check in thread with correct context
+        is_blacklisted, reason = await site.run(
+            check_title_blacklisted, filename, upload_id, batchid
         )
+
         if is_blacklisted:
             logger.warning(
                 f"[{upload_id}/{batchid}] title {filename} is blacklisted: {reason}"
@@ -395,8 +420,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             key=key,
             wikitext=wikitext,
             labels=labels,
-            access_token=access_token,
-            username=username,
+            site=site,
             image_url=image_url,
             sdc=sdc,
             edit_group_id=edit_group_id,
@@ -420,8 +444,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             batch_id=batchid,
             key=key,
             labels=labels,
-            access_token=access_token,
-            username=username,
+            site=site,
             sdc=sdc,
             duplicate_error=e,
             edit_group_id=edit_group_id,

@@ -5,13 +5,9 @@ and spaces out Celery task enqueueing to match the allowed rate, preventing API 
 """
 
 import logging
-import threading
 import time
 from dataclasses import dataclass
 
-from mwoauth import AccessToken
-
-from curator.app.commons import get_commons_site
 from curator.app.config import (
     RATE_LIMIT_DEFAULT_NORMAL,
     RATE_LIMIT_DEFAULT_PERIOD,
@@ -19,9 +15,6 @@ from curator.app.config import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Threading lock to protect pywikibot global state from race conditions
-_pywikibot_lock = threading.Lock()
 
 # Cache key template for tracking next available upload slot
 _NEXT_AVAILABLE_KEY = "ratelimit:{userid}:next_available"
@@ -45,17 +38,17 @@ _PRIVILEGED_LIMIT = RateLimitInfo(
 _PRIVILEGED_GROUPS = {"patroller", "sysop"}
 
 
-def get_rate_limit_for_batch(
-    userid: str, access_token: AccessToken, username: str
-) -> RateLimitInfo:
-    """Get rate limit info for a user by checking privileged status"""
-    try:
-        # Use lock to prevent race conditions on pywikibot global state
-        with _pywikibot_lock:
-            site = get_commons_site(access_token, username)
-            is_privileged = site.has_group("patroller") or site.has_group("sysop")
+def get_rate_limit_for_batch(site, userid: str) -> RateLimitInfo:
+    """
+    Get rate limit info for a user by checking privileged status using a pre-created site.
 
-        logger.info(f"[rate_limiter] User {username} privileged={is_privileged}")
+    This is the preferred method as it doesn't modify global pywikibot state.
+    The site should be created using create_isolated_site() for proper isolation.
+    """
+    try:
+        is_privileged = site.has_group("patroller") or site.has_group("sysop")
+
+        logger.info(f"[rate_limiter] User {userid} privileged={is_privileged}")
 
         if is_privileged:
             return _PRIVILEGED_LIMIT

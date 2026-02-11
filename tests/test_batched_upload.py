@@ -1,10 +1,20 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceAckItem, UploadSliceData
 from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
+
+
+@pytest.fixture(autouse=True)
+def mock_isolated_site(mocker):
+    """Mock create_isolated_site to return a mock site for Handler._get_site()"""
+    mock_site = MagicMock()
+    mock_site.has_group = MagicMock(return_value=True)  # Default to privileged
+    return mocker.patch(
+        "curator.app.commons.create_isolated_site", return_value=mock_site
+    )
 
 
 @pytest.mark.asyncio

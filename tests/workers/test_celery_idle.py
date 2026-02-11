@@ -1,5 +1,6 @@
 import os
 import signal
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -123,8 +124,6 @@ def test_idle_monitor_no_kill_if_active_tasks(mock_heartbeat_file):
         assert expected_file.exists()
 
         # Set file mtime to old time (5 hours ago)
-        import time
-
         old_time = time.time() - (5 * 3600)
         os.utime(expected_file, (old_time, old_time))
 

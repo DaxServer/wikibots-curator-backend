@@ -32,17 +32,13 @@ def get_redis_mock(mocker):
 
 
 class TestGetRateLimitForBatch:
-    """Tests for get_rate_limit_for_batch."""
+    """Tests for get_rate_limit_for_batch (takes site as parameter)."""
 
     def test_normal_user_detected(self, mocker):
         """Test that normal users get default rate limit"""
         mock_site = MagicMock()
         mock_site.has_group = MagicMock(return_value=False)
-        mocker.patch(
-            "curator.app.rate_limiter.get_commons_site", return_value=mock_site
-        )
-
-        rate_limit = get_rate_limit_for_batch("user123", ("key", "secret"), "TestUser")
+        rate_limit = get_rate_limit_for_batch(mock_site, "user123")
 
         assert rate_limit.is_privileged is False
         assert rate_limit.uploads_per_period == 4
@@ -52,11 +48,8 @@ class TestGetRateLimitForBatch:
         """Test that privileged users (patroller) are detected."""
         mock_site = MagicMock()
         mock_site.has_group = MagicMock(side_effect=lambda g: g == "patroller")
-        mocker.patch(
-            "curator.app.rate_limiter.get_commons_site", return_value=mock_site
-        )
 
-        rate_limit = get_rate_limit_for_batch("user123", ("key", "secret"), "TestUser")
+        rate_limit = get_rate_limit_for_batch(mock_site, "user123")
 
         assert rate_limit.is_privileged is True
         assert rate_limit.uploads_per_period == 999
@@ -66,11 +59,8 @@ class TestGetRateLimitForBatch:
         """Test that sysop users are detected as privileged."""
         mock_site = MagicMock()
         mock_site.has_group = MagicMock(side_effect=lambda g: g == "sysop")
-        mocker.patch(
-            "curator.app.rate_limiter.get_commons_site", return_value=mock_site
-        )
 
-        rate_limit = get_rate_limit_for_batch("user123", ("key", "secret"), "TestUser")
+        rate_limit = get_rate_limit_for_batch(mock_site, "user123")
 
         assert rate_limit.is_privileged is True
         assert rate_limit.uploads_per_period == 999
@@ -78,12 +68,10 @@ class TestGetRateLimitForBatch:
 
     def test_api_failure_uses_defaults(self, mocker):
         """Test that API failure falls back to defaults."""
-        mocker.patch(
-            "curator.app.rate_limiter.get_commons_site",
-            side_effect=Exception("API Error"),
-        )
+        mock_site = MagicMock()
+        mock_site.has_group = MagicMock(side_effect=Exception("API Error"))
 
-        rate_limit = get_rate_limit_for_batch("user123", ("key", "secret"), "TestUser")
+        rate_limit = get_rate_limit_for_batch(mock_site, "user123")
 
         assert rate_limit.is_privileged is False
         assert rate_limit.uploads_per_period == 4
@@ -93,11 +81,8 @@ class TestGetRateLimitForBatch:
         """Test that failure to check user groups falls back to defaults."""
         mock_site = MagicMock()
         mock_site.has_group = MagicMock(side_effect=Exception("Groups error"))
-        mocker.patch(
-            "curator.app.rate_limiter.get_commons_site", return_value=mock_site
-        )
 
-        rate_limit = get_rate_limit_for_batch("user123", ("key", "secret"), "TestUser")
+        rate_limit = get_rate_limit_for_batch(mock_site, "user123")
 
         assert rate_limit.is_privileged is False
         assert rate_limit.uploads_per_period == 4

@@ -15,8 +15,16 @@ def patch_ingest_get_session(patch_get_session):
     return patch_get_session("curator.workers.ingest.get_session")
 
 
+@pytest.fixture(autouse=True)
+def setup_mock_isolated_site(mocker, mock_isolated_site):
+    """Patch create_isolated_site to return the shared mock site"""
+    return mocker.patch(
+        "curator.workers.ingest.create_isolated_site", return_value=mock_isolated_site
+    )
+
+
 @pytest.mark.asyncio
-async def test_worker_process_one_decrypts_token(mock_session):
+async def test_worker_process_one_decrypts_token(mock_session, mock_isolated_site):
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -36,9 +44,11 @@ async def test_worker_process_one_decrypts_token(mock_session):
         last_editor=None,
     )
 
-    captured = {}
-
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ) as mock_create_site,
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -46,14 +56,11 @@ async def test_worker_process_one_decrypts_token(mock_session):
         ),
         patch(
             "curator.workers.ingest.upload_file_chunked",
-            side_effect=lambda **kwargs: (
-                captured.setdefault("token", kwargs["access_token"]),
-                {
-                    "result": "success",
-                    "title": kwargs["file_name"],
-                    "url": kwargs["file_url"],
-                },
-            )[1],
+            return_value={
+                "result": "success",
+                "title": "File.jpg",
+                "url": "https://example.com/photo",
+            },
         ),
         patch("curator.workers.ingest.clear_upload_access_token"),
         patch(
@@ -79,11 +86,16 @@ async def test_worker_process_one_decrypts_token(mock_session):
     ):
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
-        assert tuple(captured["token"]) == ("t", "s")
+
+        # Verify create_isolated_site was called with decrypted token
+        mock_create_site.assert_called_once()
+        args, _ = mock_create_site.call_args
+        assert args[0] == ("t", "s")
+        assert args[1] == "User"
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_duplicate_status(mock_session):
+async def test_worker_process_one_duplicate_status(mock_session, mock_isolated_site):
     """Test that process_one marks duplicate status when file already exists."""
     item = SimpleNamespace(
         id=1,
@@ -111,6 +123,10 @@ async def test_worker_process_one_duplicate_status(mock_session):
         captured_status["error"] = error
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -182,7 +198,9 @@ def test_upload_request_access_token_excluded_from_model_dump():
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
+async def test_worker_process_one_fails_on_blacklisted_title(
+    mock_session, mock_isolated_site
+):
     """Test that process_one fails when title is blacklisted."""
     item = SimpleNamespace(
         id=1,
@@ -210,6 +228,10 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
         captured_status["error"] = error
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -248,7 +270,9 @@ async def test_worker_process_one_fails_on_blacklisted_title(mock_session):
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_success(mock_session):
+async def test_worker_process_one_uploadstash_retry_success(
+    mock_session, mock_isolated_site
+):
     """Test that process_one retries uploadstash-file-not-found errors and succeeds on retry."""
     item = SimpleNamespace(
         id=1,
@@ -271,7 +295,17 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
 
     upload_attempts = []
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(
+        site,
+        file_name,
+        file_url,
+        wikitext,
+        edit_summary,
+        upload_id,
+        batch_id,
+        sdc=None,
+        labels=None,
+    ):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail on first attempt with uploadstash-file-not-found error, succeed on second
         if len(upload_attempts) == 1:
@@ -280,11 +314,15 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
             )
         return {
             "result": "success",
-            "title": kwargs["file_name"],
-            "url": kwargs["file_url"],
+            "title": file_name,
+            "url": file_url,
         }
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(
@@ -325,7 +363,9 @@ async def test_worker_process_one_uploadstash_retry_success(mock_session):
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
+async def test_worker_process_one_uploadstash_retry_max_attempts(
+    mock_session, mock_isolated_site
+):
     """Test that process_one tries uploadstash-file-not-found errors up to MAX_UPLOADSTASH_TRIES attempts."""
     item = SimpleNamespace(
         id=1,
@@ -356,7 +396,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(site, *args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Always fail with uploadstash-file-not-found error
         raise Exception(
@@ -364,6 +404,10 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
         )
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -408,7 +452,9 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(mock_session):
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_uploadstash_retry_different_error(mock_session):
+async def test_worker_process_one_uploadstash_retry_different_error(
+    mock_session, mock_isolated_site
+):
     """Test that process_one doesn't retry non-uploadstash errors."""
     item = SimpleNamespace(
         id=1,
@@ -439,12 +485,16 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(site, *args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail with a different error (not uploadstash-file-not-found)
         raise Exception("Network timeout or some other error")
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -488,7 +538,9 @@ async def test_worker_process_one_uploadstash_retry_different_error(mock_session
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_includes_edit_group_id_in_summary(mock_session):
+async def test_worker_process_one_includes_edit_group_id_in_summary(
+    mock_session, mock_isolated_site
+):
     """Test that process_one includes edit_group_id in the edit summary."""
     item = SimpleNamespace(
         id=1,
@@ -511,15 +563,29 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(mock_session
 
     captured_edit_summary = {}
 
-    def mock_upload_file_chunked(**kwargs):
-        captured_edit_summary["summary"] = kwargs.get("edit_summary", "")
+    def mock_upload_file_chunked(
+        site,
+        file_name,
+        file_url,
+        wikitext,
+        edit_summary,
+        upload_id,
+        batch_id,
+        sdc=None,
+        labels=None,
+    ):
+        captured_edit_summary["summary"] = edit_summary
         return {
             "result": "success",
-            "title": kwargs["file_name"],
-            "url": kwargs["file_url"],
+            "title": file_name,
+            "url": file_url,
         }
 
     with (
+        patch(
+            "curator.workers.ingest.create_isolated_site",
+            return_value=mock_isolated_site,
+        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch(

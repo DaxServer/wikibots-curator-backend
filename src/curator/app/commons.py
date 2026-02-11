@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -10,6 +11,7 @@ from pywikibot.page import FilePage, Page
 from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
+from curator.app.thread_utils import ThreadLocalDict
 from curator.asyncapi import ErrorLink, Label, Statement
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,15 @@ def _ensure_pywikibot() -> None:
         if config is None:
             config = _config
 
+        # PATCH: Make config.authenticate thread-local to prevent race conditions
+        # in multi-threaded environment. pywikibot reads this global dict
+        # on every request.
+        if not isinstance(config.authenticate, ThreadLocalDict):
+            config.authenticate = ThreadLocalDict(config.authenticate)  # type: ignore
+
+        # Set put_throttle once globally during initialization
+        config.put_throttle = 0  # type: ignore
+
 
 class DuplicateUploadError(Exception):
     def __init__(self, duplicates: list[ErrorLink], message: str):
@@ -40,13 +51,60 @@ class DuplicateUploadError(Exception):
         self.duplicates = duplicates
 
 
+class IsolatedSite:
+    """
+    A wrapper around pywikibot.Site that ensures thread-safe execution
+    by setting up the thread-local configuration before every operation.
+    """
+
+    def __init__(self, access_token: AccessToken, username: str):
+        self.access_token = access_token
+        self.username = username
+        self._site = None
+
+    def _setup_context(self):
+        """Sets up the thread-local pywikibot configuration."""
+        _ensure_pywikibot()
+        assert config
+
+        config.authenticate["commons.wikimedia.org"] = (
+            OAUTH_KEY,
+            OAUTH_SECRET,
+        ) + tuple(self.access_token)
+
+    def _get_or_create_site(self):
+        """Creates or retrieves the cached Site object."""
+        # Must be called inside the context where config is set
+        assert pywikibot
+        if not self._site:
+            self._site = pywikibot.Site("commons", "commons", user=self.username)
+            self._site.login()
+        return self._site
+
+    def run_sync(self, func, *args, **kwargs):
+        """Run a function synchronously with the correct site context."""
+        self._setup_context()
+        site = self._get_or_create_site()
+        return func(site, *args, **kwargs)
+
+    async def run(self, func, *args, **kwargs):
+        """Run a function in a separate thread with correct site context."""
+        return await asyncio.to_thread(self.run_sync, func, *args, **kwargs)
+
+
+def create_isolated_site(access_token: AccessToken, username: str) -> IsolatedSite:
+    """
+    Create an IsolatedSite wrapper.
+    """
+    return IsolatedSite(access_token, username)
+
+
 def upload_file_chunked(
+    site,
     file_name: str,
     file_url: str,
     wikitext: str,
     edit_summary: str,
-    access_token: AccessToken,
-    username: str,
     upload_id: int,
     batch_id: int,
     sdc: Optional[list[Statement]] = None,
@@ -56,13 +114,8 @@ def upload_file_chunked(
     Upload a file to Commons using Pywikibot's UploadRobot, with optional user OAuth authentication.
 
     - Uses chunked uploads
-    - Sets authentication
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
-    _ensure_pywikibot()
-
-    site = get_commons_site(access_token, username)
-
     with NamedTemporaryFile() as temp_file:
         temp_file.write(download_file(file_url, upload_id, batch_id))
 
@@ -88,27 +141,11 @@ def upload_file_chunked(
     }
 
 
-def get_commons_site(access_token: AccessToken, username: str):
-    _ensure_pywikibot()
-    assert config
-    assert pywikibot
-
-    config.authenticate["commons.wikimedia.org"] = (OAUTH_KEY, OAUTH_SECRET) + tuple(
-        access_token
-    )
-    config.usernames["commons"]["commons"] = username
-    config.put_throttle = 0
-    site = pywikibot.Site("commons", "commons", user=username)
-    site.login()
-
-    return site
-
-
 def download_file(file_url: str, upload_id: int = 0, batch_id: int = 0) -> bytes:
     """
-    Download a file from the given URL with retry logic for Mapillary errors
+    Download a file from the given URL with retry logic for Mapillary errors.
 
-    When Mapillary returns application/x-php instead of an image, retry after a delay
+    When Mapillary returns application/x-php instead of an image, retry after a delay.
     """
     for attempt in range(MAX_DOWNLOAD_RETRIES):
         resp = httpx.get(file_url, timeout=60)
@@ -141,8 +178,6 @@ def find_duplicates(site, sha1: str) -> list[ErrorLink]:
 
 
 def build_file_page(site, file_name: str) -> FilePage:
-    _ensure_pywikibot()
-
     return FilePage(Page(site, title=file_name, ns=6))
 
 
@@ -203,9 +238,6 @@ def apply_sdc(
     """
     Apply SDC to an existing file on Commons
     """
-    _ensure_pywikibot()
-    assert pywikibot
-
     data = _build_sdc_payload(sdc, labels)
 
     if not data:
@@ -230,8 +262,7 @@ def apply_sdc(
 
 
 def check_title_blacklisted(
-    access_token: AccessToken,
-    username: str,
+    site,
     filename: str,
     upload_id: int,
     batch_id: int,
@@ -239,8 +270,6 @@ def check_title_blacklisted(
     """
     Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API
     """
-    site = get_commons_site(access_token, username)
-
     try:
         response = site.simple_request(
             action="titleblacklist",

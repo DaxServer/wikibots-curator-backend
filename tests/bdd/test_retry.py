@@ -15,6 +15,17 @@ from curator.main import app
 
 from .conftest import run_sync
 
+
+@pytest.fixture(autouse=True)
+def mock_isolated_site(mocker):
+    """Mock create_isolated_site to return a mock site for Handler._get_site()"""
+    mock_site = MagicMock()
+    mock_site.has_group = MagicMock(return_value=True)  # Default to privileged
+    return mocker.patch(
+        "curator.app.commons.create_isolated_site", return_value=mock_site
+    )
+
+
 # --- Scenarios ---
 
 

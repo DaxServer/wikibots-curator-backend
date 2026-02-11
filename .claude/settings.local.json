@@ -6,7 +6,10 @@
       "Bash(poetry run ty check:*)",
       "Bash(poetry run isort:*)",
       "Bash(poetry run ruff format:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(grep:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls:*)"
     ]
   }
 }
