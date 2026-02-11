@@ -48,14 +48,15 @@ class TestSiteIsolation:
             mock_site_obj.login.assert_called_once()
 
     def _verify_sync_context(self, s, arg1, mock_config, mock_site_obj):
-        # Verify config is set inside the function
+        # Verify config.authenticate is set inside the function
         assert mock_config.authenticate["commons.wikimedia.org"] == (
             "test_key",
             "test_secret",
             "new_token",
             "new_secret",
         )
-        assert mock_config.usernames["commons"]["commons"] == "new_user"
+        # Note: config.usernames is no longer set since username is passed
+        # explicitly to Site() constructor, avoiding global state modification
         assert s == mock_site_obj
         return f"result_{arg1}"
 

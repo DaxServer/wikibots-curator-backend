@@ -1,3 +1,4 @@
+import copy
 import threading
 from typing import Any, MutableMapping
 
@@ -15,8 +16,8 @@ class ThreadLocalDict(MutableMapping):
     @property
     def _store(self) -> dict:
         if not hasattr(self._local, "store"):
-            # Initialize with a copy of initial data
-            self._local.store = self._initial_data.copy()
+            # Initialize with a deep copy of initial data for complete isolation
+            self._local.store = copy.deepcopy(self._initial_data)
         return self._local.store
 
     def __getitem__(self, key: Any) -> Any:

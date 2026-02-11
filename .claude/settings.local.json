@@ -7,7 +7,8 @@
       "Bash(poetry run isort:*)",
       "Bash(poetry run ruff format:*)",
       "WebSearch",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(gh pr view:*)"
     ]
   }
 }

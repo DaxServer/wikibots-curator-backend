@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import threading
 import time
 from tempfile import NamedTemporaryFile
 from typing import Any, Optional
@@ -19,10 +18,6 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of retries for Mapillary image download errors
 MAX_DOWNLOAD_RETRIES = 2
-
-# Threading lock to protect pywikibot global state during site creation
-# Note: With ThreadLocalDict patching, this is primarily for non-patched globals
-_site_lock = threading.Lock()
 
 
 pywikibot: Any | None = None
@@ -45,6 +40,9 @@ def _ensure_pywikibot() -> None:
         # on every request.
         if not isinstance(config.authenticate, ThreadLocalDict):
             config.authenticate = ThreadLocalDict(config.authenticate)  # type: ignore
+
+        # Set put_throttle once globally during initialization
+        config.put_throttle = 0  # type: ignore
 
 
 class DuplicateUploadError(Exception):
@@ -73,13 +71,6 @@ class IsolatedSite:
             OAUTH_KEY,
             OAUTH_SECRET,
         ) + tuple(self.access_token)
-
-        # We assume config.usernames is also patched or handled safely by pywikibot
-        # if we pass user explicitly. However, for safety we set it here.
-        # Note: config.usernames is NOT thread-local by default unless patched.
-        # But since we pass user=username to Site(), it should be fine.
-        config.usernames["commons"]["commons"] = self.username
-        config.put_throttle = 0
 
     def _get_or_create_site(self):
         """Creates or retrieves the cached Site object."""
