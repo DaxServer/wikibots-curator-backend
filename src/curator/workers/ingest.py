@@ -41,11 +41,6 @@ logger = logging.getLogger(__name__)
 MAX_UPLOADSTASH_TRIES = 2
 
 
-def _upload_wrapper(site, **kwargs):
-    """Wrapper to pass site as named argument to upload_file_chunked"""
-    return upload_file_chunked(site=site, **kwargs)
-
-
 def _fetch_duplicate_data_wrapper(site, duplicate_title):
     """Wrapper to fetch SDC data in thread context"""
     file_page = FilePage(Page(site, title=duplicate_title, ns=6))
@@ -282,15 +277,15 @@ async def _upload_with_retry(
             )
 
             return await site.run(
-                _upload_wrapper,
-                upload_id=upload_id,
-                batch_id=batch_id,
-                file_name=filename,
-                file_url=image_url,
-                wikitext=wikitext,
-                edit_summary=edit_summary,
-                sdc=sdc,
-                labels=labels,
+                upload_file_chunked,
+                filename,
+                image_url,
+                wikitext,
+                edit_summary,
+                upload_id,
+                batch_id,
+                sdc,
+                labels,
             )
         except DuplicateUploadError:
             # Let DuplicateUploadError pass through to be handled by the outer exception handler

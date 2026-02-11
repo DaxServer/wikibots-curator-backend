@@ -295,7 +295,17 @@ async def test_worker_process_one_uploadstash_retry_success(
 
     upload_attempts = []
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(
+        site,
+        file_name,
+        file_url,
+        wikitext,
+        edit_summary,
+        upload_id,
+        batch_id,
+        sdc=None,
+        labels=None,
+    ):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail on first attempt with uploadstash-file-not-found error, succeed on second
         if len(upload_attempts) == 1:
@@ -304,8 +314,8 @@ async def test_worker_process_one_uploadstash_retry_success(
             )
         return {
             "result": "success",
-            "title": kwargs["file_name"],
-            "url": kwargs["file_url"],
+            "title": file_name,
+            "url": file_url,
         }
 
     with (
@@ -386,7 +396,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(site, *args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Always fail with uploadstash-file-not-found error
         raise Exception(
@@ -475,7 +485,7 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(**kwargs):
+    def mock_upload_file_chunked(site, *args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail with a different error (not uploadstash-file-not-found)
         raise Exception("Network timeout or some other error")
@@ -553,12 +563,22 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
 
     captured_edit_summary = {}
 
-    def mock_upload_file_chunked(**kwargs):
-        captured_edit_summary["summary"] = kwargs.get("edit_summary", "")
+    def mock_upload_file_chunked(
+        site,
+        file_name,
+        file_url,
+        wikitext,
+        edit_summary,
+        upload_id,
+        batch_id,
+        sdc=None,
+        labels=None,
+    ):
+        captured_edit_summary["summary"] = edit_summary
         return {
             "result": "success",
-            "title": kwargs["file_name"],
-            "url": kwargs["file_url"],
+            "title": file_name,
+            "url": file_url,
         }
 
     with (

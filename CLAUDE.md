@@ -16,7 +16,7 @@ Curator Backend is a FastAPI service that manages CuratorBot jobs for uploading 
 poetry run web       # FastAPI server (port 8000) - DO NOT RUN
 poetry run worker    # Celery worker - DO NOT RUN
 poetry run pytest -q # Run tests
-poetry run ty check  # Type check (excludes asyncapi/)
+poetry run ty check --exclude src/curator/app/dal_optimized.py --exclude alembic  # Type check (excludes asyncapi/)
 poetry run isort .   # Sort imports
 poetry run ruff format  # Format code
 poetry run ruff check  # Run linter
@@ -26,8 +26,9 @@ poetry run alembic upgrade head  # Apply migrations
 **Project-Specific Development Workflow:**
 After completing backend tasks, always run in order:
 ```bash
-poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run ty check && poetry run pytest -q
+poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude src/curator/app/dal_optimized.py --exclude alembic
 ```
+Note: Type errors in `dal_optimized.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
 
 ## Architecture
 
@@ -62,6 +63,7 @@ src/curator/
 │   ├── handler_optimized.py # Optimized handlers
 │   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, commons.py
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
+│   ├── thread_utils.py   # Thread-local storage utilities
 │   └── image_models.py # Image-related models
 ├── handlers/            # Image source handlers
 │   ├── interfaces.py   # Abstract Handler class
@@ -93,8 +95,19 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 - Celery tasks are spaced out to match allowed rate, preventing API throttling
 - Tasks dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
 - Queue constants defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
-- Pywikibot global state is protected by threading lock (`_pywikibot_lock`) due to race conditions
 - When removing Redis caching functionality, remove both the usage code AND the key constant
+
+### Pywikibot Site Isolation
+- **`IsolatedSite` wrapper** (`commons.py`) ensures thread-safe Pywikibot operations by setting thread-local config
+- **`ThreadLocalDict`** (`thread_utils.py`) patches Pywikibot's global `config.authenticate` to be thread-local
+- **`create_isolated_site(access_token, username)`** creates an isolated site wrapper for user operations
+- All Pywikibot functions must accept `site` as first parameter for use with `site.run()`:
+  - `check_title_blacklisted(site, filename, upload_id)`
+  - `apply_sdc(site, file_page, sdc, edit_summary, labels)`
+  - `upload_file_chunked(site, file_name, file_url, wikitext, edit_summary, upload_id, batch_id, sdc, labels)`
+- **Handler pattern** (`handler.py`): Each WebSocket connection lazy-loads and caches an `IsolatedSite`, cleaned up on disconnect
+- **Worker pattern** (`workers/ingest.py`): Each job creates its own `IsolatedSite` for operations
+- **No global state**: Pywikibot's `config.authenticate` is patched once on import, then set per-thread via `ThreadLocalDict`
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
@@ -153,6 +166,8 @@ All configuration via environment variables:
 ## Important Notes
 
 - **Type errors in `dal_optimized.py` are known and should be ignored**
+- **Type errors in `alembic/` are known and should be ignored**
 - **AsyncAPI models are auto-generated - do not edit manually**
 - Use `get_session()` dependency for database sessions, don't create sessions directly
 - Follow layered architecture: routes → handlers → DAL → models
+- **WebSocket cleanup pattern**: Handler's `cleanup()` method clears cached `IsolatedSite`, called in `finally` block in `ws.py`

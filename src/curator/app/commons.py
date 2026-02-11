@@ -100,11 +100,11 @@ def create_isolated_site(access_token: AccessToken, username: str) -> IsolatedSi
 
 
 def upload_file_chunked(
+    site,
     file_name: str,
     file_url: str,
     wikitext: str,
     edit_summary: str,
-    site,
     upload_id: int,
     batch_id: int,
     sdc: Optional[list[Statement]] = None,
