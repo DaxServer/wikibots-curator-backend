@@ -5,8 +5,8 @@ from enum import Enum
 import redis
 from cryptography.fernet import Fernet
 
-OAUTH_KEY = os.environ.get("CURATOR_OAUTH1_KEY")
-OAUTH_SECRET = os.environ.get("CURATOR_OAUTH1_SECRET")
+OAUTH_KEY = str(os.environ.get("CURATOR_OAUTH1_KEY"))
+OAUTH_SECRET = str(os.environ.get("CURATOR_OAUTH1_SECRET"))
 
 
 USER_AGENT = (
