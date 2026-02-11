@@ -187,7 +187,7 @@ def test_upload_request_access_token_excluded_from_model_dump():
         key="img1",
         handler="mapillary",
         collection="seq",
-        access_token="secret",
+        access_token=("secret", "token"),
         filename="File.jpg",
         wikitext="wikitext",
     )

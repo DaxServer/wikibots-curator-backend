@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from mwoauth import AccessToken
 
 from curator.admin import (
     admin_get_batches,
@@ -73,7 +74,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
     user = {
         "username": "DaxServer",
         "userid": "u1",
-        "access_token": ("token", "secret"),
+        "access_token": AccessToken("token", "secret"),
     }
     request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3])
     with (
@@ -86,7 +87,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
 
         result = await admin_retry_uploads(request, user)
 
-        mock_encrypt.assert_called_once_with(("token", "secret"))
+        mock_encrypt.assert_called_once_with(AccessToken("token", "secret"))
         mock_retry.assert_called_once_with(
             mock_session, [1, 2, 3], "encrypted_token", "u1"
         )
@@ -119,7 +120,7 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
     user = {
         "username": "DaxServer",
         "userid": "u1",
-        "access_token": ("token", "secret"),
+        "access_token": AccessToken("token", "secret"),
     }
     # Request 4 uploads, but only 2 are actually retried (others are in_progress)
     request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3, 4])
@@ -153,7 +154,7 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
     user = {
         "username": "DaxServer",
         "userid": "u1",
-        "access_token": ("token", "secret"),
+        "access_token": AccessToken("token", "secret"),
     }
     request = RetrySelectedUploadsRequest(upload_ids=[])
     with (

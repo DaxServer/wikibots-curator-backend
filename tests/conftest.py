@@ -6,6 +6,7 @@ import pytest
 from cryptography.fernet import Fernet
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
+from mwoauth import AccessToken
 
 from curator.asyncapi import (
     CameraInfo,
@@ -56,7 +57,7 @@ def mock_user():
     return {
         "username": "testuser",
         "userid": "user123",
-        "access_token": "test_token",
+        "access_token": AccessToken("test_token", "test_secret"),
     }
 
 
@@ -251,7 +252,8 @@ def patch_mapillary_handler(mocker, mock_handler_instance):
 def patch_decrypt_access_token(mocker):
     """Patch decrypt_access_token to return test tokens"""
     return mocker.patch(
-        "curator.workers.ingest.decrypt_access_token", return_value=("token", "secret")
+        "curator.workers.ingest.decrypt_access_token",
+        return_value=AccessToken("token", "secret"),
     )
 
 

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from mwoauth import AccessToken
 
 from curator.app.auth import check_login
 from curator.asyncapi import (
@@ -26,7 +27,7 @@ async def mock_check_login():
     return {
         "username": "testuser",
         "userid": "user123",
-        "access_token": ("token", "secret"),
+        "access_token": AccessToken("token", "secret"),
     }
 
 

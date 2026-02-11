@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from mwoauth import AccessToken
 from pytest_bdd import given, parsers
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, col, create_engine, select
@@ -54,7 +55,13 @@ def mock_external_calls(mocker):
         return_value={"url": "http://s", "title": "S.jpg"},
     )
     mocker.patch("curator.app.handler.encrypt_access_token", return_value="e")
-    mocker.patch("curator.workers.ingest.decrypt_access_token", return_value="v")
+    mocker.patch(
+        "curator.workers.ingest.decrypt_access_token",
+        return_value=AccessToken("v", "s"),
+    )
+    mocker.patch(
+        "curator.app.handler.decrypt_access_token", return_value=AccessToken("v", "s")
+    )
     mock_h = mocker.patch("curator.workers.ingest.MapillaryHandler").return_value
     mock_h.fetch_image_metadata = AsyncMock(
         return_value=MediaImage(
@@ -173,7 +180,12 @@ def session_context():
     target_fixture="active_user",
 )
 def step_given_user(userid, mocker, username="testuser"):
-    u = {"username": username, "userid": userid, "sub": userid, "access_token": "v"}
+    u = {
+        "username": username,
+        "userid": userid,
+        "sub": userid,
+        "access_token": AccessToken("v", "s"),
+    }
     app.dependency_overrides[auth_mod.check_login] = lambda: u
     mocker.patch(
         "starlette.requests.Request.session",
@@ -192,7 +204,7 @@ def step_given_admin(username, mocker):
         "username": "DaxServer",
         "userid": "admin123",
         "sub": "admin123",
-        "access_token": "v",
+        "access_token": AccessToken("v", "s"),
     }
 
     app.dependency_overrides[check_login] = lambda: u
@@ -214,7 +226,12 @@ def step_given_admin(username, mocker):
     target_fixture="active_user",
 )
 def step_given_std_user(username, mocker, session_context):
-    u = {"username": username, "userid": "u1", "sub": "u1", "access_token": "v"}
+    u = {
+        "username": username,
+        "userid": "u1",
+        "sub": "u1",
+        "access_token": AccessToken("v", "s"),
+    }
 
     app.dependency_overrides[check_login] = lambda: u
 

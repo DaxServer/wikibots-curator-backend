@@ -12,6 +12,7 @@ from typing import Any
 import jwt
 import requests
 from authlib.integrations.requests_client import OAuth1Auth
+from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
@@ -58,6 +59,7 @@ class MediaWikiClient:
         self._client = requests.Session()
         self._client.auth = auth
         self._client.headers.update({"User-Agent": USER_AGENT})
+        self._groups: set[str] | None = None
 
     def _api_request(
         self,
@@ -88,6 +90,9 @@ class MediaWikiClient:
         """
         Get user groups via OAuth /identify endpoint.
         """
+        if self._groups is not None:
+            return self._groups
+
         nonce = secrets.token_hex(16)
 
         # Make signed request to identify endpoint
@@ -107,31 +112,29 @@ class MediaWikiClient:
         jwt_body = response.text
 
         try:
-            # First decode without verification to get the header for algorithm detection
-            unverified_header = jwt.get_unverified_header(jwt_body)
-            algorithm = unverified_header.get("alg", "HS256")
-
             claims = jwt.decode(
                 jwt_body,
                 key=OAUTH_SECRET,
-                algorithms=[algorithm],
+                algorithms=["HS256"],
                 audience=OAUTH_KEY,
             )
-        except Exception as e:
+        except PyJWTError as e:
             logger.error(f"JWT validation failed: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error while decoding JWT: {e}")
             raise
 
         groups = set(claims.get("groups", []))
         logger.info(f"User groups: {groups}")
+        self._groups = groups
         return groups
 
-    def is_privileged(self, groups: set[str] | None = None) -> bool:
+    def is_privileged(self) -> bool:
         """
         Check if user has privileged groups (patroller, sysop).
         """
-        if groups is None:
-            groups = self.get_user_groups()
-        return bool(groups & {"patroller", "sysop"})
+        return bool(self.get_user_groups() & {"patroller", "sysop"})
 
     def get_csrf_token(self) -> str:
         """

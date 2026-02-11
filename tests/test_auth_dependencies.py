@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from mwoauth import AccessToken
 
 from curator.app.auth import check_login
 
@@ -10,13 +11,13 @@ async def test_check_login_success(mock_request, mock_user):
     # Setup mock request session with user data
     mock_request.session = {
         "user": {"username": "testuser", "sub": "user123"},
-        "access_token": "test_token",
+        "access_token": AccessToken("test_token", "test_secret"),
     }
 
     result = await check_login(mock_request)
     assert result["username"] == "testuser"
     assert result["userid"] == "user123"
-    assert result["access_token"] == "test_token"
+    assert result["access_token"] == AccessToken("test_token", "test_secret")
 
 
 @pytest.mark.asyncio
@@ -40,7 +41,7 @@ async def test_check_login_missing_username(mock_request):
             "sub": "user123"
             # Missing username
         },
-        "access_token": "test_token",
+        "access_token": ("test_token", "test_secret"),
     }
 
     with pytest.raises(HTTPException) as exc_info:

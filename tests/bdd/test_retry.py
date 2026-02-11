@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from mwoauth import AccessToken
 from pytest_bdd import parsers, scenario, then, when
 from sqlmodel import Session, select
 
@@ -64,7 +65,7 @@ def admin_user():
         "username": "DaxServer",
         "userid": "admin123",
         "sub": "admin123",
-        "access_token": "v",
+        "access_token": AccessToken("v", "s"),
     }
 
 

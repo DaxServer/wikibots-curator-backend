@@ -13,6 +13,7 @@ from curator.app.config import (
     RATE_LIMIT_DEFAULT_PERIOD,
     redis_client,
 )
+from curator.app.mediawiki_client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +39,17 @@ _PRIVILEGED_LIMIT = RateLimitInfo(
 _PRIVILEGED_GROUPS = {"patroller", "sysop"}
 
 
-def get_rate_limit_for_batch(site, userid: str) -> RateLimitInfo:
+def get_rate_limit_for_batch(
+    userid: str,
+    client: MediaWikiClient,
+) -> RateLimitInfo:
     """
-    Get rate limit info for a user by checking privileged status using a pre-created site.
+    Get rate limit info for a user.
 
-    This is the preferred method as it doesn't modify global pywikibot state.
-    The site should be created using create_isolated_site() for proper isolation.
+    Uses MediaWiki API via MediaWikiClient.
     """
     try:
-        is_privileged = site.has_group("patroller") or site.has_group("sysop")
+        is_privileged = client.is_privileged()
 
         logger.info(f"[rate_limiter] User {userid} privileged={is_privileged}")
 
