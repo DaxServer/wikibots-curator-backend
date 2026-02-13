@@ -380,12 +380,12 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
         # Create isolated site wrapper for this job
         site = create_isolated_site(access_token, username)
 
-        # Check if the title is blacklisted
+        # Check if title is blacklisted
         logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")
 
-        # Run check in thread with correct context
-        is_blacklisted, reason = await site.run(
-            check_title_blacklisted, filename, upload_id, batchid
+        # Use MediaWiki API client
+        is_blacklisted, reason = await check_title_blacklisted(
+            access_token, filename, upload_id, batchid
         )
 
         if is_blacklisted:

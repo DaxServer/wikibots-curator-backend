@@ -98,6 +98,7 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 
 ### MediaWiki Client Patterns
 - **Use `MediaWikiClient`** - All Wikimedia Commons operations must use the `MediaWikiClient` class.
+- **Use `create_mediawiki_client()`** - Helper function in `mediawiki_client.py` to create authenticated clients.
 - **No Global State** - Pass `MediaWikiClient` instances where needed, or create them.
 - **Async/Await** - Prefer async methods where available (or `asyncio.to_thread` for synchronous calls if needed).
 - **Close Resources** - Always ensure `client.close()` is called (e.g. using `try...finally`).
