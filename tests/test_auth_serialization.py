@@ -1,6 +1,8 @@
 import pytest
 from mwoauth import AccessToken
+
 from curator.app.auth import check_login
+
 
 @pytest.mark.asyncio
 async def test_check_login_with_list_token(mock_request):
@@ -12,7 +14,7 @@ async def test_check_login_with_list_token(mock_request):
     }
 
     result = await check_login(mock_request)
-    
+
     # Verify the result has an AccessToken object, not a list
     assert isinstance(result["access_token"], AccessToken)
     assert result["access_token"].key == "test_token"

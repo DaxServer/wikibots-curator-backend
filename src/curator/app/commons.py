@@ -11,6 +11,7 @@ from pywikibot.page import FilePage, Page
 from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
+from curator.app.mediawiki_client import create_mediawiki_client
 from curator.app.thread_utils import ThreadLocalDict
 from curator.asyncapi import ErrorLink, Label, Statement
 
@@ -261,36 +262,20 @@ def apply_sdc(
     return True
 
 
-def check_title_blacklisted(
-    site,
+async def check_title_blacklisted(
+    access_token: AccessToken,
     filename: str,
     upload_id: int,
     batch_id: int,
 ) -> tuple[bool, str]:
     """
-    Check if a filename is blacklisted on Wikimedia Commons using the title blacklist API
+    Check if a filename is blacklisted using MediaWiki API client.
     """
+    client = create_mediawiki_client(OAUTH_KEY, OAUTH_SECRET, access_token)
     try:
-        response = site.simple_request(
-            action="titleblacklist",
-            tbaction="create",
-            tbtitle=f"File:{filename}",
-            format="json",
-        )
-
-        data = response.submit()
-
-        if (
-            "titleblacklist" in data
-            and data["titleblacklist"].get("result") == "blacklisted"
-        ):
-            reason = data["titleblacklist"].get("reason", "Title is blacklisted")
-            return True, reason
-
-        return False, ""
-
+        return await asyncio.to_thread(client.check_title_blacklisted, filename)
     except Exception as e:
-        # Log the error but return False to allow the upload to continue
+        # Log error but return False to allow the upload to continue
         # We don't want to block uploads due to title blacklist API issues
         logger.warning(
             f"[{upload_id}/{batch_id}] Failed to check title blacklist for {filename}: {e}"

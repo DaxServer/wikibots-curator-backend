@@ -374,3 +374,12 @@ class MediaWikiClient:
             logger.warning(f"Failed to apply SDC: {e}")
 
         return result
+
+
+def create_mediawiki_client(
+    consumer_key: str, consumer_secret: str, access_token: AccessToken
+) -> MediaWikiClient:
+    """
+    Create a MediaWiki API client with OAuth1 authentication.
+    """
+    return MediaWikiClient(access_token=access_token)
