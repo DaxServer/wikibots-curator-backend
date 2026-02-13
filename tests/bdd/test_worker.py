@@ -43,9 +43,10 @@ def test_worker_duplicate_scenario():
 
 @given(parsers.parse('the title "{title}" is on the Commons blacklist'))
 def step_given_bl(mocker, title):
+    mock_client = mocker.MagicMock()
+    mock_client.check_title_blacklisted.return_value = (True, "blacklisted")
     mocker.patch(
-        "curator.workers.ingest.check_title_blacklisted",
-        return_value=(True, "blacklisted"),
+        "curator.workers.ingest.create_mediawiki_client", return_value=mock_client
     )
 
 

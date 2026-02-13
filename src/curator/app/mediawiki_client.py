@@ -16,6 +16,7 @@ from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
+from curator.asyncapi import ErrorLink
 
 logger = logging.getLogger(__name__)
 
@@ -177,22 +178,22 @@ class MediaWikiClient:
             logger.warning(f"Failed to check title blacklist for {filename}: {e}")
             return False, ""
 
-    def find_duplicates(self, sha1: str) -> list[dict[str, str]]:
+    def find_duplicates(self, sha1: str) -> list[ErrorLink]:
         """
-        Find existing files with the same SHA1 hash.
+        Find existing files with same SHA1 hash.
+
+        Returns list of ErrorLink objects with title and url.
         """
         params = {
             "action": "query",
             "list": "allimages",
             "aisha1": sha1,
-            "ailimit": "50",
-            "aiprop": "url",
         }
 
         data = self._api_request(params)
 
         duplicates = [
-            {"title": img["title"], "url": img["url"]}
+            ErrorLink(title=img["title"], url=img["url"])
             for img in data.get("query", {}).get("allimages", [])
         ]
         logger.info(f"Found {len(duplicates)} duplicates for SHA1 {sha1}")
@@ -215,7 +216,7 @@ class MediaWikiClient:
         if duplicates:
             return UploadResult(
                 success=False,
-                error=f"File already exists: {duplicates[0]['title']}",
+                error=f"File already exists: {duplicates[0].title}",
             )
 
         # Get CSRF token
@@ -376,9 +377,7 @@ class MediaWikiClient:
         return result
 
 
-def create_mediawiki_client(
-    consumer_key: str, consumer_secret: str, access_token: AccessToken
-) -> MediaWikiClient:
+def create_mediawiki_client(access_token: AccessToken) -> MediaWikiClient:
     """
     Create a MediaWiki API client with OAuth1 authentication.
     """

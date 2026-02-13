@@ -260,8 +260,10 @@ def patch_decrypt_access_token(mocker):
 @pytest.fixture
 def patch_check_title_blacklisted(mocker):
     """Patch check_title_blacklisted to return not blacklisted"""
+    mock_client = mocker.MagicMock()
+    mock_client.check_title_blacklisted.return_value = (False, "")
     return mocker.patch(
-        "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
+        "curator.workers.ingest.create_mediawiki_client", return_value=mock_client
     )
 
 

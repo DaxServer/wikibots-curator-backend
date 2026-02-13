@@ -51,14 +51,17 @@ async def test_process_one_runs_without_event_loop_closed(
     with (
         patch.object(ingest, "get_upload_request_by_id") as mock_get,
         patch.object(ingest, "update_upload_status") as mock_update,
-        patch.object(ingest, "check_title_blacklisted", return_value=(False, "")),
         patch.object(ingest, "clear_upload_access_token") as mock_clear,
         patch.object(ingest, "upload_file_chunked") as mock_upload,
         patch.object(ingest.MapillaryHandler, "fetch_image_metadata") as mock_fetch,
         patch.object(ingest, "decrypt_access_token") as mock_decrypt,
+        patch.object(ingest, "create_mediawiki_client") as mock_create_client,
     ):
         mock_decrypt.return_value = "token"
         mock_fetch.return_value = make_image()
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_create_client.return_value = mock_client
         mock_item = UploadRequest(
             id=1,
             batchid=1,

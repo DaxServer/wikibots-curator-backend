@@ -24,7 +24,9 @@ def setup_mock_isolated_site(mocker, mock_isolated_site):
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_decrypts_token(mock_session, mock_isolated_site):
+async def test_worker_process_one_decrypts_token(
+    mocker, mock_session, mock_isolated_site
+):
     item = SimpleNamespace(
         id=1,
         batchid=1,
@@ -51,9 +53,7 @@ async def test_worker_process_one_decrypts_token(mock_session, mock_isolated_sit
         ) as mock_create_site,
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             return_value={
@@ -84,6 +84,10 @@ async def test_worker_process_one_decrypts_token(mock_session, mock_isolated_sit
             ),
         ),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
 
@@ -95,7 +99,9 @@ async def test_worker_process_one_decrypts_token(mock_session, mock_isolated_sit
 
 
 @pytest.mark.asyncio
-async def test_worker_process_one_duplicate_status(mock_session, mock_isolated_site):
+async def test_worker_process_one_duplicate_status(
+    mocker, mock_session, mock_isolated_site
+):
     """Test that process_one marks duplicate status when file already exists."""
     item = SimpleNamespace(
         id=1,
@@ -131,9 +137,7 @@ async def test_worker_process_one_duplicate_status(mock_session, mock_isolated_s
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
         ),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=DuplicateUploadError(
@@ -172,6 +176,10 @@ async def test_worker_process_one_duplicate_status(mock_session, mock_isolated_s
             return_value=(None, None),  # (url, status) - None means merge failed
         ),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert captured_status["status"] == "duplicate"
@@ -199,7 +207,7 @@ def test_upload_request_access_token_excluded_from_model_dump():
 
 @pytest.mark.asyncio
 async def test_worker_process_one_fails_on_blacklisted_title(
-    mock_session, mock_isolated_site
+    mocker, mock_session, mock_isolated_site
 ):
     """Test that process_one fails when title is blacklisted."""
     item = SimpleNamespace(
@@ -236,10 +244,7 @@ async def test_worker_process_one_fails_on_blacklisted_title(
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
         ),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted",
-            return_value=(True, "Title contains blacklisted pattern"),
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch("curator.workers.ingest.clear_upload_access_token"),
         patch(
             "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
@@ -262,6 +267,13 @@ async def test_worker_process_one_fails_on_blacklisted_title(
             ),
         ),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (
+            True,
+            "Title contains blacklisted pattern",
+        )
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert captured_status["status"] == "failed"
@@ -271,7 +283,7 @@ async def test_worker_process_one_fails_on_blacklisted_title(
 
 @pytest.mark.asyncio
 async def test_worker_process_one_uploadstash_retry_success(
-    mock_session, mock_isolated_site
+    mocker, mock_session, mock_isolated_site
 ):
     """Test that process_one retries uploadstash-file-not-found errors and succeeds on retry."""
     item = SimpleNamespace(
@@ -303,6 +315,7 @@ async def test_worker_process_one_uploadstash_retry_success(
         edit_summary,
         upload_id,
         batch_id,
+        mediawiki_client,
         sdc=None,
         labels=None,
     ):
@@ -325,9 +338,7 @@ async def test_worker_process_one_uploadstash_retry_success(
         ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,
@@ -355,6 +366,10 @@ async def test_worker_process_one_uploadstash_retry_success(
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
         assert (
@@ -364,7 +379,7 @@ async def test_worker_process_one_uploadstash_retry_success(
 
 @pytest.mark.asyncio
 async def test_worker_process_one_uploadstash_retry_max_attempts(
-    mock_session, mock_isolated_site
+    mocker, mock_session, mock_isolated_site
 ):
     """Test that process_one tries uploadstash-file-not-found errors up to MAX_UPLOADSTASH_TRIES attempts."""
     item = SimpleNamespace(
@@ -412,9 +427,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
         ),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,
@@ -442,6 +455,10 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert len(upload_attempts) == 2  # Should have tried 2 times
@@ -453,7 +470,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
 
 @pytest.mark.asyncio
 async def test_worker_process_one_uploadstash_retry_different_error(
-    mock_session, mock_isolated_site
+    mocker, mock_session, mock_isolated_site
 ):
     """Test that process_one doesn't retry non-uploadstash errors."""
     item = SimpleNamespace(
@@ -499,9 +516,7 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
         ),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,
@@ -529,6 +544,10 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),  # Mock sleep to avoid delays
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is False
         assert len(upload_attempts) == 1  # Should have tried only once (no retry)
@@ -539,7 +558,7 @@ async def test_worker_process_one_uploadstash_retry_different_error(
 
 @pytest.mark.asyncio
 async def test_worker_process_one_includes_edit_group_id_in_summary(
-    mock_session, mock_isolated_site
+    mocker, mock_session, mock_isolated_site
 ):
     """Test that process_one includes edit_group_id in the edit summary."""
     item = SimpleNamespace(
@@ -571,6 +590,7 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
         edit_summary,
         upload_id,
         batch_id,
+        mediawiki_client,
         sdc=None,
         labels=None,
     ):
@@ -588,9 +608,7 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
         ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch(
-            "curator.workers.ingest.check_title_blacklisted", return_value=(False, "")
-        ),
+        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,
@@ -617,6 +635,10 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
             ),
         ),
     ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
         test_edit_group_id = "abc123def456"
         ok = await process_one(1, test_edit_group_id)
         assert ok is True

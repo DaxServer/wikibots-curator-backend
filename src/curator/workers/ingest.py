@@ -7,7 +7,6 @@ from pywikibot.page import FilePage, Page
 from curator.app.commons import (
     DuplicateUploadError,
     apply_sdc,
-    check_title_blacklisted,
     create_isolated_site,
     fetch_sdc_from_api,
     upload_file_chunked,
@@ -19,6 +18,7 @@ from curator.app.dal import (
     update_upload_status,
 )
 from curator.app.db import get_session
+from curator.app.mediawiki_client import MediaWikiClient, create_mediawiki_client
 from curator.app.models import (
     StructuredError,
 )
@@ -261,6 +261,7 @@ async def _upload_with_retry(
     image_url: str,
     sdc: list[Statement] | None,
     edit_group_id: str,
+    mediawiki_client: MediaWikiClient,
 ):
     """
     Upload a file with retry logic for uploadstash-file-not-found errors
@@ -284,6 +285,7 @@ async def _upload_with_retry(
                 edit_summary,
                 upload_id,
                 batch_id,
+                mediawiki_client,
                 sdc,
                 labels,
             )
@@ -380,12 +382,14 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
         # Create isolated site wrapper for this job
         site = create_isolated_site(access_token, username)
 
+        # Create MediaWiki API client for this job
+        mediawiki_client = create_mediawiki_client(access_token)
+
         # Check if title is blacklisted
         logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")
 
-        # Use MediaWiki API client
-        is_blacklisted, reason = await check_title_blacklisted(
-            access_token, filename, upload_id, batchid
+        is_blacklisted, reason = await asyncio.to_thread(
+            mediawiki_client.check_title_blacklisted, filename
         )
 
         if is_blacklisted:
@@ -424,6 +428,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             image_url=image_url,
             sdc=sdc,
             edit_group_id=edit_group_id,
+            mediawiki_client=mediawiki_client,
         )
 
         logger.info(
