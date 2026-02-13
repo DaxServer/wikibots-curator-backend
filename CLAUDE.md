@@ -8,7 +8,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 Curator Backend is a FastAPI service that manages CuratorBot jobs for uploading media to Wikimedia Commons. It provides a REST API and WebSocket endpoint for the frontend, with Celery workers handling background upload tasks.
 
-**Tech Stack:** Python 3.13, FastAPI, SQLModel, Redis, Celery, Pywikibot | **Deployment:** Wikimedia Toolforge
+**Tech Stack:** Python 3.13, FastAPI, SQLModel, Redis, Celery, MediaWikiClient (requests + mwoauth) | **Deployment:** Wikimedia Toolforge
 
 ## Development Commands
 
@@ -62,8 +62,8 @@ src/curator/
 │   ├── handler.py      # Business logic
 │   ├── handler_optimized.py # Optimized handlers
 │   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, commons.py
+│   ├── mediawiki_client.py # MediaWiki API client
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
-│   ├── thread_utils.py   # Thread-local storage utilities
 │   └── image_models.py # Image-related models
 ├── handlers/            # Image source handlers
 │   ├── interfaces.py   # Abstract Handler class
@@ -89,25 +89,18 @@ Abstract `Handler` class in `handlers/interfaces.py` defines the contract for im
 Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
 
 ### Rate Limiting with Privileged Users
-- Rate limiting checks user groups (`patroller`, `sysop`) using `site.has_group()` - privileged users get effectively no limit
+- Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
 - Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
 - Celery tasks are spaced out to match allowed rate, preventing API throttling
 - Tasks dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
 - Queue constants defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
-- When removing Redis caching functionality, remove both the usage code AND the key constant
 
-### Pywikibot Site Isolation
-- **`IsolatedSite` wrapper** (`commons.py`) ensures thread-safe Pywikibot operations by setting thread-local config
-- **`ThreadLocalDict`** (`thread_utils.py`) patches Pywikibot's global `config.authenticate` to be thread-local
-- **`create_isolated_site(access_token, username)`** creates an isolated site wrapper for user operations
-- All Pywikibot functions must accept `site` as first parameter for use with `site.run()`:
-  - `check_title_blacklisted(site, filename, upload_id)`
-  - `apply_sdc(site, file_page, sdc, edit_summary, labels)`
-  - `upload_file_chunked(site, file_name, file_url, wikitext, edit_summary, upload_id, batch_id, sdc, labels)`
-- **Handler pattern** (`handler.py`): Each WebSocket connection lazy-loads and caches an `IsolatedSite`, cleaned up on disconnect
-- **Worker pattern** (`workers/ingest.py`): Each job creates its own `IsolatedSite` for operations
-- **No global state**: Pywikibot's `config.authenticate` is patched once on import, then set per-thread via `ThreadLocalDict`
+### MediaWiki Client Patterns
+- **Use `MediaWikiClient`** - All Wikimedia Commons operations must use the `MediaWikiClient` class.
+- **No Global State** - Pass `MediaWikiClient` instances where needed, or create them.
+- **Async/Await** - Prefer async methods where available (or `asyncio.to_thread` for synchronous calls if needed).
+- **Close Resources** - Always ensure `client.close()` is called (e.g. using `try...finally`).
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
@@ -170,4 +163,4 @@ All configuration via environment variables:
 - **AsyncAPI models are auto-generated - do not edit manually**
 - Use `get_session()` dependency for database sessions, don't create sessions directly
 - Follow layered architecture: routes → handlers → DAL → models
-- **WebSocket cleanup pattern**: Handler's `cleanup()` method clears cached `IsolatedSite`, called in `finally` block in `ws.py`
+- **WebSocket cleanup pattern**: Handler's `cleanup()` method should ensure resources are released (now simpler without thread-local Pywikibot)

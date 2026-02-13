@@ -8,7 +8,11 @@ from fastapi import WebSocketDisconnect
 
 from curator.app.auth import UserSession
 from curator.app.config import QueuePriority
-from curator.app.crypto import encrypt_access_token, generate_edit_group_id
+from curator.app.crypto import (
+    decrypt_access_token,
+    encrypt_access_token,
+    generate_edit_group_id,
+)
 from curator.app.dal import (
     cancel_batch,
     count_uploads_in_batch,
@@ -22,6 +26,7 @@ from curator.app.dal import (
 )
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
+from curator.app.mediawiki_client import MediaWikiClient
 from curator.app.models import UploadItem
 from curator.app.rate_limiter import (
     get_next_upload_delay,
@@ -293,12 +298,14 @@ class Handler:
                 to_enqueue.append(req.id)
 
         # Enqueue uploads with rate limit spacing
-        site = await self._get_site()
+        access_token = self.user.get("access_token")
+        client = MediaWikiClient(access_token)
         rate_limit = await asyncio.to_thread(
             get_rate_limit_for_batch,
-            site=site,
             userid=self.user["userid"],
+            client=client,
         )
+        queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
 
         edit_group_id = generate_edit_group_id()
         with get_session() as save_session:
@@ -307,7 +314,6 @@ class Handler:
                     get_next_upload_delay, self.user["userid"], rate_limit
                 )
 
-                queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
                 task_result = process_upload.apply_async(
                     args=[upload_id, edit_group_id],
                     countdown=delay,
@@ -403,11 +409,12 @@ class Handler:
         # Enqueue retries
         edit_group_id = generate_edit_group_id()
         # Get rate limit to determine queue
-        site = await self._get_site()
+        access_token = decrypt_access_token(encrypted_access_token)
+        client = MediaWikiClient(access_token)
         rate_limit = await asyncio.to_thread(
             get_rate_limit_for_batch,
-            site=site,
             userid=self.user["userid"],
+            client=client,
         )
         queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
         with get_session() as save_session:

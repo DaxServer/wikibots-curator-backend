@@ -3,6 +3,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from mwoauth import AccessToken
 
 from curator.app.handler import Handler
 from curator.asyncapi import (
@@ -15,7 +16,11 @@ from curator.asyncapi import (
 
 @pytest.fixture
 def mock_user():
-    return {"username": "testuser", "userid": "user123", "access_token": "token"}
+    return {
+        "username": "testuser",
+        "userid": "user123",
+        "access_token": AccessToken("token", "secret"),
+    }
 
 
 @pytest.fixture

@@ -3,6 +3,8 @@
 import threading
 from unittest.mock import MagicMock, patch
 
+from mwoauth import AccessToken
+
 
 def _create_job_site(index, access_token, username, results, lock):
     """Simulate a worker job creating a site."""
@@ -43,8 +45,8 @@ class TestWorkerSiteIsolation:
             mock_create_site.side_effect = [site1, site2]
 
             # Simulate two jobs getting their sites
-            site1_result = mock_create_site(("token1", "secret1"), "user1")
-            site2_result = mock_create_site(("token2", "secret2"), "user2")
+            site1_result = mock_create_site(AccessToken("token1", "secret1"), "user1")
+            site2_result = mock_create_site(AccessToken("token2", "secret2"), "user2")
 
             # Verify each job got a unique site
             assert site1_result is site1
@@ -62,9 +64,9 @@ class TestWorkerSiteIsolation:
         # Create multiple threads with different credentials
         threads = []
         credentials = [
-            (0, ("token0", "secret0"), "user0"),
-            (1, ("token1", "secret1"), "user1"),
-            (2, ("token2", "secret2"), "user2"),
+            (0, AccessToken("token0", "secret0"), "user0"),
+            (1, AccessToken("token1", "secret1"), "user1"),
+            (2, AccessToken("token2", "secret2"), "user2"),
         ]
 
         for index, access_token, username in credentials:
