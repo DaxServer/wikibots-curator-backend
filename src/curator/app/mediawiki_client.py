@@ -331,11 +331,22 @@ class MediaWikiClient:
 
         data = self._api_request(params)
 
+        # Check for error response (file does not exist)
+        if "error" in data:
+            error_info = data["error"].get("info", "Unknown error")
+            raise Exception(f"Could not find an entity: {error_info}")
+
+        # Check if media ID exists in response
         if media_id not in data.get("entities", {}):
             logger.warning(f"Media ID {media_id} not found on Commons")
             return None, None
 
         entity = data["entities"][media_id]
+
+        # Check if file exists but SDC is not created (has "missing" key)
+        if "missing" in entity:
+            logger.info(f"File {media_id} exists but SDC not created yet")
+            return None, None
 
         # Extract statements (API returns 'statements' key)
         sdc = entity.get("statements")
