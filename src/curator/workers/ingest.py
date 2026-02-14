@@ -49,24 +49,9 @@ def _fetch_duplicate_data_wrapper(site, duplicate_title, mediawiki_client):
         file_page.get()
 
     existing_sdc, existing_labels = fetch_sdc_from_api(
-        site, f"M{file_page.pageid}", mediawiki_client
+        f"M{file_page.pageid}", mediawiki_client
     )
     return existing_sdc, existing_labels
-
-
-def _apply_sdc_wrapper(
-    site, duplicate_title, sdc, edit_summary, labels, mediawiki_client
-):
-    """Wrapper to apply SDC in thread context"""
-    file_page = FilePage(Page(site, title=duplicate_title, ns=6))
-    return apply_sdc(
-        site=site,
-        file_page=file_page,
-        mediawiki_client=mediawiki_client,
-        sdc=sdc,
-        edit_summary=edit_summary,
-        labels=labels,
-    )
 
 
 def _cleanup(session, upload_id: int):
@@ -182,9 +167,8 @@ async def _handle_duplicate_with_sdc_merge(
         f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
     )
 
-    if await site.run(
-        _apply_sdc_wrapper,
-        duplicate_title=duplicate_title,
+    if apply_sdc(
+        file_title=duplicate_title,
         sdc=merged_sdc,
         edit_summary=edit_summary,
         labels=item_label,

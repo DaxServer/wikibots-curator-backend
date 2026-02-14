@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 from tempfile import NamedTemporaryFile
@@ -134,7 +133,7 @@ def upload_file_chunked(
         uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
 
     ensure_uploaded(commons_file, uploaded, file_name)
-    apply_sdc(site, commons_file, mediawiki_client, sdc, edit_summary, labels)
+    apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
 
     return {
         "result": "success",
@@ -224,41 +223,35 @@ def _build_sdc_payload(
 
 
 def apply_sdc(
-    site,
-    file_page: FilePage,
+    file_title: str,
     mediawiki_client: MediaWikiClient,
     sdc: Optional[list[Statement]] = None,
     edit_summary: str = "",
     labels: Optional[Label] = None,
 ) -> bool:
     """
-    Apply SDC to an existing file on Commons
+    Apply SDC to an existing file on Commons using MediaWikiClient
     """
     data = _build_sdc_payload(sdc, labels)
 
     if not data:
         return False
 
-    payload = {
-        "action": "wbeditentity",
-        "site": "commonswiki",
-        "title": file_page.title(),
-        "data": json.dumps(data),
-        "token": mediawiki_client.get_csrf_token(),
-        "summary": edit_summary,
-        "bot": False,
-    }
+    # Strip "File:" prefix if present
+    filename = file_title
+    if filename.startswith("File:"):
+        filename = filename[5:]
 
-    site.simple_request(**payload).submit()
-    content = file_page.get(force=True) + "\n"
-    file_page.text = content
-    file_page.save(summary="null edit")
-
-    return True
+    return mediawiki_client.apply_sdc(
+        filename=filename,
+        sdc=data.get("claims"),
+        labels=data.get("labels"),
+        edit_summary=edit_summary,
+    )
 
 
 def fetch_sdc_from_api(
-    site, media_id: str, mediawiki_client: MediaWikiClient
+    media_id: str, mediawiki_client: MediaWikiClient
 ) -> tuple[list[Statement] | None, dict[str, Label] | None]:
     """
     Fetch SDC data and labels from Commons API for a given media ID using MediaWikiClient

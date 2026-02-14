@@ -1,5 +1,7 @@
 """Tests for MediaWiki API client"""
 
+import json
+
 import pytest
 from mwoauth import AccessToken
 
@@ -8,27 +10,39 @@ from curator.asyncapi import ErrorLink
 
 
 def test_find_duplicates_returns_errorlink_list(mocker):
-    """Test that find_duplicates returns list of ErrorLink objects"""
+    """Test that find_duplicates returns list of ErrorLink objects with File page URLs"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
     mock_client._api_request = mocker.MagicMock(
         return_value={
+            "batchcomplete": "",
             "query": {
                 "allimages": [
-                    {"title": "File:Example1.jpg", "url": "https://example.com/1"},
-                    {"title": "File:Example2.jpg", "url": "https://example.com/2"},
+                    {
+                        "timestamp": "2025-10-04T09:35:35Z",
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/6/69/Photo_from_Mapillary_2017-06-24_%28168951548443095%29.jpg",
+                        "descriptionurl": "https://commons.wikimedia.org/wiki/File:Photo_from_Mapillary_2017-06-24_(168951548443095).jpg",
+                        "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=176058819",
+                        "name": "Photo_from_Mapillary_2017-06-24_(168951548443095).jpg",
+                        "ns": 6,
+                        "title": "File:Photo from Mapillary 2017-06-24 (168951548443095).jpg",
+                    }
                 ]
-            }
+            },
         }
     )
 
     result = mock_client.find_duplicates("abc123")
 
-    assert len(result) == 2
+    assert len(result) == 1
     assert isinstance(result[0], ErrorLink)
-    assert result[0].title == "File:Example1.jpg"
-    assert result[0].url == "https://example.com/1"
-    assert result[1].title == "File:Example2.jpg"
-    assert result[1].url == "https://example.com/2"
+    assert (
+        result[0].title == "File:Photo from Mapillary 2017-06-24 (168951548443095).jpg"
+    )
+    # Should store File page URL, not direct file URL
+    assert (
+        result[0].url
+        == "https://commons.wikimedia.org/wiki/File:Photo_from_Mapillary_2017-06-24_(168951548443095).jpg"
+    )
 
 
 def test_find_duplicates_empty_when_no_duplicates(mocker):
@@ -234,3 +248,94 @@ def test_fetch_sdc_raises_error_for_nonexistent_file(mocker):
 
     with pytest.raises(Exception, match="Could not find an entity"):
         mock_client.fetch_sdc("M184008559435")
+
+
+def test_apply_sdc_with_sdc_only(mocker):
+    """Test that apply_sdc applies SDC statements without labels"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+    mock_client._api_request = mocker.MagicMock()
+
+    sdc_data = [{"mainsnak": {"property": "P180"}, "type": "statement"}]
+
+    result = mock_client.apply_sdc(
+        "Test.jpg", sdc=sdc_data, labels=None, edit_summary="test"
+    )
+
+    assert result is True
+    mock_client._api_request.assert_called_once()
+    call_kwargs = mock_client._api_request.call_args[1]
+    assert call_kwargs["method"] == "POST"
+    payload = json.loads(call_kwargs["data"]["data"])
+    assert "claims" in payload
+
+
+def test_apply_sdc_with_labels_only(mocker):
+    """Test that apply_sdc applies labels without SDC"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+    mock_client._api_request = mocker.MagicMock()
+
+    labels_data = [{"language": "en", "value": "Test Label"}]
+
+    result = mock_client.apply_sdc(
+        "Test.jpg", sdc=None, labels=labels_data, edit_summary="test"
+    )
+
+    assert result is True
+    mock_client._api_request.assert_called_once()
+    call_kwargs = mock_client._api_request.call_args[1]
+    assert call_kwargs["method"] == "POST"
+    payload = json.loads(call_kwargs["data"]["data"])
+    assert "labels" in payload
+    assert "claims" not in payload
+
+
+def test_apply_sdc_with_both(mocker):
+    """Test that apply sdc applies both SDC and labels"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+    mock_client._api_request = mocker.MagicMock()
+
+    sdc_data = [{"mainsnak": {"property": "P180"}, "type": "statement"}]
+    labels_data = [{"language": "en", "value": "Test Label"}]
+
+    result = mock_client.apply_sdc(
+        "Test.jpg", sdc=sdc_data, labels=labels_data, edit_summary="test"
+    )
+
+    assert result is True
+    mock_client._api_request.assert_called_once()
+    call_kwargs = mock_client._api_request.call_args[1]
+    assert call_kwargs["method"] == "POST"
+    payload = json.loads(call_kwargs["data"]["data"])
+    assert "claims" in payload
+    assert "labels" in payload
+
+
+def test_apply_sdc_with_empty_data(mocker):
+    """Test that apply_sdc returns False when no data provided"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock()
+
+    result = mock_client.apply_sdc(
+        "Test.jpg", sdc=None, labels=None, edit_summary="test"
+    )
+
+    assert result is False
+    mock_client._api_request.assert_not_called()
+
+
+def test_apply_sdc_uses_csrf_token(mocker):
+    """Test that apply sdc obtains and uses CSRF token"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-csrf-token")
+    mock_client._api_request = mocker.MagicMock()
+
+    sdc_data = [{"mainsnak": {"property": "P180"}, "type": "statement"}]
+
+    mock_client.apply_sdc("Test.jpg", sdc=sdc_data, labels=None, edit_summary="test")
+
+    mock_client.get_csrf_token.assert_called_once_with()
+    call_kwargs = mock_client._api_request.call_args[1]
+    assert call_kwargs["data"]["token"] == "test-csrf-token"
