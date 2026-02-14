@@ -11,7 +11,6 @@ from pywikibot.page import FilePage, Page
 from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
-from curator.app.mediawiki_client import create_mediawiki_client
 from curator.app.thread_utils import ThreadLocalDict
 from curator.asyncapi import ErrorLink, Label, Statement
 
@@ -108,6 +107,7 @@ def upload_file_chunked(
     edit_summary: str,
     upload_id: int,
     batch_id: int,
+    mediawiki_client,
     sdc: Optional[list[Statement]] = None,
     labels: Optional[Label] = None,
 ) -> dict:
@@ -123,7 +123,7 @@ def upload_file_chunked(
         file_hash = compute_file_hash(temp_file.name)
         logger.info(f"[{upload_id}/{batch_id}] file hash: {file_hash}")
 
-        duplicates_list = find_duplicates(site, file_hash)
+        duplicates_list = mediawiki_client.find_duplicates(file_hash)
         if len(duplicates_list) > 0:
             raise DuplicateUploadError(
                 duplicates_list, f"File {file_name} already exists on Commons"
@@ -169,13 +169,6 @@ def download_file(file_url: str, upload_id: int = 0, batch_id: int = 0) -> bytes
             )
 
     raise ValueError(f"Failed to download file after {MAX_DOWNLOAD_RETRIES} attempts")
-
-
-def find_duplicates(site, sha1: str) -> list[ErrorLink]:
-    return [
-        ErrorLink(title=p.title(with_ns=False), url=p.full_url())
-        for p in site.allimages(sha1=sha1)
-    ]
 
 
 def build_file_page(site, file_name: str) -> FilePage:
@@ -260,27 +253,6 @@ def apply_sdc(
     file_page.save(summary="null edit")
 
     return True
-
-
-async def check_title_blacklisted(
-    access_token: AccessToken,
-    filename: str,
-    upload_id: int,
-    batch_id: int,
-) -> tuple[bool, str]:
-    """
-    Check if a filename is blacklisted using MediaWiki API client.
-    """
-    client = create_mediawiki_client(OAUTH_KEY, OAUTH_SECRET, access_token)
-    try:
-        return await asyncio.to_thread(client.check_title_blacklisted, filename)
-    except Exception as e:
-        # Log error but return False to allow the upload to continue
-        # We don't want to block uploads due to title blacklist API issues
-        logger.warning(
-            f"[{upload_id}/{batch_id}] Failed to check title blacklist for {filename}: {e}"
-        )
-        return False, ""
 
 
 def fetch_sdc_from_api(

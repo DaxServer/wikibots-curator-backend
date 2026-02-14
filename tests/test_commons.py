@@ -1,19 +1,15 @@
 from unittest.mock import patch
 
 import pytest
-from mwoauth import AccessToken
 
 from curator.app.commons import (
     apply_sdc,
     build_file_page,
-    check_title_blacklisted,
     download_file,
     ensure_uploaded,
-    find_duplicates,
     perform_upload,
 )
 from curator.asyncapi import Label, Statement
-from curator.asyncapi.ErrorLink import ErrorLink
 from curator.asyncapi.NoValueSnak import NoValueSnak
 from curator.asyncapi.Rank import Rank
 
@@ -46,17 +42,6 @@ def test_download_file_with_error(mocker, mock_get, mock_requests_response):
 
     data = download_file("http://example.com/file.jpg")
     assert data == b""
-
-
-def test_find_duplicates_returns_list(mocker):
-    """Test that find_duplicates returns list of ErrorLink objects"""
-    site = mocker.MagicMock()
-    p = mocker.MagicMock()
-    p.title.return_value = "t"
-    p.full_url.return_value = "u"
-    site.allimages.return_value = [p]
-    result = find_duplicates(site, "sha1")
-    assert result == [ErrorLink(title="t", url="u")]
 
 
 def test_build_file_page_uses_named_title(mocker):
@@ -237,58 +222,3 @@ def test_apply_sdc_with_file_page_object(mocker):
         summary="summary",
         bot=False,
     )
-
-
-@pytest.mark.asyncio
-async def test_check_title_blacklisted_returns_false_for_clean_title(mocker):
-    """Test that check_title_blacklisted returns (False, "") for clean title"""
-    mock_client = mocker.MagicMock()
-    mock_client.check_title_blacklisted.return_value = (False, "")
-    mock_create_client = mocker.patch(
-        "curator.app.commons.create_mediawiki_client", return_value=mock_client
-    )
-
-    access_token = AccessToken("test_token", "test_secret")
-
-    result = await check_title_blacklisted(access_token, "Clean_Title.jpg", 1, 100)
-
-    assert result == (False, "")
-    mock_create_client.assert_called_once()
-    mock_client.check_title_blacklisted.assert_called_once_with("Clean_Title.jpg")
-
-
-@pytest.mark.asyncio
-async def test_check_title_blacklisted_returns_true_for_blacklisted_title(mocker):
-    """Test that check_title_blacklisted returns (True, reason) for blacklisted title"""
-    mock_client = mocker.MagicMock()
-    mock_client.check_title_blacklisted.return_value = (True, "Promotional content")
-    mock_create_client = mocker.patch(
-        "curator.app.commons.create_mediawiki_client", return_value=mock_client
-    )
-
-    access_token = AccessToken("test_token", "test_secret")
-
-    result = await check_title_blacklisted(access_token, "Spam_Promo.jpg", 1, 100)
-
-    assert result == (True, "Promotional content")
-    mock_create_client.assert_called_once()
-    mock_client.check_title_blacklisted.assert_called_once_with("Spam_Promo.jpg")
-
-
-@pytest.mark.asyncio
-async def test_check_title_blacklisted_returns_false_on_api_error(mocker):
-    """Test that check_title_blacklisted returns (False, "") on API error (forgiving failure)"""
-    mock_client = mocker.MagicMock()
-    mock_client.check_title_blacklisted.side_effect = Exception("API timeout")
-    mock_create_client = mocker.patch(
-        "curator.app.commons.create_mediawiki_client", return_value=mock_client
-    )
-
-    access_token = AccessToken("test_token", "test_secret")
-
-    result = await check_title_blacklisted(access_token, "Error_Title.jpg", 1, 100)
-
-    # Should return (False, "") on error to allow upload to continue
-    assert result == (False, "")
-    mock_create_client.assert_called_once()
-    mock_client.check_title_blacklisted.assert_called_once_with("Error_Title.jpg")
