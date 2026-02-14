@@ -7,13 +7,20 @@ from curator.app.commons import (
     build_file_page,
     download_file,
     ensure_uploaded,
-    fetch_sdc_from_api,
     perform_upload,
 )
 from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import Label, Statement
 from curator.asyncapi.NoValueSnak import NoValueSnak
 from curator.asyncapi.Rank import Rank
+
+
+@pytest.fixture
+def mock_mediawiki_client(mocker):
+    """Mock MediaWikiClient for apply_sdc tests"""
+    mock = mocker.MagicMock(spec=MediaWikiClient)
+    mock.apply_sdc.return_value = True
+    return mock
 
 
 @pytest.fixture
@@ -73,17 +80,8 @@ def test_ensure_uploaded_raises_on_exists_without_uploaded(mocker):
         ensure_uploaded(file_page, False, "x.jpg")
 
 
-def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
-    """Test that apply_sdc invokes simple_request and null edit"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
+def test_apply_sdc_invokes_mediawiki_client(mocker, mock_mediawiki_client):
+    """Test that apply_sdc uses MediaWikiClient"""
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -92,29 +90,28 @@ def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(
-        site,
-        fp,
+    result = apply_sdc(
+        "File:x.jpg",
         sdc=sdc,
         edit_summary="summary",
         labels=None,
         mediawiki_client=mock_mediawiki_client,
     )
-    site.simple_request.assert_called()
-    fp.save.assert_called()
+
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    assert call_kwargs["filename"] == "x.jpg"
+    assert "sdc" in call_kwargs
+    assert call_kwargs["labels"] is None
+    assert call_kwargs["edit_summary"] == "summary"
+    # Verify SDC was converted to dicts
+    assert isinstance(call_kwargs["sdc"], list)
+    assert isinstance(call_kwargs["sdc"][0], dict)
 
 
-def test_apply_sdc_without_labels(mocker):
+def test_apply_sdc_without_labels(mocker, mock_mediawiki_client):
     """Test that apply_sdc works without labels"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -123,36 +120,25 @@ def test_apply_sdc_without_labels(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(
-        site,
-        fp,
+    result = apply_sdc(
+        "File:x.jpg",
         sdc=sdc,
         edit_summary="summary",
         mediawiki_client=mock_mediawiki_client,
     )
 
-    site.simple_request.assert_called_once_with(
-        action="wbeditentity",
-        site="commonswiki",
-        title="File:x.jpg",
-        data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}]}',
-        token="test-token",
-        summary="summary",
-        bot=False,
-    )
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    assert call_kwargs["filename"] == "x.jpg"
+    assert call_kwargs["labels"] is None
+    assert call_kwargs["edit_summary"] == "summary"
 
 
-def test_apply_sdc_includes_labels_in_payload_when_provided(mocker):
+def test_apply_sdc_includes_labels_in_payload_when_provided(
+    mocker, mock_mediawiki_client
+):
     """Test that apply_sdc includes labels in payload when provided"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -164,92 +150,63 @@ def test_apply_sdc_includes_labels_in_payload_when_provided(mocker):
     label = Label(language="en", value="Test Label")
     labels = label
 
-    apply_sdc(
-        site,
-        fp,
+    result = apply_sdc(
+        "File:x.jpg",
         sdc=sdc,
         edit_summary="summary",
         labels=labels,
         mediawiki_client=mock_mediawiki_client,
     )
 
-    site.simple_request.assert_called_once_with(
-        action="wbeditentity",
-        site="commonswiki",
-        title="File:x.jpg",
-        data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}], "labels": [{"language": "en", "value": "Test Label"}]}',
-        token="test-token",
-        summary="summary",
-        bot=False,
-    )
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    assert call_kwargs["filename"] == "x.jpg"
+    assert call_kwargs["labels"] is not None
+    assert isinstance(call_kwargs["labels"], list)
+    # Labels should be an array matching old pywikibot format
+    assert call_kwargs["labels"][0]["language"] == "en"
+    assert call_kwargs["labels"][0]["value"] == "Test Label"
 
 
-def test_apply_sdc_without_sdc(mocker):
+def test_apply_sdc_without_sdc(mocker, mock_mediawiki_client):
     """Test that apply_sdc works without SDC"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     label = Label(language="en", value="Test Label")
     labels = label
 
-    apply_sdc(
-        site,
-        fp,
+    result = apply_sdc(
+        "File:x.jpg",
         edit_summary="summary",
         labels=labels,
         mediawiki_client=mock_mediawiki_client,
     )
 
-    site.simple_request.assert_called_once_with(
-        action="wbeditentity",
-        site="commonswiki",
-        title="File:x.jpg",
-        data='{"labels": [{"language": "en", "value": "Test Label"}]}',
-        token="test-token",
-        summary="summary",
-        bot=False,
-    )
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    assert call_kwargs["filename"] == "x.jpg"
+    assert call_kwargs["sdc"] is None
+    assert call_kwargs["labels"] is not None
+    assert isinstance(call_kwargs["labels"], list)
 
 
 def test_apply_sdc_with_empty_data(mocker):
     """Test that apply_sdc works with empty data"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:x.jpg"
 
-    # Mock MediaWikiClient
     mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
+    mock_mediawiki_client.apply_sdc.return_value = False
 
-    apply_sdc(site, fp, edit_summary="summary", mediawiki_client=mock_mediawiki_client)
+    result = apply_sdc(
+        "File:x.jpg", edit_summary="summary", mediawiki_client=mock_mediawiki_client
+    )
 
-    # When no SDC data or labels are provided, apply_sdc should return early
-    # without calling simple_request
-    site.simple_request.assert_not_called()
+    assert result is False
+    mock_mediawiki_client.apply_sdc.assert_not_called()
 
 
-def test_apply_sdc_with_file_page_object(mocker):
-    """Test that apply_sdc works with FilePage object"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-
-    # Create a mock FilePage
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:test.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
+def test_apply_sdc_uses_mediawiki_client_csrf(mocker, mock_mediawiki_client):
+    """Test that apply_sdc uses MediaWikiClient.apply_sdc which handles CSRF internally"""
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -258,137 +215,43 @@ def test_apply_sdc_with_file_page_object(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(
-        site,
-        fp,
-        sdc=sdc,
-        edit_summary="summary",
-        mediawiki_client=mock_mediawiki_client,
-    )
-
-    site.simple_request.assert_called_once_with(
-        action="wbeditentity",
-        site="commonswiki",
-        title="File:test.jpg",
-        data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}]}',
-        token="test-token",
-        summary="summary",
-        bot=False,
-    )
-
-
-def test_apply_sdc_uses_mediawiki_client_csrf(mocker):
-    """Test that apply_sdc uses MediaWikiClient for CSRF token"""
-    site = mocker.MagicMock()
-    req = mocker.MagicMock()
-    site.simple_request.return_value = req
-    fp = mocker.MagicMock()
-    fp.title.return_value = "File:test.jpg"
-
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.get_csrf_token.return_value = "test-csrf-token-123"
-
-    no_value_snak = NoValueSnak(property="P180")
-    statement = Statement(
-        mainsnak=no_value_snak,
-        rank=Rank.NORMAL,
-    )
-    sdc = [statement]
-
-    apply_sdc(
-        site=site,
-        file_page=fp,
+    result = apply_sdc(
+        file_title="File:test.jpg",
         sdc=sdc,
         edit_summary="summary",
         labels=None,
         mediawiki_client=mock_mediawiki_client,
     )
 
-    # Assert MediaWikiClient.get_csrf_token was called
-    mock_mediawiki_client.get_csrf_token.assert_called_once()
-
-    # Assert payload contains MediaWikiClient's CSRF token
-    site.simple_request.assert_called_once()
-    call_kwargs = site.simple_request.call_args[1]
-    assert call_kwargs["token"] == "test-csrf-token-123"
-    assert call_kwargs["action"] == "wbeditentity"
-    assert call_kwargs["site"] == "commonswiki"
-    assert call_kwargs["title"] == "File:test.jpg"
-    assert call_kwargs["summary"] == "summary"
-    assert call_kwargs["bot"] is False
+    # Assert MediaWikiClient.apply_sdc was called (CSRF handled internally)
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
 
 
-def test_fetch_sdc_from_api_uses_mediawiki_client(mocker):
-    """Test that fetch_sdc_from_api uses MediaWikiClient and converts to Statement/Label models"""
-    site = mocker.MagicMock()  # Site mock should be ignored
+def test_apply_sdc_strips_file_prefix_from_title(mocker, mock_mediawiki_client):
+    """Test that apply_sdc strips File: prefix from FilePage.title()"""
 
-    # Mock MediaWikiClient
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    no_value_snak = NoValueSnak(property="P180")
+    statement = Statement(
+        mainsnak=no_value_snak,
+        rank=Rank.NORMAL,
+    )
+    sdc = [statement]
 
-    # Mock fetch_sdc to return raw dicts with statements key
-    mock_mediawiki_client.fetch_sdc.return_value = (
-        {
-            "P180": [
-                {
-                    "mainsnak": {
-                        "snaktype": "novalue",
-                        "property": "P180",
-                    },
-                    "type": "statement",
-                    "rank": "normal",
-                }
-            ]
-        },
-        {"en": {"language": "en", "value": "Test label"}},
+    # Test with title that includes "File:" prefix (from ErrorLink)
+    result = apply_sdc(
+        "File:Photo from Mapillary 2017-06-24 (168951548443095).jpg",
+        sdc=sdc,
+        edit_summary="summary",
+        labels=None,
+        mediawiki_client=mock_mediawiki_client,
     )
 
-    result_sdc, result_labels = fetch_sdc_from_api(
-        site, "M12345", mock_mediawiki_client
+    assert result is True
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    # Verify filename was stripped of "File:" prefix
+    assert (
+        call_kwargs["filename"]
+        == "Photo from Mapillary 2017-06-24 (168951548443095).jpg"
     )
-
-    # Assert MediaWikiClient.fetch_sdc was called
-    mock_mediawiki_client.fetch_sdc.assert_called_once_with("M12345")
-
-    # Assert result is tuple of list[Statement] and dict[str, Label]
-    assert isinstance(result_sdc, list)
-    assert len(result_sdc) == 1
-    assert isinstance(result_sdc[0], Statement)
-    assert result_sdc[0].mainsnak.property == "P180"
-
-    assert isinstance(result_labels, dict)
-    assert "en" in result_labels
-    assert isinstance(result_labels["en"], Label)
-    assert result_labels["en"].value == "Test label"
-
-
-def test_fetch_sdc_from_api_handles_none_from_mediawiki_client(mocker):
-    """Test that fetch_sdc_from_api handles None from MediaWikiClient"""
-    site = mocker.MagicMock()
-
-    # Mock MediaWikiClient to return None
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.fetch_sdc.return_value = (None, None)
-
-    result_sdc, result_labels = fetch_sdc_from_api(
-        site, "M12345", mock_mediawiki_client
-    )
-
-    # Assert result is None
-    assert result_sdc is None
-    assert result_labels is None
-
-
-def test_fetch_sdc_from_api_propagates_errors_from_mediawiki_client(mocker):
-    """Test that fetch_sdc_from_api propagates errors from MediaWikiClient"""
-    site = mocker.MagicMock()
-
-    # Mock MediaWikiClient to raise exception
-    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
-    mock_mediawiki_client.fetch_sdc.side_effect = Exception(
-        "Could not find an entity: ID not found"
-    )
-
-    # Assert exception is propagated
-    with pytest.raises(Exception, match="Could not find an entity"):
-        fetch_sdc_from_api(site, "M184008559435", mock_mediawiki_client)

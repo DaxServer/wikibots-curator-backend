@@ -67,18 +67,23 @@ class MediaWikiClient:
         params: dict[str, Any],
         method: str = "GET",
         files: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
         timeout: float = 300.0,
     ) -> dict[str, Any]:
         """
         Make a request to the MediaWiki API.
         """
-        params["format"] = "json"
+        # Format is added to params for GET requests
+        if "format" not in params:
+            params["format"] = "json"
 
         try:
             response = self._client.request(
                 method,
                 COMMONS_API,
                 params=params,
+                data=data,
+                files=files,
                 timeout=timeout,
             )
             response.raise_for_status()
@@ -193,7 +198,7 @@ class MediaWikiClient:
         data = self._api_request(params)
 
         duplicates = [
-            ErrorLink(title=img["title"], url=img["url"])
+            ErrorLink(title=img["title"], url=img["descriptionurl"])
             for img in data.get("query", {}).get("allimages", [])
         ]
         logger.info(f"Found {len(duplicates)} duplicates for SHA1 {sha1}")
@@ -284,7 +289,7 @@ class MediaWikiClient:
         self,
         filename: str,
         sdc: list[dict] | None = None,
-        labels: dict | None = None,
+        labels: list[dict] | None = None,
         edit_summary: str = "",
     ) -> bool:
         """
@@ -301,20 +306,42 @@ class MediaWikiClient:
         if sdc:
             payload_data["claims"] = sdc
         if labels:
-            # Wrap single label in array
-            payload_data["labels"] = [labels]
+            # labels is already in correct format: {"language_code": "label text"}
+            payload_data["labels"] = labels
 
-        params = {
+        # Separate query params from POST data
+        # MediaWiki API requires action, site, title in query params
+        # and data, token, summary, bot in POST body
+        query_params = {
             "action": "wbeditentity",
             "site": "commonswiki",
             "title": f"File:{filename}",
+            "format": "json",
+        }
+
+        post_data = {
             "data": json.dumps(payload_data),
             "token": csrf_token,
             "summary": edit_summary,
             "bot": "0",  # False as string "0" or just omit/use "0"
         }
 
-        self._api_request(params, method="POST", timeout=60.0)
+        # Make POST request with data in body
+        response_data = self._api_request(
+            query_params,
+            method="POST",
+            data=post_data,
+            timeout=60.0,
+        )
+
+        # Check for API errors in response
+        if "error" in response_data:
+            error_code = response_data["error"].get("code", "unknown")
+            error_info = response_data["error"].get("info", "Unknown error")
+            logger.error(
+                f"SDC apply failed for {filename}: {error_code} - {error_info}"
+            )
+            raise Exception(f"SDC apply failed: {error_code} - {error_info}")
 
         logger.info(f"SDC applied to {filename}")
         return True
@@ -361,7 +388,7 @@ class MediaWikiClient:
         wikitext: str,
         edit_summary: str,
         sdc: list[dict] | None = None,
-        labels: dict | None = None,
+        labels: list[dict] | None = None,
     ) -> UploadResult:
         """
         Complete upload workflow: check blacklist, upload, apply SDC.
