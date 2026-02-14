@@ -7,6 +7,7 @@ from curator.app.commons import (
     build_file_page,
     download_file,
     ensure_uploaded,
+    fetch_sdc_from_api,
     perform_upload,
 )
 from curator.app.mediawiki_client import MediaWikiClient
@@ -316,3 +317,78 @@ def test_apply_sdc_uses_mediawiki_client_csrf(mocker):
     assert call_kwargs["title"] == "File:test.jpg"
     assert call_kwargs["summary"] == "summary"
     assert call_kwargs["bot"] is False
+
+
+def test_fetch_sdc_from_api_uses_mediawiki_client(mocker):
+    """Test that fetch_sdc_from_api uses MediaWikiClient and converts to Statement/Label models"""
+    site = mocker.MagicMock()  # Site mock should be ignored
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+
+    # Mock fetch_sdc to return raw dicts with statements key
+    mock_mediawiki_client.fetch_sdc.return_value = (
+        {
+            "P180": [
+                {
+                    "mainsnak": {
+                        "snaktype": "novalue",
+                        "property": "P180",
+                    },
+                    "type": "statement",
+                    "rank": "normal",
+                }
+            ]
+        },
+        {"en": {"language": "en", "value": "Test label"}},
+    )
+
+    result_sdc, result_labels = fetch_sdc_from_api(
+        site, "M12345", mock_mediawiki_client
+    )
+
+    # Assert MediaWikiClient.fetch_sdc was called
+    mock_mediawiki_client.fetch_sdc.assert_called_once_with("M12345")
+
+    # Assert result is tuple of list[Statement] and dict[str, Label]
+    assert isinstance(result_sdc, list)
+    assert len(result_sdc) == 1
+    assert isinstance(result_sdc[0], Statement)
+    assert result_sdc[0].mainsnak.property == "P180"
+
+    assert isinstance(result_labels, dict)
+    assert "en" in result_labels
+    assert isinstance(result_labels["en"], Label)
+    assert result_labels["en"].value == "Test label"
+
+
+def test_fetch_sdc_from_api_handles_none_from_mediawiki_client(mocker):
+    """Test that fetch_sdc_from_api handles None from MediaWikiClient"""
+    site = mocker.MagicMock()
+
+    # Mock MediaWikiClient to return None
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.fetch_sdc.return_value = (None, None)
+
+    result_sdc, result_labels = fetch_sdc_from_api(
+        site, "M12345", mock_mediawiki_client
+    )
+
+    # Assert result is None
+    assert result_sdc is None
+    assert result_labels is None
+
+
+def test_fetch_sdc_from_api_propagates_errors_from_mediawiki_client(mocker):
+    """Test that fetch_sdc_from_api propagates errors from MediaWikiClient"""
+    site = mocker.MagicMock()
+
+    # Mock MediaWikiClient to raise exception
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.fetch_sdc.side_effect = Exception(
+        "Could not find an entity: ID not found"
+    )
+
+    # Assert exception is propagated
+    with pytest.raises(Exception, match="Could not find an entity"):
+        fetch_sdc_from_api(site, "M184008559435", mock_mediawiki_client)

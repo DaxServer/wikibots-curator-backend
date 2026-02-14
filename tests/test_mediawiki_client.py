@@ -132,3 +132,105 @@ def test_get_csrf_token_handles_api_error(mocker):
 
     with pytest.raises(Exception, match="API timeout"):
         mock_client.get_csrf_token()
+
+
+def test_fetch_sdc_returns_statements_and_labels(mocker):
+    """Test that fetch_sdc returns statements and labels from API"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "entities": {
+                "M12345": {
+                    "statements": {
+                        "P1": [
+                            {"mainsnak": {"datatype": "string"}, "type": "statement"}
+                        ]
+                    },
+                    "labels": {"en": {"language": "en", "value": "Test label"}},
+                }
+            }
+        }
+    )
+
+    data, labels = mock_client.fetch_sdc("M12345")
+
+    assert data is not None
+    assert "P1" in data
+    assert len(data["P1"]) == 1
+    assert data["P1"][0]["type"] == "statement"
+    assert labels is not None
+    assert "en" in labels
+    assert labels["en"]["value"] == "Test label"
+    mock_client._api_request.assert_called_once_with(
+        {"action": "wbgetentities", "ids": "M12345", "props": "claims|labels"}
+    )
+
+
+def test_fetch_sdc_handles_missing_media_id(mocker):
+    """Test that fetch_sdc returns None for missing media ID"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={"entities": {"M99999": {"statements": {}, "labels": {}}}}
+    )
+
+    data, labels = mock_client.fetch_sdc("M12345")
+
+    assert data is None
+    assert labels is None
+
+
+def test_fetch_sdc_handles_missing_statements(mocker):
+    """Test that fetch_sdc returns None when statements key is missing"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "entities": {
+                "M12345": {"labels": {"en": {"language": "en", "value": "Test"}}}
+            }
+        }
+    )
+
+    data, labels = mock_client.fetch_sdc("M12345")
+
+    # When statements is missing/None, data is None but labels may still be returned
+    assert data is None
+    assert labels is not None
+
+
+def test_fetch_sdc_handles_file_exists_without_sdc(mocker):
+    """Test that fetch_sdc returns None for file that exists but has no SDC (missing key)"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "entities": {
+                "M184008559": {
+                    "id": "M184008559",
+                    "missing": "",
+                }
+            },
+            "success": 1,
+        }
+    )
+
+    data, labels = mock_client.fetch_sdc("M184008559")
+
+    # File exists but SDC not created - return None for both
+    assert data is None
+    assert labels is None
+
+
+def test_fetch_sdc_raises_error_for_nonexistent_file(mocker):
+    """Test that fetch_sdc raises exception for non-existent file (error response)"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "error": {
+                "code": "no-such-entity",
+                "info": 'Could not find an entity with the ID "M184008559435".',
+                "id": "M184008559435",
+            }
+        }
+    )
+
+    with pytest.raises(Exception, match="Could not find an entity"):
+        mock_client.fetch_sdc("M184008559435")

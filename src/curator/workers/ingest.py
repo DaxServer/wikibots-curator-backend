@@ -41,14 +41,16 @@ logger = logging.getLogger(__name__)
 MAX_UPLOADSTASH_TRIES = 2
 
 
-def _fetch_duplicate_data_wrapper(site, duplicate_title):
+def _fetch_duplicate_data_wrapper(site, duplicate_title, mediawiki_client):
     """Wrapper to fetch SDC data in thread context"""
     file_page = FilePage(Page(site, title=duplicate_title, ns=6))
     # We need pageid, which might require API call if not loaded
     if not file_page.pageid:
         file_page.get()
 
-    existing_sdc, existing_labels = fetch_sdc_from_api(site, f"M{file_page.pageid}")
+    existing_sdc, existing_labels = fetch_sdc_from_api(
+        site, f"M{file_page.pageid}", mediawiki_client
+    )
     return existing_sdc, existing_labels
 
 
@@ -135,7 +137,7 @@ async def _handle_duplicate_with_sdc_merge(
     )
 
     existing_sdc, existing_labels = await site.run(
-        _fetch_duplicate_data_wrapper, duplicate_title
+        _fetch_duplicate_data_wrapper, duplicate_title, mediawiki_client
     )
 
     # Convert labels to Label model if it's a dict (from JSON storage)

@@ -258,46 +258,29 @@ def apply_sdc(
 
 
 def fetch_sdc_from_api(
-    site, media_id: str
+    site, media_id: str, mediawiki_client: MediaWikiClient
 ) -> tuple[list[Statement] | None, dict[str, Label] | None]:
     """
-    Fetch SDC data and labels from Commons API for a given media ID using site.simple_request()
+    Fetch SDC data and labels from Commons API for a given media ID using MediaWikiClient
     """
-    try:
-        response = site.simple_request(
-            action="wbgetentities",
-            ids=media_id,
-            format="json",
-            props="claims|labels",
-        )
-        data = response.submit()
+    # Use MediaWikiClient to fetch raw data
+    sdc, labels = mediawiki_client.fetch_sdc(media_id)
 
-        # Check if the entity exists
-        if media_id not in data.get("entities", {}):
-            logger.warning(f"Media ID {media_id} not found on Commons")
-            return None, None
-
-        entity = data["entities"][media_id]
-
-        # Convert statements - API returns 'statements' key, not 'claims'
-        statements_data = entity.get("statements", {})
-        existing_sdc = []
-        for prop, claim_list in statements_data.items():
-            for claim_dict in claim_list:
-                stmt = Statement.model_validate(claim_dict)
-                existing_sdc.append(stmt)
-
-        # Convert labels to Label model objects
-        labels_data = entity.get("labels", {})
-        existing_labels = None
-        if labels_data:
-            existing_labels = {
-                lang_code: Label.model_validate(label_data)
-                for lang_code, label_data in labels_data.items()
-            }
-
-        return existing_sdc, existing_labels
-
-    except Exception as e:
-        logger.error(f"Failed to fetch SDC for {media_id}: {e}")
+    if sdc is None:
         return None, None
+
+    # Convert raw dicts to Statement and Label models
+    existing_sdc = []
+    for prop, claim_list in sdc.items():
+        for claim_dict in claim_list:
+            stmt = Statement.model_validate(claim_dict)
+            existing_sdc.append(stmt)
+
+    # Convert labels to Label model objects
+    existing_labels = None
+    if labels:
+        existing_labels = {
+            lang: Label.model_validate(lbl) for lang, lbl in labels.items()
+        }
+
+    return existing_sdc, existing_labels
