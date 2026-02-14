@@ -9,6 +9,7 @@ from curator.app.commons import (
     ensure_uploaded,
     perform_upload,
 )
+from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import Label, Statement
 from curator.asyncapi.NoValueSnak import NoValueSnak
 from curator.asyncapi.Rank import Rank
@@ -79,6 +80,10 @@ def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
     fp = mocker.MagicMock()
     fp.title.return_value = "File:x.jpg"
 
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
+
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
         mainsnak=no_value_snak,
@@ -86,7 +91,14 @@ def test_apply_sdc_invokes_simple_request_and_null_edit(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(site, fp, sdc=sdc, edit_summary="summary", labels=None)
+    apply_sdc(
+        site,
+        fp,
+        sdc=sdc,
+        edit_summary="summary",
+        labels=None,
+        mediawiki_client=mock_mediawiki_client,
+    )
     site.simple_request.assert_called()
     fp.save.assert_called()
 
@@ -96,9 +108,12 @@ def test_apply_sdc_without_labels(mocker):
     site = mocker.MagicMock()
     req = mocker.MagicMock()
     site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
     fp = mocker.MagicMock()
     fp.title.return_value = "File:x.jpg"
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -107,14 +122,20 @@ def test_apply_sdc_without_labels(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(site, fp, sdc=sdc, edit_summary="summary")
+    apply_sdc(
+        site,
+        fp,
+        sdc=sdc,
+        edit_summary="summary",
+        mediawiki_client=mock_mediawiki_client,
+    )
 
     site.simple_request.assert_called_once_with(
         action="wbeditentity",
         site="commonswiki",
         title="File:x.jpg",
         data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}]}',
-        token="token",
+        token="test-token",
         summary="summary",
         bot=False,
     )
@@ -125,9 +146,12 @@ def test_apply_sdc_includes_labels_in_payload_when_provided(mocker):
     site = mocker.MagicMock()
     req = mocker.MagicMock()
     site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
     fp = mocker.MagicMock()
     fp.title.return_value = "File:x.jpg"
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -139,14 +163,21 @@ def test_apply_sdc_includes_labels_in_payload_when_provided(mocker):
     label = Label(language="en", value="Test Label")
     labels = label
 
-    apply_sdc(site, fp, sdc=sdc, edit_summary="summary", labels=labels)
+    apply_sdc(
+        site,
+        fp,
+        sdc=sdc,
+        edit_summary="summary",
+        labels=labels,
+        mediawiki_client=mock_mediawiki_client,
+    )
 
     site.simple_request.assert_called_once_with(
         action="wbeditentity",
         site="commonswiki",
         title="File:x.jpg",
         data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}], "labels": [{"language": "en", "value": "Test Label"}]}',
-        token="token",
+        token="test-token",
         summary="summary",
         bot=False,
     )
@@ -157,21 +188,30 @@ def test_apply_sdc_without_sdc(mocker):
     site = mocker.MagicMock()
     req = mocker.MagicMock()
     site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
     fp = mocker.MagicMock()
     fp.title.return_value = "File:x.jpg"
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     label = Label(language="en", value="Test Label")
     labels = label
 
-    apply_sdc(site, fp, edit_summary="summary", labels=labels)
+    apply_sdc(
+        site,
+        fp,
+        edit_summary="summary",
+        labels=labels,
+        mediawiki_client=mock_mediawiki_client,
+    )
 
     site.simple_request.assert_called_once_with(
         action="wbeditentity",
         site="commonswiki",
         title="File:x.jpg",
         data='{"labels": [{"language": "en", "value": "Test Label"}]}',
-        token="token",
+        token="test-token",
         summary="summary",
         bot=False,
     )
@@ -182,11 +222,14 @@ def test_apply_sdc_with_empty_data(mocker):
     site = mocker.MagicMock()
     req = mocker.MagicMock()
     site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
     fp = mocker.MagicMock()
     fp.title.return_value = "File:x.jpg"
 
-    apply_sdc(site, fp, edit_summary="summary")
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
+
+    apply_sdc(site, fp, edit_summary="summary", mediawiki_client=mock_mediawiki_client)
 
     # When no SDC data or labels are provided, apply_sdc should return early
     # without calling simple_request
@@ -198,11 +241,14 @@ def test_apply_sdc_with_file_page_object(mocker):
     site = mocker.MagicMock()
     req = mocker.MagicMock()
     site.simple_request.return_value = req
-    site.get_tokens.return_value = {"csrf": "token"}
 
     # Create a mock FilePage
     fp = mocker.MagicMock()
     fp.title.return_value = "File:test.jpg"
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-token"
 
     no_value_snak = NoValueSnak(property="P180")
     statement = Statement(
@@ -211,14 +257,62 @@ def test_apply_sdc_with_file_page_object(mocker):
     )
     sdc = [statement]
 
-    apply_sdc(site, fp, sdc=sdc, edit_summary="summary")
+    apply_sdc(
+        site,
+        fp,
+        sdc=sdc,
+        edit_summary="summary",
+        mediawiki_client=mock_mediawiki_client,
+    )
 
     site.simple_request.assert_called_once_with(
         action="wbeditentity",
         site="commonswiki",
         title="File:test.jpg",
         data='{"claims": [{"mainsnak": {"snaktype": "novalue", "property": "P180"}, "rank": "normal", "qualifiers": {}, "qualifiers-order": [], "references": [], "type": "statement"}]}',
-        token="token",
+        token="test-token",
         summary="summary",
         bot=False,
     )
+
+
+def test_apply_sdc_uses_mediawiki_client_csrf(mocker):
+    """Test that apply_sdc uses MediaWikiClient for CSRF token"""
+    site = mocker.MagicMock()
+    req = mocker.MagicMock()
+    site.simple_request.return_value = req
+    fp = mocker.MagicMock()
+    fp.title.return_value = "File:test.jpg"
+
+    # Mock MediaWikiClient
+    mock_mediawiki_client = mocker.MagicMock(spec=MediaWikiClient)
+    mock_mediawiki_client.get_csrf_token.return_value = "test-csrf-token-123"
+
+    no_value_snak = NoValueSnak(property="P180")
+    statement = Statement(
+        mainsnak=no_value_snak,
+        rank=Rank.NORMAL,
+    )
+    sdc = [statement]
+
+    apply_sdc(
+        site=site,
+        file_page=fp,
+        sdc=sdc,
+        edit_summary="summary",
+        labels=None,
+        mediawiki_client=mock_mediawiki_client,
+    )
+
+    # Assert MediaWikiClient.get_csrf_token was called
+    mock_mediawiki_client.get_csrf_token.assert_called_once()
+
+    # Assert payload contains MediaWikiClient's CSRF token
+    site.simple_request.assert_called_once()
+    call_kwargs = site.simple_request.call_args[1]
+    assert call_kwargs["token"] == "test-csrf-token-123"
+    assert call_kwargs["action"] == "wbeditentity"
+    assert call_kwargs["site"] == "commonswiki"
+    assert call_kwargs["title"] == "File:test.jpg"
+    assert call_kwargs["summary"] == "summary"
+    assert call_kwargs["bot"] is False

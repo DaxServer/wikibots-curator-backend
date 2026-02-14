@@ -52,12 +52,15 @@ def _fetch_duplicate_data_wrapper(site, duplicate_title):
     return existing_sdc, existing_labels
 
 
-def _apply_sdc_wrapper(site, duplicate_title, sdc, edit_summary, labels):
+def _apply_sdc_wrapper(
+    site, duplicate_title, sdc, edit_summary, labels, mediawiki_client
+):
     """Wrapper to apply SDC in thread context"""
     file_page = FilePage(Page(site, title=duplicate_title, ns=6))
     return apply_sdc(
         site=site,
         file_page=file_page,
+        mediawiki_client=mediawiki_client,
         sdc=sdc,
         edit_summary=edit_summary,
         labels=labels,
@@ -109,6 +112,7 @@ async def _handle_duplicate_with_sdc_merge(
     sdc: list[Statement] | None,
     duplicate_error: DuplicateUploadError,
     edit_group_id: str,
+    mediawiki_client: MediaWikiClient,
 ) -> tuple[str | None, str | None]:
     """
     Handle duplicate upload by attempting to merge SDC
@@ -182,6 +186,7 @@ async def _handle_duplicate_with_sdc_merge(
         sdc=merged_sdc,
         edit_summary=edit_summary,
         labels=item_label,
+        mediawiki_client=mediawiki_client,
     ):
         logger.info(
             f"[{upload_id}/{batch_id}] successfully applied SDC to existing file"
@@ -453,6 +458,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             sdc=sdc,
             duplicate_error=e,
             edit_group_id=edit_group_id,
+            mediawiki_client=mediawiki_client,
         )
 
         with get_session() as session:
