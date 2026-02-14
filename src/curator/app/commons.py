@@ -11,6 +11,7 @@ from pywikibot.page import FilePage, Page
 from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
+from curator.app.mediawiki_client import MediaWikiClient
 from curator.app.thread_utils import ThreadLocalDict
 from curator.asyncapi import ErrorLink, Label, Statement
 
@@ -133,7 +134,7 @@ def upload_file_chunked(
         uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
 
     ensure_uploaded(commons_file, uploaded, file_name)
-    apply_sdc(site, commons_file, sdc, edit_summary, labels)
+    apply_sdc(site, commons_file, mediawiki_client, sdc, edit_summary, labels)
 
     return {
         "result": "success",
@@ -225,6 +226,7 @@ def _build_sdc_payload(
 def apply_sdc(
     site,
     file_page: FilePage,
+    mediawiki_client: MediaWikiClient,
     sdc: Optional[list[Statement]] = None,
     edit_summary: str = "",
     labels: Optional[Label] = None,
@@ -242,7 +244,7 @@ def apply_sdc(
         "site": "commonswiki",
         "title": file_page.title(),
         "data": json.dumps(data),
-        "token": site.get_tokens("csrf")["csrf"],
+        "token": mediawiki_client.get_csrf_token(),
         "summary": edit_summary,
         "bot": False,
     }
