@@ -6,7 +6,9 @@ import pytest
 from curator.app.commons import DuplicateUploadError
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadRequest
-from curator.asyncapi import ErrorLink
+from curator.asyncapi import (
+    ErrorLink,
+)
 from curator.workers.ingest import process_one
 
 

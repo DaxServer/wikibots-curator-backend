@@ -9,7 +9,9 @@
       "WebSearch",
       "Bash(grep:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls:*)"
+      "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls:*)",
+      "Bash(git show:*)",
+      "Bash(git log:*)"
     ]
   }
 }
