@@ -382,7 +382,7 @@ def test_null_edit_performs_edit_with_newline(mocker):
     second_call_params = mock_client._api_request.call_args_list[1][0][0]
     second_call_data = mock_client._api_request.call_args_list[1][1]["data"]
     assert second_call_params["action"] == "edit"
-    assert second_call_data["text"] == "Existing wikitext content\n"
+    assert second_call_data["text"] == "Existing wikitext content"
     assert second_call_data["summary"] == "null edit"
 
 

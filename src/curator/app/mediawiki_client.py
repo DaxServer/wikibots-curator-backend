@@ -308,12 +308,6 @@ class MediaWikiClient:
             logger.warning(f"File {filename} does not exist, skipping null edit")
             return False
 
-        # Get CSRF token
-        csrf_token = self.get_csrf_token()
-
-        # Get current text
-        current_text = page["revisions"][0]["*"]
-
         # Perform edit with newline to trigger re-parsing
         edit_params = {
             "action": "edit",
@@ -322,8 +316,8 @@ class MediaWikiClient:
         }
 
         edit_data = {
-            "text": current_text + "\n",
-            "token": csrf_token,
+            "text": page["revisions"][0]["*"],
+            "token": self.get_csrf_token(),
             "summary": "null edit",
             "bot": "0",
         }
