@@ -285,6 +285,65 @@ class MediaWikiClient:
 
         return UploadResult(success=False, error="Upload failed: unknown reason")
 
+    def null_edit(self, filename: str) -> bool:
+        """
+        Perform a null edit on a file page to trigger template re-parsing.
+        """
+
+        # Fetch current page content
+        query_params = {
+            "action": "query",
+            "prop": "revisions",
+            "rvprop": "content",
+            "rvlimit": 1,
+            "titles": f"File:{filename}",
+        }
+
+        data = self._api_request(query_params)
+        pages = data["query"]["pages"]
+
+        # Check if page exists
+        page = next(iter(pages.values()))
+        if "missing" in page:
+            logger.warning(f"File {filename} does not exist, skipping null edit")
+            return False
+
+        # Get CSRF token
+        csrf_token = self.get_csrf_token()
+
+        # Get current text
+        current_text = page["revisions"][0]["*"]
+
+        # Perform edit with newline to trigger re-parsing
+        edit_params = {
+            "action": "edit",
+            "title": f"File:{filename}",
+            "format": "json",
+        }
+
+        edit_data = {
+            "text": current_text + "\n",
+            "token": csrf_token,
+            "summary": "null edit",
+            "bot": "0",
+        }
+
+        response_data = self._api_request(
+            edit_params, method="POST", data=edit_data, timeout=60.0
+        )
+
+        # Check for API errors
+        if "error" in response_data:
+            error_code = response_data["error"].get("code", "unknown")
+            error_info = response_data["error"].get("info", "Unknown error")
+            logger.error(
+                f"Null edit failed for {filename}: {error_code} - {error_info}"
+            )
+            raise ValueError(f"Null edit failed: {error_code} - {error_info}")
+
+        logger.info(f"Null edit performed on {filename}")
+        return True
+
     def apply_sdc(
         self,
         filename: str,
@@ -323,7 +382,7 @@ class MediaWikiClient:
             "data": json.dumps(payload_data),
             "token": csrf_token,
             "summary": edit_summary,
-            "bot": "0",  # False as string "0" or just omit/use "0"
+            "bot": "0",
         }
 
         # Make POST request with data in body
@@ -341,9 +400,13 @@ class MediaWikiClient:
             logger.error(
                 f"SDC apply failed for {filename}: {error_code} - {error_info}"
             )
-            raise Exception(f"SDC apply failed: {error_code} - {error_info}")
+            raise ValueError(f"SDC apply failed: {error_code} - {error_info}")
 
         logger.info(f"SDC applied to {filename}")
+
+        # Perform null edit to trigger template re-parsing
+        self.null_edit(filename)
+
         return True
 
     def fetch_sdc(self, media_id: str) -> tuple[dict | None, dict | None]:
@@ -361,7 +424,7 @@ class MediaWikiClient:
         # Check for error response (file does not exist)
         if "error" in data:
             error_info = data["error"].get("info", "Unknown error")
-            raise Exception(f"Could not find an entity: {error_info}")
+            raise ValueError(f"Could not find an entity: {error_info}")
 
         # Check if media ID exists in response
         if media_id not in data.get("entities", {}):
