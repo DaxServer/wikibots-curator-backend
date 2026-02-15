@@ -285,25 +285,35 @@ class MediaWikiClient:
 
         return UploadResult(success=False, error="Upload failed: unknown reason")
 
-    def null_edit(self, filename: str) -> bool:
+    def _fetch_page(self, filename: str) -> dict:
         """
-        Perform a null edit on a file page to trigger template re-parsing.
+        Fetch page data from Commons API.
         """
-
-        # Fetch current page content
         query_params = {
             "action": "query",
             "prop": "revisions",
             "rvprop": "content",
             "rvlimit": 1,
+            "rvslots": "*",
             "titles": f"File:{filename}",
+            "formatversion": "2",
         }
 
-        data = self._api_request(query_params)
-        pages = data["query"]["pages"]
+        return self._api_request(query_params)["query"]["pages"][0]
 
-        # Check if page exists
-        page = next(iter(pages.values()))
+    def file_exists(self, filename: str) -> bool:
+        """
+        Check if a file exists on Commons.
+        """
+        page = self._fetch_page(filename)
+        return "missing" not in page
+
+    def null_edit(self, filename: str) -> bool:
+        """
+        Perform a null edit on a file page to trigger template re-parsing.
+        """
+        # Fetch page data once (single API call)
+        page = self._fetch_page(filename)
         if "missing" in page:
             logger.warning(f"File {filename} does not exist, skipping null edit")
             return False
@@ -316,7 +326,7 @@ class MediaWikiClient:
         }
 
         edit_data = {
-            "text": page["revisions"][0]["*"],
+            "text": page["revisions"][0]["slots"]["main"]["content"],
             "token": self.get_csrf_token(),
             "summary": "null edit",
             "bot": "0",

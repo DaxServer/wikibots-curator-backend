@@ -352,15 +352,21 @@ def test_null_edit_performs_edit_with_newline(mocker):
 
     # Mock API responses: first for query, second for edit
     api_responses = [
-        # Query response for page content
+        # Query response for page content (formatversion=2)
         {
             "query": {
-                "pages": {
-                    "12345": {
+                "pages": [
+                    {
                         "pageid": 12345,
-                        "revisions": [{"*": "Existing wikitext content"}],
+                        "revisions": [
+                            {
+                                "slots": {
+                                    "main": {"content": "Existing wikitext content"}
+                                }
+                            }
+                        ],
                     }
-                }
+                ]
             }
         },
         # Edit response
@@ -391,10 +397,10 @@ def test_null_edit_skips_when_page_not_found(mocker):
     mock_client = MediaWikiClient(AccessToken("test", "test"))
     mock_client.get_csrf_token = mocker.MagicMock(return_value="test-csrf-token")
 
-    # Mock query response with missing page
+    # Mock query response with missing page (formatversion=2)
     mock_client._api_request = mocker.MagicMock(
         return_value={
-            "query": {"pages": {"-1": {"title": "File:Missing.jpg", "missing": ""}}}
+            "query": {"pages": [{"title": "File:Missing.jpg", "missing": True}]}
         }
     )
 
