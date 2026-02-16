@@ -2,9 +2,9 @@
 MediaWiki API client
 """
 
-import hashlib
 import json
 import logging
+import os
 import secrets
 from dataclasses import dataclass
 from typing import Any
@@ -207,7 +207,7 @@ class MediaWikiClient:
     def upload_file(
         self,
         filename: str,
-        file_content: bytes,
+        file_path: str,
         wikitext: str,
         edit_summary: str,
         chunk_size: int = 1024 * 1024 * 1,  # 1MB chunks
@@ -215,19 +215,10 @@ class MediaWikiClient:
         """
         Upload a file to Commons using chunked upload.
         """
-        # Check for duplicates first
-        sha1 = hashlib.sha1(file_content).hexdigest()
-        duplicates = self.find_duplicates(sha1)
-        if duplicates:
-            return UploadResult(
-                success=False,
-                error=f"File already exists: {duplicates[0].title}",
-            )
-
         # Get CSRF token
         csrf_token = self.get_csrf_token()
 
-        file_size = len(file_content)
+        file_size = os.path.getsize(file_path)
         total_chunks = (file_size + chunk_size - 1) // chunk_size
 
         logger.info(
@@ -236,28 +227,76 @@ class MediaWikiClient:
 
         # Chunked upload
         file_key = None
-        for chunk_num in range(total_chunks):
-            offset = chunk_num * chunk_size
-            chunk = file_content[offset : offset + chunk_size]
+        with open(file_path, "rb") as f:
+            for chunk_num in range(total_chunks):
+                offset = chunk_num * chunk_size
+                f.seek(offset)
+                chunk = f.read(chunk_size)
 
-            params = {
+                # Separate query params from POST data
+                # MediaWiki API requires token to be POST body, not query string
+                query_params = {
+                    "action": "upload",
+                    "format": "json",
+                }
+
+                post_data = {
+                    "filename": filename,
+                    "comment": edit_summary,
+                    "text": wikitext,
+                    "token": csrf_token,
+                    "offset": str(offset),
+                    "filesize": str(file_size),
+                    "stash": "1",  # Always stash chunks
+                }
+
+                # Add filekey if we have one (for chunks 2+)
+                if file_key:
+                    post_data["filekey"] = file_key
+
+                # Use "chunk" parameter for chunked uploads, not "file"
+                files = {
+                    "chunk": (f"{chunk_num}.jpg", chunk, "application/octet-stream")
+                }
+
+                data = self._api_request(
+                    query_params,
+                    method="POST",
+                    data=post_data,
+                    files=files,
+                    timeout=60.0,
+                )
+
+                if "error" in data:
+                    return UploadResult(
+                        success=False,
+                        error=data["error"].get("info", "Upload failed"),
+                    )
+
+                # For stashed chunks, we get a file key
+                if "upload" in data:
+                    file_key = data["upload"].get("filekey")
+
+                logger.info(f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}")
+
+        # Final commit: use filekey to publish from stash (no file data)
+        if file_key:
+            query_params = {
                 "action": "upload",
+                "format": "json",
+            }
+
+            post_data = {
                 "filename": filename,
                 "comment": edit_summary,
                 "text": wikitext,
                 "token": csrf_token,
-                "offset": str(offset),
-                "filesize": str(file_size),
-                "stash": "1" if chunk_num < total_chunks - 1 else "0",
+                "filekey": file_key,
             }
 
-            # Add filekey if we have one (for chunks 2+)
-            if file_key:
-                params["filekey"] = file_key
-
-            files = {"file": ("chunk", chunk, "application/octet-stream")}
-
-            data = self._api_request(params, method="POST", files=files, timeout=60.0)
+            data = self._api_request(
+                query_params, method="POST", data=post_data, timeout=60.0
+            )
 
             if "error" in data:
                 return UploadResult(
@@ -265,18 +304,16 @@ class MediaWikiClient:
                     error=data["error"].get("info", "Upload failed"),
                 )
 
-            # For stashed chunks, we get a file key
-            if "upload" in data:
-                file_key = data["upload"].get("filekey")
-
-            logger.debug(f"Uploaded chunk {chunk_num + 1}/{total_chunks}")
+            logger.info(f"Final commit for {filename} with filekey {file_key}")
 
         # Get the final result
         if "upload" in data:
             result = data["upload"]
             if result.get("result") == "Success":
                 title = result.get("filename", result.get("title"))
-                image_url = result.get("imageurl")
+                # Extract URL from imageinfo.descriptionurl (file page URL)
+                imageinfo = result.get("imageinfo", {})
+                image_url = imageinfo.get("descriptionurl")
                 return UploadResult(
                     success=True,
                     title=title,
@@ -460,39 +497,6 @@ class MediaWikiClient:
         labels = entity.get("labels")
 
         return sdc, labels
-
-    def upload_file_with_sdc(
-        self,
-        filename: str,
-        file_content: bytes,
-        wikitext: str,
-        edit_summary: str,
-        sdc: list[dict] | None = None,
-        labels: list[dict] | None = None,
-    ) -> UploadResult:
-        """
-        Complete upload workflow: check blacklist, upload, apply SDC.
-        """
-        # Check title blacklist
-        blacklisted, reason = self.check_title_blacklisted(filename)
-        if blacklisted:
-            return UploadResult(
-                success=False,
-                error=f"Title blacklisted: {reason}",
-            )
-
-        # Upload file
-        result = self.upload_file(filename, file_content, wikitext, edit_summary)
-        if not result.success or not result.title:
-            return result
-
-        # Apply SDC
-        try:
-            self.apply_sdc(result.title, sdc, labels, edit_summary)
-        except Exception as e:
-            logger.warning(f"Failed to apply SDC: {e}")
-
-        return result
 
 
 def create_mediawiki_client(access_token: AccessToken) -> MediaWikiClient:

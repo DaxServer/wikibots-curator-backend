@@ -1,16 +1,16 @@
-from unittest.mock import patch
+from tempfile import NamedTemporaryFile
 
 import pytest
 
 from curator.app.commons import (
+    DuplicateUploadError,
     apply_sdc,
-    build_file_page,
     download_file,
     ensure_uploaded,
-    perform_upload,
+    upload_file_chunked,
 )
-from curator.app.mediawiki_client import MediaWikiClient
-from curator.asyncapi import Label, Statement
+from curator.app.mediawiki_client import MediaWikiClient, UploadResult
+from curator.asyncapi import ErrorLink, Label, Statement
 from curator.asyncapi.NoValueSnak import NoValueSnak
 from curator.asyncapi.Rank import Rank
 
@@ -36,40 +36,29 @@ def mock_isolated_site(mocker):
 
 
 def test_download_file_returns_bytes(mocker, mock_get, mock_requests_response):
-    """Test that download_file returns file bytes"""
-    mock_requests_response.content = b"abc"
+    """Test that download_file streams to temp file and returns hash"""
+    # Mock iter_bytes to stream content
+    mock_requests_response.iter_bytes = mocker.MagicMock(return_value=[b"abc"])
+    mock_requests_response.headers = {"content-type": "image/jpeg"}
     mock_get.return_value = mock_requests_response
 
-    data = download_file("http://example.com/file.jpg")
-    assert data == b"abc"
+    with NamedTemporaryFile() as temp_file:
+        data = download_file("http://example.com/file.jpg", temp_file)
+        # SHA1 of "abc" is a9993e364706816aba3e25717850c26c9cd0d89d
+        assert data == "a9993e364706816aba3e25717850c26c9cd0d89d"
 
 
 def test_download_file_with_error(mocker, mock_get, mock_requests_response):
     """Test that download_file handles errors gracefully"""
-    mock_requests_response.content = b""
+    # Mock iter_bytes to stream empty content
+    mock_requests_response.iter_bytes = mocker.MagicMock(return_value=[b""])
+    mock_requests_response.headers = {"content-type": "image/jpeg"}
     mock_get.return_value = mock_requests_response
 
-    data = download_file("http://example.com/file.jpg")
-    assert data == b""
-
-
-def test_build_file_page_uses_named_title(mocker):
-    """Test that build_file_page uses named title"""
-    with (
-        patch("curator.app.commons.Page") as mock_page,
-        patch("curator.app.commons.FilePage") as mock_file_page,
-    ):
-        site = mocker.MagicMock()
-        fp = build_file_page(site, "x.jpg")
-        mock_page.assert_called_with(site, title="x.jpg", ns=6)
-        assert fp is mock_file_page.return_value
-
-
-def test_perform_upload_passes_args(mocker):
-    """Test that perform_upload passes arguments correctly"""
-    file_page = mocker.MagicMock()
-    perform_upload(file_page, "/tmp/x", "w", "s")
-    file_page.upload.assert_called()
+    with NamedTemporaryFile() as temp_file:
+        data = download_file("http://example.com/file.jpg", temp_file)
+        # SHA1 of "" is da39a3ee5e6b4b0d3255bfef95601890afd80709
+        assert data == "da39a3ee5e6b4b0d3255bfef95601890afd80709"
 
 
 def test_apply_sdc_invokes_mediawiki_client(mocker, mock_mediawiki_client):
@@ -398,3 +387,145 @@ def test_ensure_uploaded_passes_when_successful(mocker, mock_mediawiki_client):
 
     # Verify file_exists called only ONCE (not twice)
     mock_mediawiki_client.file_exists.assert_called_once_with("x.jpg")
+
+
+def test_upload_file_chunked_success(mocker, mock_mediawiki_client):
+    """Test that upload_file_chunked returns success result when upload succeeds"""
+    # Mock the upload to succeed
+    mock_mediawiki_client.upload_file.return_value = UploadResult(
+        success=True,
+        title="File:Test.jpg",
+        url="https://commons.wikimedia.org/wiki/File:Test.jpg",
+    )
+    mock_mediawiki_client.find_duplicates.return_value = []
+    mock_mediawiki_client.apply_sdc.return_value = True
+
+    # Mock download_file
+    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+
+    # Call upload_file_chunked (without site parameter - new signature)
+    result = upload_file_chunked(
+        file_name="Test.jpg",
+        file_url="http://example.com/test.jpg",
+        wikitext="== Summary ==",
+        edit_summary="Test upload",
+        upload_id=1,
+        batch_id=123,
+        mediawiki_client=mock_mediawiki_client,
+    )
+
+    # Verify result
+    assert result["result"] == "success"
+    assert result["title"] == "File:Test.jpg"
+    assert result["url"] == "https://commons.wikimedia.org/wiki/File:Test.jpg"
+
+    # Verify upload_file was called with correct arguments
+    mock_mediawiki_client.upload_file.assert_called_once()
+    call_kwargs = mock_mediawiki_client.upload_file.call_args.kwargs
+    assert call_kwargs["filename"] == "Test.jpg"
+    assert "file_path" in call_kwargs
+    assert call_kwargs["wikitext"] == "== Summary =="
+    assert call_kwargs["edit_summary"] == "Test upload"
+
+
+def test_upload_file_chunked_duplicate_raises_error(mocker, mock_mediawiki_client):
+    """Test that upload_file_chunked raises DuplicateUploadError when file already exists"""
+    # Mock find_duplicates to return list of duplicate files
+    # (checked before upload in new implementation)
+    mock_mediawiki_client.find_duplicates.return_value = [
+        ErrorLink(
+            title="File:Existing.jpg",
+            url="https://commons.wikimedia.org/wiki/File:Existing.jpg",
+        )
+    ]
+
+    # Mock download_file
+    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+
+    # Call upload_file_chunked and expect DuplicateUploadError
+    with pytest.raises(DuplicateUploadError) as exc_info:
+        upload_file_chunked(
+            file_name="Test.jpg",
+            file_url="http://example.com/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+            upload_id=1,
+            batch_id=123,
+            mediawiki_client=mock_mediawiki_client,
+        )
+
+    # Verify error message
+    assert "already exists" in str(exc_info.value)
+    # Verify duplicates are attached to the error
+    assert len(exc_info.value.duplicates) == 1
+    assert exc_info.value.duplicates[0].title == "File:Existing.jpg"
+
+
+def test_upload_file_chunked_upload_failure_propagates(mocker, mock_mediawiki_client):
+    """Test that upload_file_chunked raises ValueError when upload fails for non-duplicate reasons"""
+    # Mock the upload to fail with generic error
+    mock_mediawiki_client.upload_file.return_value = UploadResult(
+        success=False,
+        error="Upload failed: network error",
+    )
+
+    # Mock download_file
+    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+
+    # Call upload_file_chunked and expect ValueError
+    with pytest.raises(ValueError, match="network error"):
+        upload_file_chunked(
+            file_name="Test.jpg",
+            file_url="http://example.com/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+            upload_id=1,
+            batch_id=123,
+            mediawiki_client=mock_mediawiki_client,
+        )
+
+
+def test_upload_file_chunked_applies_sdc(mocker, mock_mediawiki_client):
+    """Test that upload_file_chunked applies SDC after successful upload"""
+    no_value_snak = NoValueSnak(property="P180")
+    statement = Statement(
+        mainsnak=no_value_snak,
+        rank=Rank.NORMAL,
+    )
+    sdc = [statement]
+    label = Label(language="en", value="Test Label")
+
+    # Mock the upload to succeed
+    mock_mediawiki_client.upload_file.return_value = UploadResult(
+        success=True,
+        title="File:Test.jpg",
+        url="https://commons.wikimedia.org/wiki/File:Test.jpg",
+    )
+    mock_mediawiki_client.apply_sdc.return_value = True
+
+    # Mock download_file
+    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+
+    # Call upload_file_chunked with SDC and labels
+    result = upload_file_chunked(
+        file_name="Test.jpg",
+        file_url="http://example.com/test.jpg",
+        wikitext="== Summary ==",
+        edit_summary="Test upload",
+        upload_id=1,
+        batch_id=123,
+        mediawiki_client=mock_mediawiki_client,
+        sdc=sdc,
+        labels=label,
+    )
+
+    # Verify result
+    assert result["result"] == "success"
+
+    # Verify apply_sdc was called with correct parameters
+    mock_mediawiki_client.apply_sdc.assert_called_once()
+    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
+    assert call_kwargs["filename"] == "Test.jpg"
+    assert call_kwargs["sdc"] is not None
+    assert call_kwargs["labels"] is not None
+    assert call_kwargs["edit_summary"] == "Test upload"

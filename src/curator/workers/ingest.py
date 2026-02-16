@@ -5,7 +5,6 @@ from typing import Literal
 from curator.app.commons import (
     DuplicateUploadError,
     apply_sdc,
-    create_isolated_site,
     fetch_sdc_from_api,
     upload_file_chunked,
 )
@@ -80,7 +79,6 @@ async def _handle_duplicate_with_sdc_merge(
     batch_id: int,
     key: str,
     labels: dict | Label | None,
-    site,
     sdc: list[Statement] | None,
     duplicate_error: DuplicateUploadError,
     edit_group_id: str,
@@ -234,7 +232,6 @@ async def _upload_with_retry(
     key: str,
     wikitext: str,
     labels: Label | None,
-    site,
     image_url: str,
     sdc: list[Statement] | None,
     edit_group_id: str,
@@ -254,7 +251,7 @@ async def _upload_with_retry(
                 f"([[:toolforge:editgroups-commons/b/curator/{edit_group_id}|details]])"
             )
 
-            return await site.run(
+            return await asyncio.to_thread(
                 upload_file_chunked,
                 filename,
                 image_url,
@@ -334,9 +331,6 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
 
             # Extract all needed values to avoid DetachedInstanceError outside this block
             access_token = decrypt_access_token(item.access_token)
-            username = (
-                item.last_editor.username if item.last_editor else item.user.username
-            )
             filename = item.filename
             key = item.key
             batchid = item.batchid
@@ -356,9 +350,6 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
 
     # 2. Long running operations (NO DB SESSION)
     try:
-        # Create isolated site wrapper for this job
-        site = create_isolated_site(access_token, username)
-
         # Create MediaWiki API client for this job
         mediawiki_client = create_mediawiki_client(access_token)
 
@@ -401,7 +392,6 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             key=key,
             wikitext=wikitext,
             labels=labels,
-            site=site,
             image_url=image_url,
             sdc=sdc,
             edit_group_id=edit_group_id,
@@ -426,7 +416,6 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             batch_id=batchid,
             key=key,
             labels=labels,
-            site=site,
             sdc=sdc,
             duplicate_error=e,
             edit_group_id=edit_group_id,

@@ -88,6 +88,16 @@ Abstract `Handler` class in `handlers/interfaces.py` defines the contract for im
 
 Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
 
+### Image Handler Interface
+Abstract `Handler` class in `handlers/interfaces.py` defines the contract for image sources:
+- `fetch_collection()` - Get all images from a collection
+- `fetch_image_metadata()` - Get single image metadata
+- `fetch_existing_pages()` - Check which images already exist on Commons
+- `fetch_collection_ids()` - Get all image IDs in a collection
+- `fetch_images_batch()` - Batch fetch images by ID
+
+Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
+
 ### Rate Limiting with Privileged Users
 - Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
 - Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
@@ -102,6 +112,8 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 - **No Global State** - Pass `MediaWikiClient` instances where needed, or create them.
 - **Async/Await** - Prefer async methods where available (or `asyncio.to_thread` for synchronous calls if needed).
 - **Close Resources** - Always ensure `client.close()` is called (e.g. using `try...finally`).
+- **File Uploads** - `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency. Use `NamedTemporaryFile()` for large files.
+- **Upload Orchestration** - Use `commons.py:upload_file_chunked()` for complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
 - **SDC fetching by title**: Use `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid extra API call to fetch page ID
 - **wbgetentities response when using sites/titles**: Entity is keyed by entity ID, not title - extract first entity with `next(iter(entities))`
 - **Distinguish "missing" cases**: Entity ID "-1" with site/title keys = non-existent file (raise error); positive entity ID with "missing" key = file exists but no SDC (return None)
@@ -169,6 +181,7 @@ All configuration via environment variables:
 - **Type errors in `dal_optimized.py` are known and should be ignored**
 - **Type errors in `alembic/` are known and should be ignored**
 - **AsyncAPI models are auto-generated - do not edit manually**
+- **Large file uploads** - Use `NamedTemporaryFile()` with streaming downloads (see `commons.py`) to avoid OOM on large files
 - Use `get_session()` dependency for database sessions, don't create sessions directly
 - Follow layered architecture: routes → handlers → DAL → models
 - **WebSocket cleanup pattern**: Handler's `cleanup()` method should ensure resources are released (now simpler without thread-local Pywikibot)
