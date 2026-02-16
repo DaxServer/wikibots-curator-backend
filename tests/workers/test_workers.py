@@ -17,14 +17,6 @@ def patch_ingest_get_session(patch_get_session):
     return patch_get_session("curator.workers.ingest.get_session")
 
 
-@pytest.fixture(autouse=True)
-def setup_mock_isolated_site(mocker, mock_isolated_site):
-    """Patch create_isolated_site to return the shared mock site"""
-    return mocker.patch(
-        "curator.workers.ingest.create_isolated_site", return_value=mock_isolated_site
-    )
-
-
 @pytest.mark.asyncio
 async def test_worker_process_one_decrypts_token(
     mocker, mock_session, mock_isolated_site
@@ -49,10 +41,6 @@ async def test_worker_process_one_decrypts_token(
     )
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ) as mock_create_site,
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
@@ -93,12 +81,6 @@ async def test_worker_process_one_decrypts_token(
         ok = await process_one(1, "test_edit_group_abc123")
         assert ok is True
 
-        # Verify create_isolated_site was called with decrypted token
-        mock_create_site.assert_called_once()
-        args, _ = mock_create_site.call_args
-        assert args[0] == ("t", "s")
-        assert args[1] == "User"
-
 
 @pytest.mark.asyncio
 async def test_worker_process_one_duplicate_status(
@@ -131,10 +113,6 @@ async def test_worker_process_one_duplicate_status(
         captured_status["error"] = error
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -238,10 +216,6 @@ async def test_worker_process_one_fails_on_blacklisted_title(
         captured_status["error"] = error
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -310,7 +284,6 @@ async def test_worker_process_one_uploadstash_retry_success(
     upload_attempts = []
 
     def mock_upload_file_chunked(
-        site,
         file_name,
         file_url,
         wikitext,
@@ -334,10 +307,6 @@ async def test_worker_process_one_uploadstash_retry_success(
         }
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
@@ -413,7 +382,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(site, *args, **kwargs):
+    def mock_upload_file_chunked(*args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Always fail with uploadstash-file-not-found error
         raise Exception(
@@ -421,10 +390,6 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         )
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -504,16 +469,12 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(site, *args, **kwargs):
+    def mock_upload_file_chunked(*args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail with a different error (not uploadstash-file-not-found)
         raise Exception("Network timeout or some other error")
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
@@ -585,7 +546,6 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
     captured_edit_summary = {}
 
     def mock_upload_file_chunked(
-        site,
         file_name,
         file_url,
         wikitext,
@@ -604,10 +564,6 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
         }
 
     with (
-        patch(
-            "curator.workers.ingest.create_isolated_site",
-            return_value=mock_isolated_site,
-        ),
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
         patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,

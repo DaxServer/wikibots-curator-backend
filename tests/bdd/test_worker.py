@@ -1,6 +1,5 @@
 """BDD tests for worker.feature"""
 
-import pytest
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlmodel import Session, col, select
 
@@ -10,15 +9,6 @@ from curator.asyncapi import ErrorLink
 from curator.workers.ingest import process_one
 
 from .conftest import run_sync
-
-
-@pytest.fixture(autouse=True)
-def setup_mock_isolated_site(mocker, mock_isolated_site):
-    """Patch create_isolated_site to return the shared mock site"""
-    return mocker.patch(
-        "curator.workers.ingest.create_isolated_site", return_value=mock_isolated_site
-    )
-
 
 # --- Scenarios ---
 

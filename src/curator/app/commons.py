@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import time
 from tempfile import NamedTemporaryFile
@@ -6,8 +7,6 @@ from typing import Any, Optional
 
 import httpx
 from mwoauth import AccessToken
-from pywikibot.page import FilePage, Page
-from pywikibot.tools import compute_file_hash
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET
 from curator.app.mediawiki_client import MediaWikiClient
@@ -100,91 +99,96 @@ def create_isolated_site(access_token: AccessToken, username: str) -> IsolatedSi
 
 
 def upload_file_chunked(
-    site,
     file_name: str,
     file_url: str,
     wikitext: str,
     edit_summary: str,
     upload_id: int,
     batch_id: int,
-    mediawiki_client,
+    mediawiki_client: MediaWikiClient,
     sdc: Optional[list[Statement]] = None,
     labels: Optional[Label] = None,
 ) -> dict:
     """
-    Upload a file to Commons using Pywikibot's UploadRobot, with optional user OAuth authentication.
+    Upload a file to Commons using MediaWikiClient's upload_file method.
 
     - Uses chunked uploads
+    - Streams download to temp file for memory efficiency
     - Returns a dict payload {"result": "success", "title": ..., "url": ...}.
     """
     with NamedTemporaryFile() as temp_file:
-        temp_file.write(download_file(file_url, upload_id, batch_id))
-
-        file_hash = compute_file_hash(temp_file.name)
+        # Download directly to temp file, get hash
+        file_hash = download_file(file_url, temp_file, upload_id, batch_id)
         logger.info(f"[{upload_id}/{batch_id}] file hash: {file_hash}")
 
+        # Check for duplicates before upload using hash
         duplicates_list = mediawiki_client.find_duplicates(file_hash)
         if len(duplicates_list) > 0:
             raise DuplicateUploadError(
-                duplicates_list, f"File {file_name} already exists on Commons"
+                duplicates_list,
+                f"File {file_name} already exists on Commons",
             )
 
-        commons_file = build_file_page(site, file_name)
-        uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
+        # Upload using temp file path
+        upload_result = mediawiki_client.upload_file(
+            filename=file_name,
+            file_path=temp_file.name,
+            wikitext=wikitext,
+            edit_summary=edit_summary,
+        )
 
-    ensure_uploaded(mediawiki_client, uploaded, file_name)
-    apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
+        # Check for upload errors
+        if not upload_result.success:
+            raise ValueError(upload_result.error or "Upload failed")
 
-    return {
-        "result": "success",
-        "title": commons_file.title(with_ns=False),
-        "url": commons_file.full_url(),
-    }
+        # Apply SDC after successful upload
+        apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
+
+        return {
+            "result": "success",
+            "title": upload_result.title,
+            "url": upload_result.url,
+        }
 
 
-def download_file(file_url: str, upload_id: int = 0, batch_id: int = 0) -> bytes:
+def download_file(
+    file_url: str, temp_file, upload_id: int = 0, batch_id: int = 0
+) -> str:
     """
-    Download a file from the given URL with retry logic for Mapillary errors.
-
-    When Mapillary returns application/x-php instead of an image, retry after a delay.
+    Download file directly to temp file using streaming.
+    Returns SHA1 hash computed during download.
     """
     for attempt in range(MAX_DOWNLOAD_RETRIES):
-        resp = httpx.get(file_url, timeout=60)
-        resp.raise_for_status()
+        try:
+            with httpx.stream("GET", file_url, timeout=60) as resp:
+                resp.raise_for_status()
 
-        content_type = resp.headers.get("content-type", "")
-        if "application/x-php" not in content_type:
-            return resp.content
+                content_type = resp.headers.get("content-type", "")
+                if "application/x-php" in content_type:
+                    # Got application/x-php instead of image
+                    if attempt < MAX_DOWNLOAD_RETRIES - 1:
+                        logger.warning(
+                            f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
+                            f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
+                        )
+                        time.sleep(2)
+                        continue
+                    else:
+                        raise ValueError(
+                            f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
+                        )
 
-        # Got application/x-php instead of image
-        if attempt < MAX_DOWNLOAD_RETRIES - 1:
-            logger.warning(
-                f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
-                f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
-            )
-            time.sleep(2)
-        else:
-            raise ValueError(
-                f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
-            )
+                # Stream download: write chunks to temp file and update hash
+                sha1 = hashlib.sha1()
+                for chunk in resp.iter_bytes(chunk_size=8192):
+                    temp_file.write(chunk)
+                    sha1.update(chunk)
 
-    raise ValueError(f"Failed to download file after {MAX_DOWNLOAD_RETRIES} attempts")
-
-
-def build_file_page(site, file_name: str) -> FilePage:
-    return FilePage(Page(site, title=file_name, ns=6))
-
-
-def perform_upload(
-    file_page: FilePage, source_path: str, wikitext: str, edit_summary: str
-) -> bool:
-    return file_page.upload(
-        source=source_path,
-        text=wikitext,
-        comment=edit_summary,
-        ignore_warnings=False,
-        chunk_size=1024 * 1024 * 1,
-    )
+                return sha1.hexdigest()
+        except httpx.HTTPError:
+            if attempt < MAX_DOWNLOAD_RETRIES - 1:
+                continue
+            raise
 
 
 def ensure_uploaded(

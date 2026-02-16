@@ -11,14 +11,6 @@ def patch_ingest_get_session(patch_get_session):
     return patch_get_session("curator.workers.ingest.get_session")
 
 
-@pytest.fixture(autouse=True)
-def setup_mock_isolated_site(mocker, mock_isolated_site):
-    """Patch create_isolated_site to return the shared mock site"""
-    return mocker.patch(
-        "curator.workers.ingest.create_isolated_site", return_value=mock_isolated_site
-    )
-
-
 @pytest.mark.asyncio
 async def test_process_one_runs_async(
     mocker,

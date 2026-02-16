@@ -15,7 +15,8 @@
       "Bash(but diff:*)",
       "Bash(but stage:*)",
       "Bash(but commit:*)",
-      "Bash(but push:*)"
+      "Bash(but push:*)",
+      "Bash(gh pr diff:*)"
     ]
   }
 }

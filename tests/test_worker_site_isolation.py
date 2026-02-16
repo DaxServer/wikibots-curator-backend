@@ -1,4 +1,4 @@
-"""Tests for worker site isolation in Celery mode."""
+"""Tests for site isolation in concurrent operations."""
 
 import threading
 from unittest.mock import MagicMock, patch
@@ -7,7 +7,7 @@ from mwoauth import AccessToken
 
 
 def _create_job_site(index, access_token, username, results, lock):
-    """Simulate a worker job creating a site."""
+    """Simulate a job creating a site."""
     from curator.app.commons import create_isolated_site
 
     with (
@@ -31,33 +31,11 @@ def _create_job_site(index, access_token, username, results, lock):
             }
 
 
-class TestWorkerSiteIsolation:
-    """Tests for worker job site isolation."""
+class TestSiteIsolation:
+    """Tests for site isolation in concurrent operations."""
 
-    def test_worker_site_isolation(self, mocker):
-        """Test that each worker job gets a unique site."""
-        with patch("curator.workers.ingest.create_isolated_site") as mock_create_site:
-            # Create mock sites
-            site1 = MagicMock()
-            site2 = MagicMock()
-            site1.has_group = MagicMock(return_value=False)
-            site2.has_group = MagicMock(return_value=False)
-            mock_create_site.side_effect = [site1, site2]
-
-            # Simulate two jobs getting their sites
-            site1_result = mock_create_site(AccessToken("token1", "secret1"), "user1")
-            site2_result = mock_create_site(AccessToken("token2", "secret2"), "user2")
-
-            # Verify each job got a unique site
-            assert site1_result is site1
-            assert site2_result is site2
-            assert site1_result is not site2_result
-
-            # Verify create_isolated_site was called twice
-            assert mock_create_site.call_count == 2
-
-    def test_concurrent_worker_jobs(self, mocker):
-        """Test that concurrent worker jobs don't share credentials."""
+    def test_concurrent_jobs_dont_share_credentials(self):
+        """Test that concurrent jobs don't share credentials."""
         results = {}
         lock = threading.Lock()
 
