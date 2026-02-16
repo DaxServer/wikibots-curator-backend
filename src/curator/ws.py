@@ -102,5 +102,3 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
     except WebSocketDisconnect:
         handler.cancel_tasks()
         return
-    finally:
-        handler.cleanup()

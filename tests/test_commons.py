@@ -23,18 +23,6 @@ def mock_mediawiki_client(mocker):
     return mock
 
 
-@pytest.fixture
-def mock_commons_site(mocker):
-    """Mock the create_isolated_site function"""
-    return mocker.patch("curator.app.commons.create_isolated_site")
-
-
-@pytest.fixture
-def mock_isolated_site(mocker):
-    """Mock the create_isolated_site function"""
-    return mocker.patch("curator.app.commons.create_isolated_site")
-
-
 def test_download_file_returns_bytes(mocker, mock_requests_response):
     """Test that download_file streams to temp file and returns hash"""
     # Mock httpx.stream context manager
@@ -155,7 +143,7 @@ def test_apply_sdc_includes_labels_in_payload_when_provided(
     assert call_kwargs["filename"] == "x.jpg"
     assert call_kwargs["labels"] is not None
     assert isinstance(call_kwargs["labels"], list)
-    # Labels should be an array matching old pywikibot format
+    # Labels should be an array matching MediaWiki API format
     assert call_kwargs["labels"][0]["language"] == "en"
     assert call_kwargs["labels"][0]["value"] == "Test Label"
 

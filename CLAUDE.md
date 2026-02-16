@@ -29,6 +29,7 @@ After completing backend tasks, always run in order:
 poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude src/curator/app/dal_optimized.py --exclude alembic
 ```
 Note: Type errors in `dal_optimized.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
+All other files must pass type check. Even pre-existing errors in modified files should be fixed before committing.
 
 ## Architecture
 
@@ -147,6 +148,7 @@ poetry run alembic upgrade head
 
 - `pytest` with tests in `tests/`
 - **Import placement:** All imports must be at the top of test files, never inline in test functions
+- **Cache cleanup**: After removing code or dependencies, clean Python cache: `find . -type d -name "__pycache__" -exec rm -rf {} +`
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
 - **pytest timeout:** Configured to `0` (disabled) in `pytest.ini` - tests have no timeout limit
 - **Mock Structure:** Mock objects must match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
@@ -170,8 +172,8 @@ All configuration via environment variables:
 
 - **Type errors in `dal_optimized.py` are known and should be ignored**
 - **Type errors in `alembic/` are known and should be ignored**
+- **Unreachable code pattern**: For functions that always return or raise an exception, add `raise AssertionError("Unreachable")` at the end to satisfy the type checker
 - **AsyncAPI models are auto-generated - do not edit manually**
 - **Large file uploads** - Use `NamedTemporaryFile()` with streaming downloads (see `commons.py`) to avoid OOM on large files
 - Use `get_session()` dependency for database sessions, don't create sessions directly
 - Follow layered architecture: routes → handlers → DAL → models
-- **WebSocket cleanup pattern**: Handler's `cleanup()` method should ensure resources are released (now simpler without thread-local Pywikibot)

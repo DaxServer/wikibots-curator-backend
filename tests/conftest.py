@@ -112,7 +112,7 @@ def mock_isolated_site():
 
     async def run_side_effect(func, *args, **kwargs):
         # We need to inject a mock site object if the function expects 'site'
-        # The real IsolatedSite.run passes a pywikibot.Site object
+        # The real MediaWikiClient passes the client object
         # Here we just pass an AsyncMock or MagicMock
         res = func(AsyncMock(), *args, **kwargs)
         if asyncio.iscoroutine(res):
@@ -174,14 +174,6 @@ def mock_requests_response():
     response.content = b"test content"
     response.raise_for_status.return_value = None
     return response
-
-
-@pytest.fixture(autouse=True)
-def mock_commons_functions(mocker):
-    """Auto-mock commons.py functions that make Pywikibot API calls"""
-    mock_site = MagicMock()
-    mock_site.has_group = MagicMock(return_value=False)
-    mocker.patch("curator.app.commons.create_isolated_site", return_value=mock_site)
 
 
 @pytest.fixture

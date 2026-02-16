@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import logging
 import time
@@ -6,11 +5,8 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 
 import httpx
-from mwoauth import AccessToken
 
-from curator.app.config import OAUTH_KEY, OAUTH_SECRET
 from curator.app.mediawiki_client import MediaWikiClient
-from curator.app.thread_utils import ThreadLocalDict
 from curator.asyncapi import ErrorLink, Label, Statement
 
 logger = logging.getLogger(__name__)
@@ -19,83 +15,10 @@ logger = logging.getLogger(__name__)
 MAX_DOWNLOAD_RETRIES = 2
 
 
-pywikibot: Any | None = None
-config: Any | None = None
-
-
-def _ensure_pywikibot() -> None:
-    global pywikibot, config
-    if pywikibot is None or config is None:
-        import pywikibot as _pywikibot
-        import pywikibot.config as _config
-
-        if pywikibot is None:
-            pywikibot = _pywikibot
-        if config is None:
-            config = _config
-
-        # PATCH: Make config.authenticate thread-local to prevent race conditions
-        # in multi-threaded environment. pywikibot reads this global dict
-        # on every request.
-        if not isinstance(config.authenticate, ThreadLocalDict):
-            config.authenticate = ThreadLocalDict(config.authenticate)  # type: ignore
-
-        # Set put_throttle once globally during initialization
-        config.put_throttle = 0  # type: ignore
-
-
 class DuplicateUploadError(Exception):
     def __init__(self, duplicates: list[ErrorLink], message: str):
         super().__init__(message)
         self.duplicates = duplicates
-
-
-class IsolatedSite:
-    """
-    A wrapper around pywikibot.Site that ensures thread-safe execution
-    by setting up the thread-local configuration before every operation.
-    """
-
-    def __init__(self, access_token: AccessToken, username: str):
-        self.access_token = access_token
-        self.username = username
-        self._site = None
-
-    def _setup_context(self):
-        """Sets up the thread-local pywikibot configuration."""
-        _ensure_pywikibot()
-        assert config
-
-        config.authenticate["commons.wikimedia.org"] = (
-            OAUTH_KEY,
-            OAUTH_SECRET,
-        ) + tuple(self.access_token)
-
-    def _get_or_create_site(self):
-        """Creates or retrieves the cached Site object."""
-        # Must be called inside the context where config is set
-        assert pywikibot
-        if not self._site:
-            self._site = pywikibot.Site("commons", "commons", user=self.username)
-            self._site.login()
-        return self._site
-
-    def run_sync(self, func, *args, **kwargs):
-        """Run a function synchronously with the correct site context."""
-        self._setup_context()
-        site = self._get_or_create_site()
-        return func(site, *args, **kwargs)
-
-    async def run(self, func, *args, **kwargs):
-        """Run a function in a separate thread with correct site context."""
-        return await asyncio.to_thread(self.run_sync, func, *args, **kwargs)
-
-
-def create_isolated_site(access_token: AccessToken, username: str) -> IsolatedSite:
-    """
-    Create an IsolatedSite wrapper.
-    """
-    return IsolatedSite(access_token, username)
 
 
 def upload_file_chunked(
@@ -189,6 +112,8 @@ def download_file(
             if attempt < MAX_DOWNLOAD_RETRIES - 1:
                 continue
             raise
+
+    raise AssertionError("Unreachable")
 
 
 def ensure_uploaded(

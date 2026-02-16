@@ -94,32 +94,6 @@ class Handler:
         self.uploads_task: Optional[asyncio.Task] = None
         self.batches_list_task: Optional[asyncio.Task] = None
         self.batch_streamer = OptimizedBatchStreamer(sender, self.username)
-        self._commons_site: Optional[Any] = None
-        self._site_lock = asyncio.Lock()
-
-    async def _get_site(self) -> Any:
-        """
-        Lazy-load and cache the pywikibot Site object for this WebSocket connection
-
-        Returns a cached Site object, creating it on first call. The Site object
-        is safe to reuse for the lifetime of the connection as it caches its
-        authentication after login.
-        """
-        if self._commons_site is None:
-            async with self._site_lock:
-                # Double-check after acquiring lock
-                if self._commons_site is None:
-                    from curator.app.commons import create_isolated_site
-
-                    access_token = self.user.get("access_token")
-                    self._commons_site = await asyncio.to_thread(
-                        create_isolated_site, access_token, self.username
-                    )
-        return self._commons_site
-
-    def cleanup(self):
-        """Clear the cached site reference"""
-        self._commons_site = None
 
     def cancel_tasks(self):
         if self.uploads_task and not self.uploads_task.done():
@@ -128,7 +102,6 @@ class Handler:
             self.batches_list_task.cancel()
         if self.batch_streamer:
             asyncio.create_task(self.batch_streamer.stop_streaming())
-        self.cleanup()
 
     @handle_exceptions
     async def fetch_images(self, collection: str, handler_type: ImageHandler):

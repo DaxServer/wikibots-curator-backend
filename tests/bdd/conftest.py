@@ -46,7 +46,6 @@ def run_sync(coro, loop):
 
 @pytest.fixture(autouse=True)
 def mock_external_calls(mocker):
-    mocker.patch("curator.app.commons.create_isolated_site")
     mock_client = mocker.MagicMock()
     mock_client.check_title_blacklisted.return_value = (False, "")
     mocker.patch(

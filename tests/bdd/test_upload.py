@@ -2,7 +2,6 @@
 
 from unittest.mock import MagicMock
 
-import pytest
 from pytest_bdd import parsers, scenario, then, when
 from sqlmodel import Session, select
 
@@ -12,17 +11,6 @@ from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceData
 
 from .conftest import run_sync
-
-
-@pytest.fixture(autouse=True)
-def mock_isolated_site(mocker):
-    """Mock create_isolated_site to return a mock site for Handler._get_site()"""
-    mock_site = MagicMock()
-    mock_site.has_group = MagicMock(return_value=True)  # Default to privileged
-    return mocker.patch(
-        "curator.app.commons.create_isolated_site", return_value=mock_site
-    )
-
 
 # --- Scenarios ---
 

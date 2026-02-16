@@ -1,6 +1,6 @@
 """Rate limiting for Wikimedia Commons uploads.
 
-Checks if user is privileged (patroller/sysop) using pywikibot.User.groups
+Checks if user is privileged (patroller/sysop) using MediaWikiClient.get_user_groups()
 and spaces out Celery task enqueueing to match the allowed rate, preventing API throttling.
 """
 
