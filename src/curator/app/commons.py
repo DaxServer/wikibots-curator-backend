@@ -132,7 +132,7 @@ def upload_file_chunked(
         commons_file = build_file_page(site, file_name)
         uploaded = perform_upload(commons_file, temp_file.name, wikitext, edit_summary)
 
-    ensure_uploaded(commons_file, uploaded, file_name)
+    ensure_uploaded(mediawiki_client, uploaded, file_name)
     apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
 
     return {
@@ -187,11 +187,16 @@ def perform_upload(
     )
 
 
-def ensure_uploaded(file_page: FilePage, uploaded: bool, file_name: str):
-    if not uploaded and file_page.exists():
+def ensure_uploaded(
+    mediawiki_client: MediaWikiClient,
+    uploaded: bool,
+    file_name: str,
+):
+    exists = mediawiki_client.file_exists(file_name)
+    if not uploaded and exists:
         raise ValueError(f"File {file_name} already exists on Commons")
 
-    if not file_page.exists():
+    if not exists:
         raise ValueError("File upload failed")
 
 
