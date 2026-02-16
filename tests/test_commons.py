@@ -332,7 +332,7 @@ def test_file_exists_via_shared_fetch(mocker):
     # Test missing file
     client._fetch_page.reset_mock()
     client._fetch_page = mocker.MagicMock(
-        return_value={"missing": ""},
+        return_value={"title": "File:Nonexistent.jpg", "missing": True},
     )
     assert client.file_exists("Nonexistent.jpg") is False
 

@@ -5,13 +5,16 @@
       "Bash(poetry run ruff:*)",
       "Bash(poetry run ty check:*)",
       "Bash(poetry run isort:*)",
-      "Bash(poetry run ruff format:*)",
       "WebSearch",
       "Bash(grep:*)",
       "Bash(gh pr view:*)",
-      "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls:*)",
+      "Bash(gh api repos/*/*/pulls:*)",
       "Bash(git show:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(but status:*)",
+      "Bash(but diff:*)",
+      "Bash(but stage:*)",
+      "Bash(but commit:*)"
     ]
   }
 }
