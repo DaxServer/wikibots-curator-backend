@@ -149,7 +149,7 @@ def test_get_csrf_token_handles_api_error(mocker):
 
 
 def test_fetch_sdc_returns_statements_and_labels(mocker):
-    """Test that fetch_sdc returns statements and labels from API"""
+    """Test that fetch_sdc returns statements and labels from API using title"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
     mock_client._api_request = mocker.MagicMock(
         return_value={
@@ -166,7 +166,7 @@ def test_fetch_sdc_returns_statements_and_labels(mocker):
         }
     )
 
-    data, labels = mock_client.fetch_sdc("M12345")
+    data, labels = mock_client.fetch_sdc("File:Example.jpg")
 
     assert data is not None
     assert "P1" in data
@@ -176,21 +176,44 @@ def test_fetch_sdc_returns_statements_and_labels(mocker):
     assert "en" in labels
     assert labels["en"]["value"] == "Test label"
     mock_client._api_request.assert_called_once_with(
-        {"action": "wbgetentities", "ids": "M12345", "props": "claims|labels"}
+        {
+            "action": "wbgetentities",
+            "sites": "commonswiki",
+            "titles": "File:Example.jpg",
+            "props": "claims|labels",
+        }
     )
 
 
-def test_fetch_sdc_handles_missing_media_id(mocker):
-    """Test that fetch_sdc returns None for missing media ID"""
+def test_fetch_sdc_handles_missing_title(mocker):
+    """Test that fetch_sdc returns None for missing title"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
-    mock_client._api_request = mocker.MagicMock(
-        return_value={"entities": {"M99999": {"statements": {}, "labels": {}}}}
-    )
+    mock_client._api_request = mocker.MagicMock(return_value={"entities": {}})
 
-    data, labels = mock_client.fetch_sdc("M12345")
+    data, labels = mock_client.fetch_sdc("File:Missing.jpg")
 
     assert data is None
     assert labels is None
+
+
+def test_fetch_sdc_raises_error_for_nonexistent_file(mocker):
+    """Test that fetch_sdc raises exception for non-existent file (entity ID -1)"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "entities": {
+                "-1": {
+                    "site": "commonswiki",
+                    "title": "File:Nonexistent.jpg",
+                    "missing": "",
+                }
+            },
+            "success": 1,
+        }
+    )
+
+    with pytest.raises(ValueError, match="does not exist on Commons"):
+        mock_client.fetch_sdc("File:Nonexistent.jpg")
 
 
 def test_fetch_sdc_handles_missing_statements(mocker):
@@ -204,7 +227,7 @@ def test_fetch_sdc_handles_missing_statements(mocker):
         }
     )
 
-    data, labels = mock_client.fetch_sdc("M12345")
+    data, labels = mock_client.fetch_sdc("File:Example.jpg")
 
     # When statements is missing/None, data is None but labels may still be returned
     assert data is None
@@ -212,13 +235,13 @@ def test_fetch_sdc_handles_missing_statements(mocker):
 
 
 def test_fetch_sdc_handles_file_exists_without_sdc(mocker):
-    """Test that fetch_sdc returns None for file that exists but has no SDC (missing key)"""
+    """Test that fetch_sdc returns None for file that exists but has no SDC created yet"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
     mock_client._api_request = mocker.MagicMock(
         return_value={
             "entities": {
-                "M184008559": {
-                    "id": "M184008559",
+                "M184245332": {
+                    "id": "M184245332",
                     "missing": "",
                 }
             },
@@ -226,28 +249,76 @@ def test_fetch_sdc_handles_file_exists_without_sdc(mocker):
         }
     )
 
-    data, labels = mock_client.fetch_sdc("M184008559")
+    data, labels = mock_client.fetch_sdc("File:Example.jpg")
 
     # File exists but SDC not created - return None for both
     assert data is None
     assert labels is None
 
 
-def test_fetch_sdc_raises_error_for_nonexistent_file(mocker):
-    """Test that fetch_sdc raises exception for non-existent file (error response)"""
+def test_fetch_sdc_adds_file_prefix_when_missing(mocker):
+    """Test that fetch_sdc adds File: prefix when not provided in title"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
     mock_client._api_request = mocker.MagicMock(
         return_value={
-            "error": {
-                "code": "no-such-entity",
-                "info": 'Could not find an entity with the ID "M184008559435".',
-                "id": "M184008559435",
+            "entities": {
+                "M12345": {
+                    "statements": {
+                        "P1": [
+                            {"mainsnak": {"datatype": "string"}, "type": "statement"}
+                        ]
+                    },
+                    "labels": {"en": {"language": "en", "value": "Test label"}},
+                }
             }
         }
     )
 
-    with pytest.raises(Exception, match="Could not find an entity"):
-        mock_client.fetch_sdc("M184008559435")
+    data, labels = mock_client.fetch_sdc("Example.jpg")
+
+    assert data is not None
+    assert "P1" in data
+    # Verify API was called with File: prefix added
+    mock_client._api_request.assert_called_once_with(
+        {
+            "action": "wbgetentities",
+            "sites": "commonswiki",
+            "titles": "File:Example.jpg",
+            "props": "claims|labels",
+        }
+    )
+
+
+def test_fetch_sdc_preserves_file_prefix_when_present(mocker):
+    """Test that fetch_sdc preserves File: prefix when already in title"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "entities": {
+                "M12345": {
+                    "statements": {
+                        "P1": [
+                            {"mainsnak": {"datatype": "string"}, "type": "statement"}
+                        ]
+                    },
+                    "labels": {"en": {"language": "en", "value": "Test label"}},
+                }
+            }
+        }
+    )
+
+    data, labels = mock_client.fetch_sdc("File:Example.jpg")
+
+    assert data is not None
+    # Verify API was called with File: prefix preserved
+    mock_client._api_request.assert_called_once_with(
+        {
+            "action": "wbgetentities",
+            "sites": "commonswiki",
+            "titles": "File:Example.jpg",
+            "props": "claims|labels",
+        }
+    )
 
 
 def test_apply_sdc_with_sdc_only(mocker):

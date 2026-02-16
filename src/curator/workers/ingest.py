@@ -2,8 +2,6 @@ import asyncio
 import logging
 from typing import Literal
 
-from pywikibot.page import FilePage, Page
-
 from curator.app.commons import (
     DuplicateUploadError,
     apply_sdc,
@@ -39,19 +37,6 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of retries for uploadstash-file-not-found errors
 MAX_UPLOADSTASH_TRIES = 2
-
-
-def _fetch_duplicate_data_wrapper(site, duplicate_title, mediawiki_client):
-    """Wrapper to fetch SDC data in thread context"""
-    file_page = FilePage(Page(site, title=duplicate_title, ns=6))
-    # We need pageid, which might require API call if not loaded
-    if not file_page.pageid:
-        file_page.get()
-
-    existing_sdc, existing_labels = fetch_sdc_from_api(
-        f"M{file_page.pageid}", mediawiki_client
-    )
-    return existing_sdc, existing_labels
 
 
 def _cleanup(session, upload_id: int):
@@ -121,8 +106,9 @@ async def _handle_duplicate_with_sdc_merge(
         f"[{upload_id}/{batch_id}] merging SDC with existing file {duplicate_title}"
     )
 
-    existing_sdc, existing_labels = await site.run(
-        _fetch_duplicate_data_wrapper, duplicate_title, mediawiki_client
+    # Fetch existing SDC and labels
+    existing_sdc, existing_labels = fetch_sdc_from_api(
+        duplicate_title, mediawiki_client
     )
 
     # Convert labels to Label model if it's a dict (from JSON storage)

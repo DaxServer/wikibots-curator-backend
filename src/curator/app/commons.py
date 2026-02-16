@@ -256,13 +256,13 @@ def apply_sdc(
 
 
 def fetch_sdc_from_api(
-    media_id: str, mediawiki_client: MediaWikiClient
+    title: str, mediawiki_client: MediaWikiClient
 ) -> tuple[list[Statement] | None, dict[str, Label] | None]:
     """
-    Fetch SDC data and labels from Commons API for a given media ID using MediaWikiClient
+    Fetch SDC data and labels.
     """
     # Use MediaWikiClient to fetch raw data
-    sdc, labels = mediawiki_client.fetch_sdc(media_id)
+    sdc, labels = mediawiki_client.fetch_sdc(title)
 
     if sdc is None:
         return None, None

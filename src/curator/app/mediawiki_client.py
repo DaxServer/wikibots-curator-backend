@@ -413,13 +413,17 @@ class MediaWikiClient:
 
         return True
 
-    def fetch_sdc(self, media_id: str) -> tuple[dict | None, dict | None]:
+    def fetch_sdc(self, title: str) -> tuple[dict | None, dict | None]:
         """
-        Fetch SDC and labels from Commons.
+        Fetch SDC and labels from Commons by file title.
         """
+        # Ensure title has "File:" prefix for API request
+        api_title = title if title.startswith("File:") else f"File:{title}"
+
         params = {
             "action": "wbgetentities",
-            "ids": media_id,
+            "sites": "commonswiki",
+            "titles": api_title,
             "props": "claims|labels",
         }
 
@@ -430,16 +434,25 @@ class MediaWikiClient:
             error_info = data["error"].get("info", "Unknown error")
             raise ValueError(f"Could not find an entity: {error_info}")
 
-        # Check if media ID exists in response
-        if media_id not in data.get("entities", {}):
-            logger.warning(f"Media ID {media_id} not found on Commons")
+        # When using sites/titles, the response contains entities keyed by entity ID
+        # We need to extract the first entity from the response
+        entities = data.get("entities", {})
+        if not entities:
+            logger.warning(f"Title {title} not found on Commons")
             return None, None
 
-        entity = data["entities"][media_id]
+        # Get the first entity (there should only be one)
+        entity_id = next(iter(entities))
+        entity = entities[entity_id]
 
-        # Check if file exists but SDC is not created (has "missing" key)
+        # Non-existent file returns entity ID "-1" with site and title keys
+        if entity_id == "-1":
+            logger.warning(f"File {title} does not exist on Commons")
+            raise ValueError(f"File {title} does not exist on Commons")
+
+        # File exists but SDC not created yet (positive entity ID with "missing" key)
         if "missing" in entity:
-            logger.info(f"File {media_id} exists but SDC not created yet")
+            logger.info(f"File {title} exists but SDC not created yet")
             return None, None
 
         # Extract statements (API returns 'statements' key)
