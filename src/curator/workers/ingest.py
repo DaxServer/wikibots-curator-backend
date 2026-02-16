@@ -107,8 +107,8 @@ async def _handle_duplicate_with_sdc_merge(
     )
 
     # Fetch existing SDC and labels
-    existing_sdc, existing_labels = fetch_sdc_from_api(
-        duplicate_title, mediawiki_client
+    existing_sdc, existing_labels = await asyncio.to_thread(
+        fetch_sdc_from_api, duplicate_title, mediawiki_client
     )
 
     # Convert labels to Label model if it's a dict (from JSON storage)
