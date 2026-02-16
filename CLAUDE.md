@@ -102,6 +102,9 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 - **No Global State** - Pass `MediaWikiClient` instances where needed, or create them.
 - **Async/Await** - Prefer async methods where available (or `asyncio.to_thread` for synchronous calls if needed).
 - **Close Resources** - Always ensure `client.close()` is called (e.g. using `try...finally`).
+- **SDC fetching by title**: Use `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid extra API call to fetch page ID
+- **wbgetentities response when using sites/titles**: Entity is keyed by entity ID, not title - extract first entity with `next(iter(entities))`
+- **Distinguish "missing" cases**: Entity ID "-1" with site/title keys = non-existent file (raise error); positive entity ID with "missing" key = file exists but no SDC (return None)
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
@@ -156,6 +159,10 @@ All configuration via environment variables:
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` - Redis connection
 - `CELERY_CONCURRENCY`, `CELERY_MAXIMUM_WAIT_TIME`, `CELERY_TASKS_PER_WORKER` - Celery settings
 - `RATE_LIMIT_DEFAULT_NORMAL`, `RATE_LIMIT_DEFAULT_PERIOD` - Upload rate limits
+
+### Pull Request Review Workflow
+- Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
+- `gh pr view --json reviews` only shows high-level review summaries, not specific line comments
 
 ## Important Notes
 
