@@ -382,7 +382,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(site, *args, **kwargs):
+    def mock_upload_file_chunked(*args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Always fail with uploadstash-file-not-found error
         raise Exception(
@@ -469,7 +469,7 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         captured_status["status"] = status
         captured_status["error"] = error
 
-    def mock_upload_file_chunked(site, *args, **kwargs):
+    def mock_upload_file_chunked(*args, **kwargs):
         upload_attempts.append(len(upload_attempts) + 1)
         # Fail with a different error (not uploadstash-file-not-found)
         raise Exception("Network timeout or some other error")

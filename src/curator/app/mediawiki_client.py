@@ -277,7 +277,9 @@ class MediaWikiClient:
                 if "upload" in data:
                     file_key = data["upload"].get("filekey")
 
-                logger.info(f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}")
+                logger.info(
+                    f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}"
+                )
 
         # Final commit: use filekey to publish from stash (no file data)
         if file_key:

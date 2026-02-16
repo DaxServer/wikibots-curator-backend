@@ -35,12 +35,17 @@ def mock_isolated_site(mocker):
     return mocker.patch("curator.app.commons.create_isolated_site")
 
 
-def test_download_file_returns_bytes(mocker, mock_get, mock_requests_response):
+def test_download_file_returns_bytes(mocker, mock_requests_response):
     """Test that download_file streams to temp file and returns hash"""
+    # Mock httpx.stream context manager
+    mock_stream = mocker.MagicMock()
+    mock_stream.__enter__ = mocker.MagicMock(return_value=mock_requests_response)
+    mock_stream.__exit__ = mocker.MagicMock(return_value=False)
+    mocker.patch("httpx.stream", return_value=mock_stream)
+
     # Mock iter_bytes to stream content
     mock_requests_response.iter_bytes = mocker.MagicMock(return_value=[b"abc"])
     mock_requests_response.headers = {"content-type": "image/jpeg"}
-    mock_get.return_value = mock_requests_response
 
     with NamedTemporaryFile() as temp_file:
         data = download_file("http://example.com/file.jpg", temp_file)
@@ -48,12 +53,17 @@ def test_download_file_returns_bytes(mocker, mock_get, mock_requests_response):
         assert data == "a9993e364706816aba3e25717850c26c9cd0d89d"
 
 
-def test_download_file_with_error(mocker, mock_get, mock_requests_response):
+def test_download_file_with_error(mocker, mock_requests_response):
     """Test that download_file handles errors gracefully"""
+    # Mock httpx.stream context manager
+    mock_stream = mocker.MagicMock()
+    mock_stream.__enter__ = mocker.MagicMock(return_value=mock_requests_response)
+    mock_stream.__exit__ = mocker.MagicMock(return_value=False)
+    mocker.patch("httpx.stream", return_value=mock_stream)
+
     # Mock iter_bytes to stream empty content
     mock_requests_response.iter_bytes = mocker.MagicMock(return_value=[b""])
     mock_requests_response.headers = {"content-type": "image/jpeg"}
-    mock_get.return_value = mock_requests_response
 
     with NamedTemporaryFile() as temp_file:
         data = download_file("http://example.com/file.jpg", temp_file)

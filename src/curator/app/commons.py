@@ -159,33 +159,36 @@ def download_file(
     Returns SHA1 hash computed during download.
     """
     for attempt in range(MAX_DOWNLOAD_RETRIES):
-        resp = httpx.get(file_url, timeout=60)
-        resp.raise_for_status()
+        try:
+            with httpx.stream("GET", file_url, timeout=60) as resp:
+                resp.raise_for_status()
 
-        content_type = resp.headers.get("content-type", "")
-        if "application/x-php" in content_type:
-            # Got application/x-php instead of image
+                content_type = resp.headers.get("content-type", "")
+                if "application/x-php" in content_type:
+                    # Got application/x-php instead of image
+                    if attempt < MAX_DOWNLOAD_RETRIES - 1:
+                        logger.warning(
+                            f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
+                            f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
+                        )
+                        time.sleep(2)
+                        continue
+                    else:
+                        raise ValueError(
+                            f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
+                        )
+
+                # Stream download: write chunks to temp file and update hash
+                sha1 = hashlib.sha1()
+                for chunk in resp.iter_bytes(chunk_size=8192):
+                    temp_file.write(chunk)
+                    sha1.update(chunk)
+
+                return sha1.hexdigest()
+        except httpx.HTTPError:
             if attempt < MAX_DOWNLOAD_RETRIES - 1:
-                logger.warning(
-                    f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
-                    f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
-                )
-                time.sleep(2)
                 continue
-            else:
-                raise ValueError(
-                    f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
-                )
-
-        # Stream download: write chunks to temp file and update hash
-        sha1 = hashlib.sha1()
-        for chunk in resp.iter_bytes(chunk_size=8192):
-            temp_file.write(chunk)
-            sha1.update(chunk)
-
-        return sha1.hexdigest()
-
-    raise ValueError(f"Failed to download file after {MAX_DOWNLOAD_RETRIES} attempts")
+            raise
 
 
 def ensure_uploaded(

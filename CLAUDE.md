@@ -88,16 +88,6 @@ Abstract `Handler` class in `handlers/interfaces.py` defines the contract for im
 
 Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
 
-### Image Handler Interface
-Abstract `Handler` class in `handlers/interfaces.py` defines the contract for image sources:
-- `fetch_collection()` - Get all images from a collection
-- `fetch_image_metadata()` - Get single image metadata
-- `fetch_existing_pages()` - Check which images already exist on Commons
-- `fetch_collection_ids()` - Get all image IDs in a collection
-- `fetch_images_batch()` - Batch fetch images by ID
-
-Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
-
 ### Rate Limiting with Privileged Users
 - Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
 - Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
