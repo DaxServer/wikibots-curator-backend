@@ -1,9 +1,10 @@
 """Global fixtures and helpers for BDD tests."""
 
-import pytest
 import inspect
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add tests directory to path if not already there
 tests_dir = str(Path(__file__).parent.parent)

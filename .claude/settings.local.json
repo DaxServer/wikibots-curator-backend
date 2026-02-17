@@ -18,7 +18,8 @@
       "Bash(but push:*)",
       "Bash(gh pr diff:*)",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git remote get-url:*)"
     ]
   }
 }

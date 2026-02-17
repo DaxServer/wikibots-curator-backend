@@ -51,3 +51,4 @@ def test_create_upload_request_label_serialization(mocker, mock_session):
         # The key verification: labels should be a dict, not a Label object
         assert isinstance(req.labels, dict)
         assert req.labels == {"language": "en", "value": "Photo from Mapillary"}
+        mock_session.add.assert_called_once_with(req)
