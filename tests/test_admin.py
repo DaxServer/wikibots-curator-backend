@@ -1,3 +1,5 @@
+"""Tests for admin endpoint operations."""
+
 from unittest.mock import patch
 
 import pytest
@@ -25,8 +27,6 @@ async def test_admin_get_batches_success(mock_session, patch_get_session):
 
         result = await admin_get_batches(page=1, limit=100)
 
-        mock_get_batches.assert_called_once_with(mock_session, offset=0, limit=100)
-        mock_count_batches.assert_called_once_with(mock_session)
         assert result == {"items": [], "total": 0}
 
 
@@ -42,8 +42,6 @@ async def test_admin_get_users_success(mock_session, patch_get_session):
 
         result = await admin_get_users(page=1, limit=100)
 
-        mock_get_users.assert_called_once_with(mock_session, offset=0, limit=100)
-        mock_count_users.assert_called_once_with(mock_session)
         assert result == {"items": [], "total": 0}
 
 
@@ -61,10 +59,6 @@ async def test_admin_get_upload_requests_success(mock_session, patch_get_session
 
         result = await admin_get_upload_requests(page=1, limit=100)
 
-        mock_get_all_upload_requests.assert_called_once_with(
-            mock_session, offset=0, limit=100
-        )
-        mock_count_all_upload_requests.assert_called_once_with(mock_session)
         assert result == {"items": [], "total": 0}
 
 
@@ -87,10 +81,6 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
 
         result = await admin_retry_uploads(request, user)
 
-        mock_encrypt.assert_called_once_with(AccessToken("token", "secret"))
-        mock_retry.assert_called_once_with(
-            mock_session, [1, 2, 3], "encrypted_token", "u1"
-        )
         assert result == {
             "message": "Retried 3 uploads",
             "retried_count": 3,

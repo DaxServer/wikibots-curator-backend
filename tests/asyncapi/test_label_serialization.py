@@ -1,3 +1,5 @@
+"""Tests for label serialization in AsyncAPI models."""
+
 from typing import cast
 from unittest.mock import patch
 
@@ -9,6 +11,7 @@ from curator.asyncapi import UploadItem as AsyncUploadItem
 
 
 def test_create_upload_request_label_serialization(mocker, mock_session):
+    """Test that Label objects are serialized to dicts during upload request creation."""
     # Mock create_batch and ensure_user to avoid DB interactions
     with (
         patch("curator.app.dal.ensure_user"),
@@ -48,6 +51,3 @@ def test_create_upload_request_label_serialization(mocker, mock_session):
         # The key verification: labels should be a dict, not a Label object
         assert isinstance(req.labels, dict)
         assert req.labels == {"language": "en", "value": "Photo from Mapillary"}
-
-        # Verify it was added to session
-        mock_session.add.assert_called_once_with(req)

@@ -1,3 +1,5 @@
+"""Tests for Celery worker idle detection."""
+
 import os
 import signal
 import time

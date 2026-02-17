@@ -1,3 +1,5 @@
+"""Tests for worker event loop management."""
+
 from unittest.mock import patch
 
 import pytest

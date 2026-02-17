@@ -1,3 +1,5 @@
+"""Tests for batch cancellation operations in data access layer."""
+
 from unittest.mock import MagicMock
 
 import pytest

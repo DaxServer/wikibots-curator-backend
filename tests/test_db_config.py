@@ -1,7 +1,10 @@
+"""Tests for database configuration."""
+
 from curator.app.db import engine
 
 
 def test_engine_pool_configuration():
+    """Test that database engine pool is configured with correct settings."""
     # Check if pool_pre_ping is enabled
     assert engine.pool._pre_ping is True
     # Check if pool_recycle is set to 280 seconds

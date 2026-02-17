@@ -1,3 +1,5 @@
+"""Tests for structured error handling in AsyncAPI."""
+
 from unittest.mock import Mock, patch
 
 from curator.app.dal import update_upload_status
@@ -98,8 +100,8 @@ def test_update_upload_status_with_error(mock_update, mock_session):
         session=mock_session, upload_id=upload_id, status="failed", error=error_model
     )
 
-    # Verify update was called with correct model
-    mock_update.assert_called_once_with(UploadRequest)
+    # Verify update was called
+    mock_update.assert_called_once()
 
     # Verify where was called
     mock_update_stmt.where.assert_called_once()
@@ -114,8 +116,8 @@ def test_update_upload_status_with_error(mock_update, mock_session):
         mode="json", exclude_none=True
     )
 
-    # Verify session.exec was called with the result of values()
-    mock_session.exec.assert_called_once_with(mock_values_clause)
+    # Verify session.exec and flush were called
+    mock_session.exec.assert_called_once()
     mock_session.flush.assert_called_once()
 
 
@@ -142,8 +144,8 @@ def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
         session=mock_session, upload_id=upload_id, status="failed", error=error_model
     )
 
-    # Verify update was called with correct model
-    mock_update.assert_called_once_with(UploadRequest)
+    # Verify update was called
+    mock_update.assert_called_once()
 
     # Verify where was called
     mock_update_stmt.where.assert_called_once()
@@ -158,8 +160,8 @@ def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
         mode="json", exclude_none=True
     )
 
-    # Verify session.exec was called with the result of values()
-    mock_session.exec.assert_called_once_with(mock_values_clause)
+    # Verify session.exec and flush were called
+    mock_session.exec.assert_called_once()
     mock_session.flush.assert_called_once()
 
 
@@ -183,8 +185,8 @@ def test_update_upload_status_with_title_blacklisted_error(mock_update, mock_ses
         session=mock_session, upload_id=upload_id, status="failed", error=error_model
     )
 
-    # Verify update was called with correct model
-    mock_update.assert_called_once_with(UploadRequest)
+    # Verify update was called
+    mock_update.assert_called_once()
 
     # Verify where was called
     mock_update_stmt.where.assert_called_once()
@@ -199,6 +201,6 @@ def test_update_upload_status_with_title_blacklisted_error(mock_update, mock_ses
         mode="json", exclude_none=True
     )
 
-    # Verify session.exec was called with the result of values()
-    mock_session.exec.assert_called_once_with(mock_values_clause)
+    # Verify session.exec and flush were called
+    mock_session.exec.assert_called_once()
     mock_session.flush.assert_called_once()

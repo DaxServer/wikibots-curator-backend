@@ -1,3 +1,5 @@
+"""Tests for global exception handling."""
+
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -18,6 +20,7 @@ def raise_http_error_route():
 
 
 def test_exception_handler():
+    """Test that ValueError is caught and returns 500 with error message."""
     response = client.get("/test-error")
     assert response.status_code == 500
     data = response.json()
@@ -26,6 +29,7 @@ def test_exception_handler():
 
 
 def test_http_exception_handler():
+    """Test that HTTPException preserves status code and detail message."""
     response = client.get("/test-http-error")
     assert response.status_code == 404
     data = response.json()

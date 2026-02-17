@@ -1,3 +1,5 @@
+"""Tests for cancel operation in WebSocket handler."""
+
 from unittest.mock import patch
 
 import pytest

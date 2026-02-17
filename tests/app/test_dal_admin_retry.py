@@ -1,3 +1,5 @@
+"""Tests for admin retry operations in data access layer."""
+
 from curator.app.dal import retry_selected_uploads
 from curator.app.models import UploadRequest
 

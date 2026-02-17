@@ -1,3 +1,5 @@
+"""Tests for authentication dependencies and middleware."""
+
 import pytest
 from fastapi import HTTPException
 from mwoauth import AccessToken

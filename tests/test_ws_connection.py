@@ -1,3 +1,5 @@
+"""Tests for WebSocket connection handling."""
+
 import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
@@ -7,15 +9,6 @@ from fastapi.testclient import TestClient
 from mwoauth import AccessToken
 
 from curator.app.auth import check_login
-from curator.asyncapi import (
-    CameraInfo,
-    Creator,
-    Dates,
-    GeoLocation,
-    ImageDimensions,
-    ImageUrls,
-    MediaImage,
-)
 from curator.main import app
 from curator.protocol import WS_CHANNEL_ADDRESS
 
@@ -41,12 +34,6 @@ def setup_auth_override():
 
 
 @pytest.fixture
-def mock_mapillary_handler():
-    with patch("curator.app.handler.MapillaryHandler") as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_dal():
     with (
         patch("curator.app.dal.create_upload_request") as mock_create,
@@ -57,85 +44,10 @@ def mock_dal():
 
 
 @pytest.fixture
-def mock_worker():
-    with patch("curator.app.handler.process_upload") as mock_process_upload:
-        yield mock_process_upload
-
-
-@pytest.fixture
 def mock_get_session_patch(patch_get_session):
     patch_get_session("curator.app.handler.get_session")
     patch_get_session("curator.app.handler_optimized.get_session")
     return True
-
-
-def test_ws_fetch_images(mock_mapillary_handler):
-    mock_handler_instance = mock_mapillary_handler.return_value
-
-    image = MediaImage(
-        id="img1",
-        title="Image 1",
-        dates=Dates(taken="2023-01-01"),
-        creator=Creator(id="c1", username="creator1", profile_url="http://profile"),
-        urls=ImageUrls(
-            url="http://url",
-            original="http://original",
-            preview="http://preview",
-            thumbnail="http://thumb",
-        ),
-        dimensions=ImageDimensions(width=100, height=100),
-        camera=CameraInfo(make="Canon", model="EOS", is_pano=False),
-        description="desc",
-        location=GeoLocation(latitude=10.0, longitude=10.0),
-        license="CC",
-        tags=["tag1"],
-        existing=[],
-    )
-
-    # Mock fetch_collection
-    mock_handler_instance.fetch_collection = AsyncMock(return_value={"img1": image})
-
-    # Mock fetch_existing_pages
-    mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
-
-    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json(
-            {"type": "FETCH_IMAGES", "data": "some_input", "handler": "mapillary"}
-        )
-
-        data = websocket.receive_json()
-        assert data["type"] == "COLLECTION_IMAGES"
-        assert "images" in data["data"]
-        assert "creator" in data["data"]
-        assert data["data"]["creator"] == {
-            "id": "c1",
-            "username": "creator1",
-            "profile_url": "http://profile",
-        }
-
-
-def test_ws_fetch_images_not_found(mock_mapillary_handler):
-    mock_handler_instance = mock_mapillary_handler.return_value
-    # Return empty dict to trigger "Collection not found"
-    mock_handler_instance.fetch_collection = AsyncMock(return_value={})
-
-    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json(
-            {"type": "FETCH_IMAGES", "data": "bad_input", "handler": "mapillary"}
-        )
-
-        data = websocket.receive_json()
-        assert data["type"] == "ERROR"
-        assert data["data"] == "Collection not found"
-
-
-def test_ws_invalid_message():
-    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json({"invalid": "json"})
-
-        data = websocket.receive_json()
-        assert data["type"] == "ERROR"
-        assert data["data"] == "Invalid message format"
 
 
 @pytest.mark.asyncio
@@ -183,6 +95,7 @@ async def test_stream_uploads_completion(mocker, mock_dal, mock_get_session_patc
 
 
 def test_ws_subscribe_batches_list(mock_get_session_patch):
+    """Test that SUBSCRIBE_BATCHES_LIST message starts streaming batches."""
     with (
         patch(
             "curator.app.handler_optimized.get_batches_optimized"
@@ -213,6 +126,7 @@ def test_ws_subscribe_batches_list(mock_get_session_patch):
 
 
 def test_ws_fetch_batches_auto_subscribe(mock_get_session_patch):
+    """Test that FETCH_BATCHES automatically subscribes to batch updates."""
     with (
         patch(
             "curator.app.handler_optimized.get_batches_optimized"

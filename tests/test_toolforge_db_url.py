@@ -1,9 +1,12 @@
+"""Tests for Toolforge database URL parsing."""
+
 import importlib
 import os
 import sys
 
 
 def test_toolforge_db_url_builds_pymysql():
+    """Test that database URL uses pymysql driver on Toolforge."""
     os.environ["TOOL_TOOLSDB_USER"] = "tools.curator"
     os.environ["TOOL_TOOLSDB_PASSWORD"] = "x"
 

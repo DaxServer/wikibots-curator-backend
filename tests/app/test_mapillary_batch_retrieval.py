@@ -1,3 +1,5 @@
+"""Tests for batch image retrieval from Mapillary."""
+
 from unittest.mock import AsyncMock, patch
 
 import httpx

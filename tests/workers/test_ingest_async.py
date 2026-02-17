@@ -1,3 +1,5 @@
+"""Tests for async operations in ingestion worker."""
+
 from unittest.mock import call
 
 import pytest

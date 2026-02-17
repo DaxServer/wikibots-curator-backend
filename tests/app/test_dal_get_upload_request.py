@@ -1,3 +1,5 @@
+"""Tests for fetching upload requests from database."""
+
 from unittest.mock import MagicMock
 
 from curator.app.dal import get_upload_request
@@ -43,6 +45,7 @@ def test_get_upload_request_with_last_editor(mock_session):
 
 
 def test_get_upload_request_without_last_editor(mock_session):
+    """Test that get_upload_request returns None when last_editor is not set."""
     # Mock UploadRequest
     mock_req = MagicMock()
     mock_req.id = 2
