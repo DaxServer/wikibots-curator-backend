@@ -1,3 +1,5 @@
+"""Tests for timeout handling in Mapillary requests."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

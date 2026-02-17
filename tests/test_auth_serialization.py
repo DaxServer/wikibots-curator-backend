@@ -1,3 +1,5 @@
+"""Tests for authentication token serialization."""
+
 import pytest
 from mwoauth import AccessToken
 

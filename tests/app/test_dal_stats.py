@@ -1,7 +1,10 @@
+"""Tests for statistics aggregation in data access layer."""
+
 from curator.app.dal import get_batches_stats
 
 
 def test_get_batches_stats(mocker, mock_session):
+    """Test that get_batches_stats returns correct statistics for batches."""
     mock_exec_result = mocker.MagicMock()
     mock_session.exec.return_value = mock_exec_result
 

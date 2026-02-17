@@ -1,3 +1,5 @@
+"""Tests for core data access layer functions."""
+
 import pytest
 
 from curator.app.dal import (
@@ -144,6 +146,7 @@ def test_reset_failed_uploads_forbidden(mocker, mock_session):
 
 
 def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
+    """Test that create_upload_requests_for_batch does not persist SDC data."""
     statement = Statement(mainsnak=SomeValueSnak(property="P170"), rank=Rank.NORMAL)
 
     item = UploadItem(

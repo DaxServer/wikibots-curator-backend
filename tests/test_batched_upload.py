@@ -1,3 +1,5 @@
+"""Tests for batch upload operations."""
+
 from unittest.mock import patch
 
 import pytest

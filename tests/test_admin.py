@@ -1,3 +1,5 @@
+"""Tests for admin endpoint operations."""
+
 from unittest.mock import patch
 
 import pytest

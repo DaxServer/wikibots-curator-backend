@@ -1,3 +1,5 @@
+"""Tests for optimized database query functions."""
+
 from datetime import datetime
 
 from curator.app.dal_optimized import (

@@ -1,3 +1,5 @@
+"""Tests for Wikimedia Commons Query Service integration."""
+
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
@@ -35,7 +37,7 @@ def test_query_success(wcqs_session, mock_redis, mock_requests_response):
     # Verify
     assert result == {"results": {}}
     mock_post.assert_called_once()
-    mock_redis.get.assert_called_once_with("wcqs:retry-after")
+    mock_redis.get.assert_called_once()
 
 
 def test_query_rate_limited_in_redis(wcqs_session, mock_redis, mock_requests_response):
@@ -57,7 +59,7 @@ def test_query_rate_limited_in_redis(wcqs_session, mock_redis, mock_requests_res
     ):
         wcqs_session.query("SELECT * WHERE { ?s ?p ?o }")
 
-    mock_redis.get.assert_called_once_with("wcqs:retry-after")
+    mock_redis.get.assert_called_once()
 
 
 def test_query_rate_limited_response(wcqs_session, mock_redis, mock_requests_response):

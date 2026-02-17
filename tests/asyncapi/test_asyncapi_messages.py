@@ -1,3 +1,5 @@
+"""Tests for AsyncAPI message serialization and validation."""
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -16,6 +18,7 @@ adapter = TypeAdapter(ClientMessage)
 
 
 def test_fetch_images_payload():
+    """Test that FETCH_IMAGES message deserializes correctly."""
     data = {"type": "FETCH_IMAGES", "data": "Q42", "handler": "mapillary"}
     obj = adapter.validate_python(data)
     assert isinstance(obj, FetchImages)
@@ -25,6 +28,7 @@ def test_fetch_images_payload():
 
 
 def test_upload_payload():
+    """Test that UPLOAD message deserializes correctly with nested data."""
     data = {
         "type": "UPLOAD",
         "data": {
@@ -52,6 +56,7 @@ def test_upload_payload():
 
 
 def test_subscribe_batch_payload():
+    """Test that SUBSCRIBE_BATCH message deserializes correctly."""
     data = {"type": "SUBSCRIBE_BATCH", "data": 123}
     obj = adapter.validate_python(data)
     assert isinstance(obj, SubscribeBatch)
@@ -60,6 +65,7 @@ def test_subscribe_batch_payload():
 
 
 def test_fetch_batches_payload():
+    """Test that FETCH_BATCHES message deserializes correctly with pagination."""
     data = {
         "type": "FETCH_BATCHES",
         "data": {"page": 1, "limit": 10, "userid": "user123"},
@@ -73,6 +79,7 @@ def test_fetch_batches_payload():
 
 
 def test_fetch_batch_uploads_payload():
+    """Test that FETCH_BATCH_UPLOADS message deserializes correctly."""
     data = {"type": "FETCH_BATCH_UPLOADS", "data": 456}
     obj = adapter.validate_python(data)
     assert isinstance(obj, FetchBatchUploads)
@@ -81,12 +88,14 @@ def test_fetch_batch_uploads_payload():
 
 
 def test_invalid_payload_type():
+    """Test that invalid message type raises ValidationError."""
     data = {"type": "INVALID_TYPE", "data": {}}
     with pytest.raises(ValidationError):  # Pydantic raises ValidationError
         adapter.validate_python(data)
 
 
 def test_fetch_batches_default_values():
+    """Test that FETCH_BATCHES uses default values for optional fields."""
     data = {"type": "FETCH_BATCHES", "data": {}}
     obj = adapter.validate_python(data)
     assert isinstance(obj, FetchBatches)

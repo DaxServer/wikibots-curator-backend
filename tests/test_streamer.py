@@ -1,3 +1,5 @@
+"""Tests for WebSocket streaming functionality."""
+
 import asyncio
 from datetime import datetime
 from unittest.mock import patch

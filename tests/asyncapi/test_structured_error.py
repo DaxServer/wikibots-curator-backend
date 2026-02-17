@@ -1,3 +1,5 @@
+"""Tests for structured error handling in AsyncAPI."""
+
 from unittest.mock import Mock, patch
 
 from curator.app.dal import update_upload_status

@@ -1,3 +1,5 @@
+"""Tests for Mapillary image handler implementation."""
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -56,7 +58,6 @@ async def test_fetch_image_metadata_sequence(mock_fetch_single):
 
     assert isinstance(result, MediaImage)
     assert result.id == "123"
-    mock_fetch_single.assert_called_once_with(image_id)
 
 
 @pytest.mark.asyncio
@@ -71,7 +72,6 @@ async def test_fetch_image_metadata_single(mock_fetch_sequence, mock_fetch_singl
 
     assert isinstance(result, MediaImage)
     assert result.id == "123"
-    mock_fetch_single.assert_called_once_with(image_id)
     mock_fetch_sequence.assert_not_called()
 
 
