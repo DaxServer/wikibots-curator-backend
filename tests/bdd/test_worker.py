@@ -58,7 +58,7 @@ def step_given_dup(mocker):
 def step_given_upload_title(engine, status, title):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        b = Batch(userid="12345")
+        b = Batch(userid="12345", edit_group_id="testbatch12345")
         s.add(b)
         s.commit()
         s.refresh(b)

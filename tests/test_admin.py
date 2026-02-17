@@ -81,18 +81,16 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
     request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3])
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
-        patch("curator.admin.retry_selected_uploads") as mock_retry,
+        patch("curator.admin.retry_selected_uploads_to_new_batch") as mock_retry,
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = [1, 2, 3]
+        mock_retry.return_value = ([1, 2, 3], "adminretry123")
 
         result = await admin_retry_uploads(request, user)
 
         mock_encrypt.assert_called_once_with(AccessToken("token", "secret"))
-        mock_retry.assert_called_once_with(
-            mock_session, [1, 2, 3], "encrypted_token", "u1"
-        )
+        mock_retry.assert_called_once()
         assert result == {
             "message": "Retried 3 uploads",
             "retried_count": 3,
@@ -106,7 +104,9 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
             assert len(call[1]["args"]) == 2  # upload_id and edit_group_id
             assert isinstance(call[1]["args"][0], int)  # upload_id is an integer
             assert isinstance(call[1]["args"][1], str)  # edit_group_id is a string
-            assert len(call[1]["args"][1]) == 12  # edit_group_id is 12 characters
+            assert (
+                call[1]["args"][1] == "adminretry123"
+            )  # Uses new batch's edit_group_id
             assert (
                 call[1]["queue"] == QUEUE_PRIVILEGED
             )  # Admin retries use privileged queue
@@ -128,11 +128,11 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
     request = RetrySelectedUploadsRequest(upload_ids=[1, 2, 3, 4])
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
-        patch("curator.admin.retry_selected_uploads") as mock_retry,
+        patch("curator.admin.retry_selected_uploads_to_new_batch") as mock_retry,
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = [1, 3]  # Only 1 and 3 were retried
+        mock_retry.return_value = ([1, 3], "adminretry456")  # Only 1 and 3 were retried
 
         result = await admin_retry_uploads(request, user)
 
@@ -144,9 +144,10 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
 
         # Only 2 tasks should be queued
         assert mock_task.call_count == 2
-        # Verify both use privileged queue
+        # Verify both use privileged queue and the new batch's edit_group_id
         for call in mock_task.call_args_list:
             assert call[1]["queue"] == QUEUE_PRIVILEGED
+            assert call[1]["args"][1] == "adminretry456"
 
 
 @pytest.mark.asyncio
@@ -161,11 +162,11 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
     request = RetrySelectedUploadsRequest(upload_ids=[])
     with (
         patch("curator.admin.encrypt_access_token") as mock_encrypt,
-        patch("curator.admin.retry_selected_uploads") as mock_retry,
+        patch("curator.admin.retry_selected_uploads_to_new_batch") as mock_retry,
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = []
+        mock_retry.return_value = ([], None)
 
         result = await admin_retry_uploads(request, user)
 

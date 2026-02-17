@@ -7,6 +7,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import class_mapper, selectinload
 from sqlmodel import Session, col, func, select, update
 
+from curator.app.crypto import generate_edit_group_id
 from curator.app.models import Batch, StructuredError, UploadItem, UploadRequest, User
 from curator.asyncapi import (
     BatchItem,
@@ -108,7 +109,8 @@ def create_batch(session: Session, userid: str, username: str) -> Batch:
 
     Returns the `Batch` instance.
     """
-    batch = Batch(userid=userid)
+    edit_group_id = generate_edit_group_id()
+    batch = Batch(userid=userid, edit_group_id=edit_group_id)
     session.add(batch)
     session.flush()
 
@@ -585,3 +587,118 @@ def cancel_batch(
     session.flush()
 
     return cancelled_uploads
+
+
+def retry_selected_uploads_to_new_batch(
+    session: Session,
+    upload_ids: list[int],
+    encrypted_access_token: str,
+    admin_userid: str,
+    admin_username: str,
+) -> tuple[list[int], str | None]:
+    """
+    Create copies of selected uploads in a new batch.
+    Original uploads remain unchanged in their original batches.
+
+    Returns a tuple of (new_upload_ids, edit_group_id).
+    """
+    if not upload_ids:
+        return [], None
+
+    statement = select(UploadRequest).where(
+        col(UploadRequest.id).in_(upload_ids),
+        col(UploadRequest.status) != "in_progress",
+    )
+    uploads = session.exec(statement).all()
+
+    if not uploads:
+        return [], None
+
+    new_batch = create_batch(
+        session=session, userid=admin_userid, username=admin_username
+    )
+
+    new_ids = []
+    for upload in uploads:
+        new_upload = UploadRequest(
+            batchid=new_batch.id,
+            userid=admin_userid,
+            status="queued",
+            key=upload.key,
+            handler=upload.handler,
+            collection=upload.collection,
+            access_token=encrypted_access_token,
+            filename=upload.filename,
+            wikitext=upload.wikitext,
+            copyright_override=upload.copyright_override,
+            sdc=upload.sdc,
+            labels=upload.labels,
+            result=None,
+            error=None,
+            success=None,
+            celery_task_id=None,
+        )
+        session.add(new_upload)
+        session.flush()
+        new_ids.append(new_upload.id)
+
+    session.flush()
+    return new_ids, new_batch.edit_group_id
+
+
+def reset_failed_uploads_to_new_batch(
+    session: Session,
+    batchid: int,
+    userid: str,
+    encrypted_access_token: str,
+    username: str,
+) -> tuple[list[int], str | None]:
+    """
+    Create copies of failed uploads in a new batch.
+    Original uploads remain unchanged in their original batch.
+
+    Returns a tuple of (new_upload_ids, edit_group_id).
+    """
+    batch = session.get(Batch, batchid)
+    if not batch:
+        raise ValueError("Batch not found")
+
+    if batch.userid != userid:
+        raise PermissionError("Permission denied")
+
+    statement = select(UploadRequest).where(
+        UploadRequest.batchid == batchid, UploadRequest.status == "failed"
+    )
+    failed_uploads = session.exec(statement).all()
+
+    if not failed_uploads:
+        return [], None
+
+    new_batch = create_batch(session=session, userid=userid, username=username)
+
+    new_ids = []
+    for upload in failed_uploads:
+        new_upload = UploadRequest(
+            batchid=new_batch.id,
+            userid=userid,
+            status="queued",
+            key=upload.key,
+            handler=upload.handler,
+            collection=upload.collection,
+            access_token=encrypted_access_token,
+            filename=upload.filename,
+            wikitext=upload.wikitext,
+            copyright_override=upload.copyright_override,
+            sdc=upload.sdc,
+            labels=upload.labels,
+            result=None,
+            error=None,
+            success=None,
+            celery_task_id=None,
+        )
+        session.add(new_upload)
+        session.flush()
+        new_ids.append(new_upload.id)
+
+    session.flush()
+    return new_ids, new_batch.edit_group_id

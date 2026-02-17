@@ -110,7 +110,7 @@ def step_given_std_user(username, mocker, session_context):
 def step_given_batch(engine, batch_id, userid):
     with Session(engine) as s:
         s.merge(User(userid=userid, username="testuser"))
-        s.add(Batch(id=batch_id, userid=userid))
+        s.add(Batch(id=batch_id, userid=userid, edit_group_id="testbatch12345"))
         s.commit()
 
 
@@ -123,7 +123,7 @@ def step_given_upload_req(engine, status, key):
         b = s.get(Batch, 1)  # Try to get batch with id=1
         if not b:
             # Create a batch for the upload request
-            b = Batch(id=1, userid="12345")
+            b = Batch(id=1, userid="12345", edit_group_id="testbatch12345")
             s.add(b)
             s.commit()
 
@@ -150,7 +150,7 @@ def step_given_upload_req(engine, status, key):
 def step_given_upload_req_batch1(engine, status, key):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
+        s.merge(Batch(id=1, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
 
         s.add(
@@ -173,7 +173,7 @@ def step_given_upload_in_batch1(engine, status):
     """Create an upload request with given status in batch 1"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
+        s.merge(Batch(id=1, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
 
         s.add(
@@ -198,7 +198,7 @@ def step_given_multiple_uploads_batch1(engine, count, status):
     """Create multiple upload requests with given status in batch 1"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
+        s.merge(Batch(id=1, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
 
         for i in range(count):
@@ -223,7 +223,7 @@ def step_given_batches(engine, count):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
         for i in range(count):
-            s.add(Batch(userid="12345"))
+            s.add(Batch(userid="12345", edit_group_id=f"batch{i:06d}"))
         s.commit()
 
 
@@ -240,7 +240,7 @@ def step_given_uploads_in_batch(engine, count, batch_id):
     """Create multiple upload requests in a specific batch"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=batch_id, userid="12345"))
+        s.merge(Batch(id=batch_id, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
 
         for i in range(count):
@@ -280,7 +280,7 @@ def step_given_upload_requests_count(engine, count):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
         for i in range(count):
-            b = Batch(userid="12345")
+            b = Batch(userid="12345", edit_group_id=f"batch{i:06d}")
             s.add(b)
             s.commit()
             s.refresh(b)
@@ -318,7 +318,7 @@ def step_given_batch_uploads(engine, batch_id):
     """Create 2 upload requests with different statuses (completed and failed) in batch"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=batch_id, userid="12345"))
+        s.merge(Batch(id=batch_id, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
         b = s.exec(select(Batch).where(Batch.id == batch_id)).first()
         assert b is not None
@@ -374,7 +374,7 @@ def step_given_batches_exist(engine, count):
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
         for i in range(1, count + 1):
-            s.merge(Batch(id=i, userid="12345"))
+            s.merge(Batch(id=i, userid="12345", edit_group_id=f"batch{i:06d}"))
         s.commit()
 
 
@@ -383,7 +383,7 @@ def step_given_upload_requests_exist(engine, status):
     """Create multiple upload requests with given status"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
+        s.merge(Batch(id=1, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
         for i in range(1, 4):
             s.add(
@@ -411,7 +411,7 @@ def step_given_upload_with_id(engine, status, upload_id):
     """Create an upload request with specific status and ID"""
     with Session(engine) as s:
         s.merge(User(userid="12345", username="testuser"))
-        s.merge(Batch(id=1, userid="12345"))
+        s.merge(Batch(id=1, userid="12345", edit_group_id="testbatch12345"))
         s.commit()
         s.add(
             UploadRequest(

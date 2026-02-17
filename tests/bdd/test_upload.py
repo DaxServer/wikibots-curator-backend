@@ -84,6 +84,15 @@ def then_batch_msg(mock_sender, created_batch_id):
     mock_sender.send_batch_created.assert_called_once_with(created_batch_id)
 
 
+@then("the batch should have an edit_group_id")
+def then_batch_has_edit_group_id(engine, created_batch_id):
+    with Session(engine) as s:
+        b = s.get(Batch, created_batch_id)
+        assert b is not None
+        assert b.edit_group_id is not None
+        assert len(b.edit_group_id) == 12
+
+
 @then(
     parsers.parse(
         "{count:d} upload requests should be created in the database for batch {batch_id:d}"
@@ -110,6 +119,10 @@ def then_enqueued(u_res, count):
 
 @then(parsers.parse("I should receive an acknowledgment for slice {slice_id:d}"))
 def then_ack(mock_sender, slice_id):
+    # Check if an error was sent instead
+    if mock_sender.send_error.called:
+        error_msg = mock_sender.send_error.call_args[0][0]
+        raise AssertionError(f"Expected acknowledgment but got error: {error_msg}")
     mock_sender.send_upload_slice_ack.assert_called_once()
     # Verify the correct slice_id was acknowledged
     call_kwargs = mock_sender.send_upload_slice_ack.call_args.kwargs
