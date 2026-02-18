@@ -6,19 +6,14 @@ from typing import Any, Optional
 
 import httpx
 
+from curator.app.errors import DuplicateUploadError
 from curator.app.mediawiki_client import MediaWikiClient
-from curator.asyncapi import ErrorLink, Label, Statement
+from curator.asyncapi import Label, Statement
 
 logger = logging.getLogger(__name__)
 
 # Maximum number of retries for Mapillary image download errors
 MAX_DOWNLOAD_RETRIES = 2
-
-
-class DuplicateUploadError(Exception):
-    def __init__(self, duplicates: list[ErrorLink], message: str):
-        super().__init__(message)
-        self.duplicates = duplicates
 
 
 def upload_file_chunked(

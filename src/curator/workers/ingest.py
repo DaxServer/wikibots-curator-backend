@@ -3,7 +3,6 @@ import logging
 from typing import Literal
 
 from curator.app.commons import (
-    DuplicateUploadError,
     apply_sdc,
     fetch_sdc_from_api,
     upload_file_chunked,
@@ -15,6 +14,7 @@ from curator.app.dal import (
     update_upload_status,
 )
 from curator.app.db import get_session
+from curator.app.errors import DuplicateUploadError
 from curator.app.mediawiki_client import MediaWikiClient, create_mediawiki_client
 from curator.app.models import (
     StructuredError,

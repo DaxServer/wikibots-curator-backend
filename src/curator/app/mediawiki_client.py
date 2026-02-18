@@ -16,6 +16,7 @@ from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
+from curator.app.errors import DuplicateUploadError
 from curator.asyncapi import ErrorLink
 
 logger = logging.getLogger(__name__)
@@ -276,7 +277,43 @@ class MediaWikiClient:
 
                 # For stashed chunks, we get a file key
                 if "upload" in data:
-                    file_key = data["upload"].get("filekey")
+                    result = data["upload"]
+
+                    # Check if this is the final chunk with Success result
+                    if result.get("result") == "Success":
+                        title = result.get("filename", result.get("title"))
+                        imageinfo = result.get("imageinfo", {})
+                        image_url = imageinfo.get("descriptionurl")
+
+                        # Check for warnings
+                        warnings = result.get("warnings", {})
+                        if "duplicate" in warnings:
+                            dup_titles = warnings["duplicate"]
+                            duplicates = [
+                                ErrorLink(
+                                    title=d,
+                                    url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
+                                )
+                                for d in dup_titles
+                            ]
+                            raise DuplicateUploadError(
+                                duplicates, f"File already exists as {dup_titles}"
+                            )
+
+                        if warnings:
+                            logger.warning(warnings)
+                            return UploadResult(
+                                success=False,
+                                error=f"Upload warnings: {warnings}",
+                            )
+
+                        return UploadResult(
+                            success=True,
+                            title=title,
+                            url=image_url,
+                        )
+
+                    file_key = result.get("filekey")
 
                 logger.info(
                     f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}"

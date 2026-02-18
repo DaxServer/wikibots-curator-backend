@@ -89,25 +89,33 @@ Abstract `Handler` class in `handlers/interfaces.py` defines the contract for im
 
 Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
 
+### Retry Functionality
+
+Retry functionality allows users and admins to retry failed uploads. The current implementation creates new `UploadRequest` objects (copies) in a new batch rather than modifying the originals. This preserves the original failed uploads in the original batch for history/audit purposes.
+
+- `dal.reset_failed_uploads_to_new_batch()` - User retry, creates copies of failed uploads in new batch
+- `dal.retry_selected_uploads_to_new_batch()` - Admin retry, same pattern
+- After enqueueing Celery tasks, `update_celery_task_id()` is called to enable cancellation
+
 ### Rate Limiting with Privileged Users
 - Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
 - Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
 - Celery tasks are spaced out to match allowed rate, preventing API throttling
-- Tasks dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
-- Queue constants defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
+- Tasks are dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
+- Queue constants are defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
 
-### MediaWiki Client Patterns
-- **Use `MediaWikiClient`** - All Wikimedia Commons operations must use the `MediaWikiClient` class.
-- **Use `create_mediawiki_client()`** - Helper function in `mediawiki_client.py` to create authenticated clients.
-- **No Global State** - Pass `MediaWikiClient` instances where needed, or create them.
-- **Async/Await** - Prefer async methods where available (or `asyncio.to_thread` for synchronous calls if needed).
-- **Close Resources** - Always ensure `client.close()` is called (e.g. using `try...finally`).
-- **File Uploads** - `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency. Use `NamedTemporaryFile()` for large files.
-- **Upload Orchestration** - Use `commons.py:upload_file_chunked()` for complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
-- **SDC fetching by title**: Use `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid extra API call to fetch page ID
-- **wbgetentities response when using sites/titles**: Entity is keyed by entity ID, not title - extract first entity with `next(iter(entities))`
-- **Distinguish "missing" cases**: Entity ID "-1" with site/title keys = non-existent file (raise error); positive entity ID with "missing" key = file exists but no SDC (return None)
+### MediaWiki Client
+- `MediaWikiClient` class handles all Wikimedia Commons operations
+- `create_mediawiki_client()` in `mediawiki_client.py` creates authenticated clients
+- Client instances are passed where needed (no global state)
+- Async methods are preferred where available, or use `asyncio.to_thread` for synchronous calls
+- Always close clients after use (e.g., using `try...finally`)
+- `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency - use `NamedTemporaryFile()` for large files
+- `commons.py:upload_file_chunked()` provides the complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
+- When fetching SDC by title, use `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid an extra API call to fetch page ID
+- When using `sites`/`titles` in wbgetentities, the entity is keyed by entity ID, not title - extract with `next(iter(entities))`
+- Entity ID "-1" with site/title keys means non-existent file (raise error); positive entity ID with "missing" key means file exists but has no SDC (return None)
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
@@ -147,13 +155,12 @@ poetry run alembic upgrade head
 ## Testing
 
 - `pytest` with tests in `tests/`
-- **Import placement:** All imports must be at the top of test files, never inline in test functions
-- **Cache cleanup**: After removing code or dependencies, clean Python cache: `find . -type d -name "__pycache__" -exec rm -rf {} +`
+- All imports are at the top of test files (no inline imports)
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
-- **pytest timeout:** Configured to `0` (disabled) in `pytest.ini` - tests have no timeout limit
-- **Mock Structure:** Mock objects must match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
-- **Celery task mocks:** When mocking `process_upload.apply_async()`, check `call[1]["queue"]` and `call[1]["args"]` for kwargs
-- **AsyncMock Assertions:** Use `assert_called_once_with()` for keyword arguments
+- pytest timeout is configured to `0` (disabled) in `pytest.ini`
+- Mock objects match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
+- When mocking `process_upload.apply_async()`, the queue is checked via `call[1]["queue"]` and args via `call[1]["args"]`
+- AsyncMock assertions use `assert_called_once_with()` for keyword arguments
 
 ## Configuration
 
@@ -170,10 +177,46 @@ All configuration via environment variables:
 
 ## Important Notes
 
-- **Type errors in `dal_optimized.py` are known and should be ignored**
-- **Type errors in `alembic/` are known and should be ignored**
-- **Unreachable code pattern**: For functions that always return or raise an exception, add `raise AssertionError("Unreachable")` at the end to satisfy the type checker
-- **AsyncAPI models are auto-generated - do not edit manually**
-- **Large file uploads** - Use `NamedTemporaryFile()` with streaming downloads (see `commons.py`) to avoid OOM on large files
+- Type errors in `dal_optimized.py` are known and should be ignored
+- Type errors in `alembic/` are known and should be ignored
+- For functions that always return or raise an exception, add `raise AssertionError("Unreachable")` at the end to satisfy the type checker
+- AsyncAPI models are auto-generated from `frontend/asyncapi.json` - do not edit manually
+- Large file uploads use `NamedTemporaryFile()` with streaming downloads (see `commons.py`) to avoid OOM
 - Use `get_session()` dependency for database sessions, don't create sessions directly
 - Follow layered architecture: routes → handlers → DAL → models
+
+## Common Pitfalls and Troubleshooting
+
+### Test Fixture Issues
+
+The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` that patches many external dependencies. This fixture is designed for BDD tests but can cause issues with other tests. If tests fail with strange errors:
+
+- Check if the test needs to be isolated from the autouse fixture
+- The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
+- Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
+
+### Circular Imports
+
+When adding imports between core modules (`commons.py`, `mediawiki_client.py`, etc.), be aware of circular dependencies:
+
+- `commons.py` imports from `mediawiki_client.py`
+- `mediawiki_client.py` should NOT import from `commons.py` directly
+- For shared exceptions like `DuplicateUploadError`, use a dedicated `errors.py` module that only imports from `asyncapi` (which has no dependencies on other app modules)
+- Import exceptions inside functions if needed to avoid circular imports: `from curator.app.errors import DuplicateUploadError`
+
+### Writing Tests with Patches
+
+When mocking file operations or other builtins, use a single `with` statement with comma-separated patches:
+
+```python
+# Wrong (nested with statements)
+with patch("os.path.getsize", return_value=1000):
+    with patch("builtins.open", mock_open(read_data=b"data")):
+        result = func()
+
+# Correct (single with statement)
+with patch("os.path.getsize", return_value=1000), patch(
+    "builtins.open", mock_open(read_data=b"data")
+):
+    result = func()
+```
