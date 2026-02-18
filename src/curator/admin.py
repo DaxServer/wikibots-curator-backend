@@ -107,13 +107,18 @@ async def admin_retry_uploads(
             "requested_count": len(request.upload_ids),
         }
 
+    tasks_to_update = []
     for upload_id in reset_ids:
         task_result = process_upload.apply_async(
             args=[upload_id, edit_group_id], queue=QUEUE_PRIVILEGED
         )
         task_id = task_result.id
         if isinstance(task_id, str):
-            with get_session() as session:
+            tasks_to_update.append((upload_id, task_id))
+
+    if tasks_to_update:
+        with get_session() as session:
+            for upload_id, task_id in tasks_to_update:
                 update_celery_task_id(session, upload_id, task_id)
 
     return {

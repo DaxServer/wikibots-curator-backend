@@ -618,7 +618,7 @@ def retry_selected_uploads_to_new_batch(
         session=session, userid=admin_userid, username=admin_username
     )
 
-    new_ids = []
+    new_uploads = []
     for upload in uploads:
         new_upload = UploadRequest(
             batchid=new_batch.id,
@@ -638,11 +638,12 @@ def retry_selected_uploads_to_new_batch(
             success=None,
             celery_task_id=None,
         )
-        session.add(new_upload)
-        session.flush()
-        new_ids.append(new_upload.id)
+        new_uploads.append(new_upload)
 
+    session.add_all(new_uploads)
     session.flush()
+    new_ids = [u.id for u in new_uploads]
+
     return new_ids, new_batch.edit_group_id
 
 
@@ -676,7 +677,7 @@ def reset_failed_uploads_to_new_batch(
 
     new_batch = create_batch(session=session, userid=userid, username=username)
 
-    new_ids = []
+    new_uploads = []
     for upload in failed_uploads:
         new_upload = UploadRequest(
             batchid=new_batch.id,
@@ -696,9 +697,10 @@ def reset_failed_uploads_to_new_batch(
             success=None,
             celery_task_id=None,
         )
-        session.add(new_upload)
-        session.flush()
-        new_ids.append(new_upload.id)
+        new_uploads.append(new_upload)
 
+    session.add_all(new_uploads)
     session.flush()
+    new_ids = [u.id for u in new_uploads]
+
     return new_ids, new_batch.edit_group_id

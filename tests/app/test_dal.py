@@ -234,7 +234,12 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
             obj.id = len(created_uploads) + 100
             created_uploads.append(obj)
 
+    def mock_add_all(objs):
+        for obj in objs:
+            mock_add(obj)
+
     mock_session.add.side_effect = mock_add
+    mock_session.add_all.side_effect = mock_add_all
 
     new_batch_id = 456
 
@@ -337,7 +342,12 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
             obj.id = len(created_uploads) + 500
             created_uploads.append(obj)
 
+    def mock_add_all(objs):
+        for obj in objs:
+            mock_add(obj)
+
     mock_session.add.side_effect = mock_add
+    mock_session.add_all.side_effect = mock_add_all
 
     new_batch_id = 999
 
