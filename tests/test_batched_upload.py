@@ -28,6 +28,12 @@ async def test_create_batch(mocker, handler_instance, mock_sender, mock_session)
 
 @pytest.mark.asyncio
 async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session):
+    # Mock batch with edit_group_id
+    mock_batch = mocker.MagicMock()
+    mock_batch.id = 123
+    mock_batch.edit_group_id = "abc123def456"
+    mock_session.get.return_value = mock_batch
+
     with (
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
@@ -74,6 +80,7 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
             call_kwargs["args"][1], str
         )  # Second arg is edit_group_id string
         assert len(call_kwargs["args"][1]) == 12  # edit_group_id is 12 characters
+        assert call_kwargs["args"][1] == "abc123def456"  # Uses batch's edit_group_id
         assert call_kwargs["queue"] in [
             QUEUE_PRIVILEGED,
             QUEUE_NORMAL,
@@ -88,6 +95,12 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
 async def test_upload_slice_multiple_items(
     mocker, handler_instance, mock_sender, mock_session
 ):
+    # Mock batch with edit_group_id
+    mock_batch = mocker.MagicMock()
+    mock_batch.id = 123
+    mock_batch.edit_group_id = "xyz789uvw012"
+    mock_session.get.return_value = mock_batch
+
     with (
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
@@ -132,9 +145,10 @@ async def test_upload_slice_multiple_items(
         mock_create_reqs.assert_called_once()
         # Verify process_upload.apply_async was called twice
         assert mock_process_upload.apply_async.call_count == 2
-        # Verify both calls have queue parameter
+        # Verify both calls have queue parameter and use batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
             assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["args"][1] == "xyz789uvw012"  # Uses batch's edit_group_id
 
         # Verify send_upload_slice_ack was called with data and sliceid
         mock_sender.send_upload_slice_ack.assert_called_once()

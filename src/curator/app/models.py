@@ -49,6 +49,7 @@ class Batch(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
+    edit_group_id: str | None = Field(default=None, max_length=12)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
         default_factory=datetime.now,

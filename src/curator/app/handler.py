@@ -11,7 +11,6 @@ from curator.app.config import QueuePriority
 from curator.app.crypto import (
     decrypt_access_token,
     encrypt_access_token,
-    generate_edit_group_id,
 )
 from curator.app.dal import (
     cancel_batch,
@@ -21,13 +20,13 @@ from curator.app.dal import (
     ensure_user,
     get_batch,
     get_upload_request,
-    reset_failed_uploads,
+    reset_failed_uploads_to_new_batch,
     update_celery_task_id,
 )
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.app.mediawiki_client import MediaWikiClient
-from curator.app.models import UploadItem
+from curator.app.models import Batch, UploadItem
 from curator.app.rate_limiter import (
     get_next_upload_delay,
     get_rate_limit_for_batch,
@@ -253,6 +252,17 @@ class Handler:
         )
 
         with get_session() as session:
+            # Fetch batch to get its edit_group_id
+            batch = session.get(Batch, batchid)
+            if not batch:
+                await self.socket.send_error(f"Batch {batchid} not found")
+                return
+
+            edit_group_id = batch.edit_group_id
+            if not edit_group_id:
+                await self.socket.send_error(f"Batch {batchid} has no edit_group_id")
+                return
+
             reqs = create_upload_requests_for_batch(
                 session=session,
                 userid=self.user["userid"],
@@ -280,7 +290,6 @@ class Handler:
         )
         queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
 
-        edit_group_id = generate_edit_group_id()
         with get_session() as save_session:
             for upload_id in to_enqueue:
                 delay = await asyncio.to_thread(
@@ -362,8 +371,8 @@ class Handler:
 
         try:
             with get_session() as session:
-                retried_ids = reset_failed_uploads(
-                    session, batchid, userid, encrypted_access_token
+                retried_ids, edit_group_id = reset_failed_uploads_to_new_batch(
+                    session, batchid, userid, encrypted_access_token, self.username
                 )
         except ValueError:
             await self.socket.send_error(f"Batch {batchid} not found")
@@ -372,15 +381,14 @@ class Handler:
             await self.socket.send_error("Permission denied")
             return
 
-        if not retried_ids:
+        if not retried_ids or not edit_group_id:
             logger.info(
                 f"[ws] [resp] No failed uploads to retry for batch {batchid} for {self.username}"
             )
             await self.socket.send_error("No failed uploads to retry")
             return
 
-        # Enqueue retries
-        edit_group_id = generate_edit_group_id()
+        # Enqueue retries with new batch's edit_group_id
         # Get rate limit to determine queue
         access_token = decrypt_access_token(encrypted_access_token)
         client = MediaWikiClient(access_token)

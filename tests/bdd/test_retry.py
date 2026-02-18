@@ -111,10 +111,18 @@ def when_admin_retry_empty(client, mocker, admin_user):
 @then(parsers.parse('the upload requests should be reset to "{status}" status'))
 def then_reset_status(engine, status):
     with Session(engine) as s:
-        ups = s.exec(select(UploadRequest).where(UploadRequest.userid == "12345")).all()
-        assert len(ups) > 0
-        for up in ups:
-            assert up.status == status
+        original_uploads = s.exec(
+            select(UploadRequest).where(
+                UploadRequest.userid == "12345", UploadRequest.batchid == 1
+            )
+        ).all()
+        for up in original_uploads:
+            assert up.status == "failed"
+
+        queued_uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == status)
+        ).all()
+        assert len(queued_uploads) > 0
 
 
 @then("I should receive a confirmation with the number of retries")
@@ -157,9 +165,15 @@ def then_retry_count(admin_retry_result, retried, requested):
 @then(parsers.parse("only upload ID {upload_id:d} should be queued"))
 def then_specific_upload_queued(engine, upload_id):
     with Session(engine) as s:
-        up = s.get(UploadRequest, upload_id)
-        assert up is not None
-        assert up.status == "queued"
+        original_up = s.get(UploadRequest, upload_id)
+        assert original_up is not None
+        assert original_up.status == "failed"
+
+        queued_uploads = s.exec(
+            select(UploadRequest).where(UploadRequest.status == "queued")
+        ).all()
+        assert len(queued_uploads) == 1
+        assert queued_uploads[0].key == original_up.key
 
 
 @then("the response should indicate 0 retried")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from curator.app.auth import LoggedInUser
-from curator.app.crypto import encrypt_access_token, generate_edit_group_id
+from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
     count_all_upload_requests,
     count_batches,
@@ -9,7 +9,8 @@ from curator.app.dal import (
     get_all_upload_requests,
     get_batches,
     get_users,
-    retry_selected_uploads,
+    retry_selected_uploads_to_new_batch,
+    update_celery_task_id,
 )
 from curator.app.db import get_session
 from curator.app.models import RetrySelectedUploadsRequest, UploadRequest
@@ -89,17 +90,36 @@ async def admin_retry_uploads(
     with get_session() as session:
         encrypted_token = encrypt_access_token(user["access_token"])
 
-        reset_ids = retry_selected_uploads(
-            session, request.upload_ids, encrypted_token, user["userid"]
+        reset_ids, edit_group_id = retry_selected_uploads_to_new_batch(
+            session,
+            request.upload_ids,
+            encrypted_token,
+            user["userid"],
+            user["username"],
         )
 
-    # Queue the uploads for processing (admin retries always use privileged queue)
-    edit_group_id = generate_edit_group_id()
+    # Queue the uploads for processing with new batch's edit_group_id (admin retries always use privileged queue)
 
+    if not reset_ids or not edit_group_id:
+        return {
+            "message": "Retried 0 uploads",
+            "retried_count": 0,
+            "requested_count": len(request.upload_ids),
+        }
+
+    tasks_to_update = []
     for upload_id in reset_ids:
-        process_upload.apply_async(
+        task_result = process_upload.apply_async(
             args=[upload_id, edit_group_id], queue=QUEUE_PRIVILEGED
         )
+        task_id = task_result.id
+        if isinstance(task_id, str):
+            tasks_to_update.append((upload_id, task_id))
+
+    if tasks_to_update:
+        with get_session() as session:
+            for upload_id, task_id in tasks_to_update:
+                update_celery_task_id(session, upload_id, task_id)
 
     return {
         "message": f"Retried {len(reset_ids)} uploads",
