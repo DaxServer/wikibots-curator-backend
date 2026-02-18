@@ -268,6 +268,7 @@ class MediaWikiClient:
                 )
 
                 if "error" in data:
+                    logger.error(data)
                     return UploadResult(
                         success=False,
                         error=data["error"].get("info", "Upload failed"),
