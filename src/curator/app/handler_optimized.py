@@ -5,7 +5,7 @@ from typing import Optional
 
 from sqlmodel import Session
 
-from curator.app.dal_optimized import (
+from curator.app.dal import (
     count_batches_optimized,
     get_batch_ids_with_recent_changes,
     get_batches_minimal,

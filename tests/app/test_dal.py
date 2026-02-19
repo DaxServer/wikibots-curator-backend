@@ -1,12 +1,9 @@
 """Tests for core data access layer functions."""
 
-import pytest
-
 from curator.app.dal import (
     create_upload_requests_for_batch,
     get_batch,
     get_upload_request_by_id,
-    reset_failed_uploads,
     reset_failed_uploads_to_new_batch,
     retry_selected_uploads_to_new_batch,
 )
@@ -89,62 +86,6 @@ def test_get_batch_not_found(mock_session):
     # Verify
     assert result is None
     mock_session.exec.assert_called_once()
-
-
-def test_reset_failed_uploads_success(mocker, mock_session):
-    """Test successful reset of failed uploads"""
-    # Create mock batch
-    mock_batch = mocker.MagicMock()
-    mock_batch.userid = "user1"
-    mock_session.get.return_value = mock_batch
-
-    # Create mock failed uploads
-    mock_upload1 = mocker.MagicMock()
-    mock_upload1.id = 1
-    mock_upload1.status = "failed"
-    mock_upload1.error = "some error"
-    mock_upload1.result = "some result"
-
-    mock_upload2 = mocker.MagicMock()
-    mock_upload2.id = 2
-    mock_upload2.status = "failed"
-
-    mock_session.exec.return_value.all.return_value = [mock_upload1, mock_upload2]
-
-    # Execute
-    result = reset_failed_uploads(mock_session, 123, "user1", "encrypted_token")
-
-    # Verify
-    assert len(result) == 2
-    assert result == [1, 2]
-    assert mock_upload1.status == "queued"
-    assert mock_upload1.error is None
-    assert mock_upload1.result is None
-    assert mock_upload1.access_token == "encrypted_token"
-    assert mock_upload2.status == "queued"
-    assert mock_upload2.access_token == "encrypted_token"
-    mock_session.flush.assert_called_once()
-
-
-def test_reset_failed_uploads_not_found(mock_session):
-    """Test reset_failed_uploads when batch not found"""
-    mock_session.get.return_value = None
-
-    # Execute and verify exception
-    with pytest.raises(ValueError, match="Batch not found"):
-        reset_failed_uploads(mock_session, 123, "user1", "encrypted_token")
-
-
-def test_reset_failed_uploads_forbidden(mocker, mock_session):
-    """Test reset_failed_uploads when user doesn't have permission"""
-    # Create mock batch with different user
-    mock_batch = mocker.MagicMock()
-    mock_batch.userid = "other_user"
-    mock_session.get.return_value = mock_batch
-
-    # Execute and verify exception
-    with pytest.raises(PermissionError, match="Permission denied"):
-        reset_failed_uploads(mock_session, 123, "user1", "encrypted_token")
 
 
 def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):

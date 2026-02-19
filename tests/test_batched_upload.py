@@ -38,10 +38,12 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
-        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
-        patch("curator.app.handler.get_next_upload_delay") as mock_get_delay,
+        patch(
+            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+        ) as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         # Mock both delay and apply_async
         mock_process_upload.delay = mocker.MagicMock()
@@ -105,10 +107,12 @@ async def test_upload_slice_multiple_items(
         patch(
             "curator.app.handler.create_upload_requests_for_batch"
         ) as mock_create_reqs,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
         patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
-        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
-        patch("curator.app.handler.get_next_upload_delay") as mock_get_delay,
+        patch(
+            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+        ) as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         # Mock both delay and apply_async
         mock_process_upload.delay = mocker.MagicMock()
