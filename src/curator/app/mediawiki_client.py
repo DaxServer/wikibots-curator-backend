@@ -90,7 +90,7 @@ class MediaWikiClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
+            logger.error(e)
             raise
 
     def get_user_groups(self) -> set[str]:
@@ -112,7 +112,7 @@ class MediaWikiClient:
             )
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to fetch user groups: {e}")
+            logger.error(e)
             raise
 
         # Decode JWT (MediaWiki returns base64url-encoded JWT)
@@ -126,10 +126,10 @@ class MediaWikiClient:
                 audience=OAUTH_KEY,
             )
         except PyJWTError as e:
-            logger.error(f"JWT validation failed: {e}")
+            logger.error(e)
             raise
         except Exception as e:
-            logger.error(f"Unexpected error while decoding JWT: {e}")
+            logger.error(e)
             raise
 
         groups = set(claims.get("groups", []))
@@ -181,7 +181,7 @@ class MediaWikiClient:
             return False, ""
 
         except Exception as e:
-            logger.warning(f"Failed to check title blacklist for {filename}: {e}")
+            logger.error(e)
             return False, ""
 
     def find_duplicates(self, sha1: str) -> list[ErrorLink]:
@@ -339,6 +339,7 @@ class MediaWikiClient:
             )
 
             if "error" in data:
+                logger.error(data)
                 return UploadResult(
                     success=False,
                     error=data["error"].get("info", "Upload failed"),
@@ -360,6 +361,7 @@ class MediaWikiClient:
                     url=image_url,
                 )
 
+        logger.error(data)
         return UploadResult(success=False, error="Upload failed: unknown reason")
 
     def _fetch_page(self, filename: str) -> dict:
@@ -417,9 +419,7 @@ class MediaWikiClient:
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
-            logger.error(
-                f"Null edit failed for {filename}: {error_code} - {error_info}"
-            )
+            logger.error(response_data)
             raise ValueError(f"Null edit failed: {error_code} - {error_info}")
 
         logger.info(f"Null edit performed on {filename}")
@@ -478,9 +478,7 @@ class MediaWikiClient:
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
-            logger.error(
-                f"SDC apply failed for {filename}: {error_code} - {error_info}"
-            )
+            logger.error(response_data)
             raise ValueError(f"SDC apply failed: {error_code} - {error_info}")
 
         logger.info(f"SDC applied to {filename}")
@@ -509,6 +507,7 @@ class MediaWikiClient:
         # Check for error response (file does not exist)
         if "error" in data:
             error_info = data["error"].get("info", "Unknown error")
+            logger.error(data)
             raise ValueError(f"Could not find an entity: {error_info}")
 
         # When using sites/titles, the response contains entities keyed by entity ID
