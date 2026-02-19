@@ -1,8 +1,11 @@
 """Tests for MediaWiki API request handling"""
 
+from unittest.mock import mock_open, patch
+
 import pytest
 from mwoauth import AccessToken
 
+from curator.app.errors import DuplicateUploadError
 from curator.app.mediawiki_client import MediaWikiClient
 
 
@@ -95,3 +98,106 @@ def test_get_csrf_token_handles_api_error(mocker):
 
     with pytest.raises(Exception, match="API timeout"):
         mock_client.get_csrf_token()
+
+
+def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
+    """Test that upload_file returns success when final chunk returns 'Success'"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+
+    final_chunk_response = {
+        "upload": {
+            "result": "Success",
+            "filename": "Test.jpg",
+            "imageinfo": {
+                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
+            },
+        }
+    }
+
+    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+
+    with (
+        patch("os.path.getsize", return_value=1000),
+        patch("builtins.open", mock_open(read_data=b"test data")),
+    ):
+        result = mock_client.upload_file(
+            filename="Test.jpg",
+            file_path="/tmp/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+        )
+
+    assert result.success is True
+    assert result.title == "Test.jpg"
+    assert result.url == "https://commons.wikimedia.org/wiki/File:Test.jpg"
+
+
+def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
+    """Test that upload_file raises DuplicateUploadError when API returns duplicate warnings"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+
+    final_chunk_response = {
+        "upload": {
+            "result": "Success",
+            "filename": "Test.jpg",
+            "warnings": {
+                "duplicate": ["File:Existing_File_1.jpg", "File:Existing_File_2.jpg"]
+            },
+            "imageinfo": {
+                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
+            },
+        }
+    }
+
+    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+
+    with (
+        patch("os.path.getsize", return_value=1000),
+        patch("builtins.open", mock_open(read_data=b"test data")),
+    ):
+        with pytest.raises(DuplicateUploadError) as exc_info:
+            mock_client.upload_file(
+                filename="Test.jpg",
+                file_path="/tmp/test.jpg",
+                wikitext="== Summary ==",
+                edit_summary="Test upload",
+            )
+
+    assert len(exc_info.value.duplicates) == 2
+    assert exc_info.value.duplicates[0].title == "File:Existing_File_1.jpg"
+    assert exc_info.value.duplicates[1].title == "File:Existing_File_2.jpg"
+
+
+def test_upload_file_fails_when_other_warnings(mocker):
+    """Test that upload_file returns failure when API returns non-duplicate warnings"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+
+    final_chunk_response = {
+        "upload": {
+            "result": "Success",
+            "filename": "Test.jpg",
+            "warnings": {"exists": "File:Test.jpg"},
+            "imageinfo": {
+                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
+            },
+        }
+    }
+
+    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+
+    with (
+        patch("os.path.getsize", return_value=1000),
+        patch("builtins.open", mock_open(read_data=b"test data")),
+    ):
+        result = mock_client.upload_file(
+            filename="Test.jpg",
+            file_path="/tmp/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+        )
+
+    assert result.success is False
+    assert result.error is not None and "warnings" in result.error

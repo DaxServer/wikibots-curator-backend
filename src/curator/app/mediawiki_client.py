@@ -16,6 +16,7 @@ from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
 from curator.app.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
+from curator.app.errors import DuplicateUploadError
 from curator.asyncapi import ErrorLink
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class MediaWikiClient:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
+            logger.error(e)
             raise
 
     def get_user_groups(self) -> set[str]:
@@ -111,7 +112,7 @@ class MediaWikiClient:
             )
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to fetch user groups: {e}")
+            logger.error(e)
             raise
 
         # Decode JWT (MediaWiki returns base64url-encoded JWT)
@@ -125,10 +126,10 @@ class MediaWikiClient:
                 audience=OAUTH_KEY,
             )
         except PyJWTError as e:
-            logger.error(f"JWT validation failed: {e}")
+            logger.error(e)
             raise
         except Exception as e:
-            logger.error(f"Unexpected error while decoding JWT: {e}")
+            logger.error(e)
             raise
 
         groups = set(claims.get("groups", []))
@@ -180,7 +181,7 @@ class MediaWikiClient:
             return False, ""
 
         except Exception as e:
-            logger.warning(f"Failed to check title blacklist for {filename}: {e}")
+            logger.error(e)
             return False, ""
 
     def find_duplicates(self, sha1: str) -> list[ErrorLink]:
@@ -268,6 +269,7 @@ class MediaWikiClient:
                 )
 
                 if "error" in data:
+                    logger.error(data)
                     return UploadResult(
                         success=False,
                         error=data["error"].get("info", "Upload failed"),
@@ -275,7 +277,43 @@ class MediaWikiClient:
 
                 # For stashed chunks, we get a file key
                 if "upload" in data:
-                    file_key = data["upload"].get("filekey")
+                    result = data["upload"]
+
+                    # Check if this is the final chunk with Success result
+                    if result.get("result") == "Success":
+                        title = result.get("filename", result.get("title"))
+                        imageinfo = result.get("imageinfo", {})
+                        image_url = imageinfo.get("descriptionurl")
+
+                        # Check for warnings
+                        warnings = result.get("warnings", {})
+                        if "duplicate" in warnings:
+                            dup_titles = warnings["duplicate"]
+                            duplicates = [
+                                ErrorLink(
+                                    title=d,
+                                    url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
+                                )
+                                for d in dup_titles
+                            ]
+                            raise DuplicateUploadError(
+                                duplicates, f"File already exists as {dup_titles}"
+                            )
+
+                        if warnings:
+                            logger.warning(warnings)
+                            return UploadResult(
+                                success=False,
+                                error=f"Upload warnings: {warnings}",
+                            )
+
+                        return UploadResult(
+                            success=True,
+                            title=title,
+                            url=image_url,
+                        )
+
+                    file_key = result.get("filekey")
 
                 logger.info(
                     f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}"
@@ -301,6 +339,7 @@ class MediaWikiClient:
             )
 
             if "error" in data:
+                logger.error(data)
                 return UploadResult(
                     success=False,
                     error=data["error"].get("info", "Upload failed"),
@@ -322,6 +361,7 @@ class MediaWikiClient:
                     url=image_url,
                 )
 
+        logger.error(data)
         return UploadResult(success=False, error="Upload failed: unknown reason")
 
     def _fetch_page(self, filename: str) -> dict:
@@ -379,9 +419,7 @@ class MediaWikiClient:
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
-            logger.error(
-                f"Null edit failed for {filename}: {error_code} - {error_info}"
-            )
+            logger.error(response_data)
             raise ValueError(f"Null edit failed: {error_code} - {error_info}")
 
         logger.info(f"Null edit performed on {filename}")
@@ -440,9 +478,7 @@ class MediaWikiClient:
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
-            logger.error(
-                f"SDC apply failed for {filename}: {error_code} - {error_info}"
-            )
+            logger.error(response_data)
             raise ValueError(f"SDC apply failed: {error_code} - {error_info}")
 
         logger.info(f"SDC applied to {filename}")
@@ -471,6 +507,7 @@ class MediaWikiClient:
         # Check for error response (file does not exist)
         if "error" in data:
             error_info = data["error"].get("info", "Unknown error")
+            logger.error(data)
             raise ValueError(f"Could not find an entity: {error_info}")
 
         # When using sites/titles, the response contains entities keyed by entity ID
