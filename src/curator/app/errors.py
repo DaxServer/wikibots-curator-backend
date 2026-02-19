@@ -7,3 +7,9 @@ class DuplicateUploadError(Exception):
     def __init__(self, duplicates: list[ErrorLink], message: str):
         super().__init__(message)
         self.duplicates = duplicates
+
+
+class HashLockError(Exception):
+    """Raised when file hash is locked by another worker"""
+
+    pass

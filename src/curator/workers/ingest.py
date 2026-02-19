@@ -14,7 +14,7 @@ from curator.app.dal import (
     update_upload_status,
 )
 from curator.app.db import get_session
-from curator.app.errors import DuplicateUploadError
+from curator.app.errors import DuplicateUploadError, HashLockError
 from curator.app.mediawiki_client import MediaWikiClient, create_mediawiki_client
 from curator.app.models import (
     StructuredError,
@@ -449,6 +449,12 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                     "duplicate",
                     DuplicateError(message=str(e), links=e.duplicates),
                 )
+
+    except HashLockError:
+        logger.info(f"[{upload_id}/{batchid}] hash locked, resetting status for retry")
+        with get_session() as session:
+            update_upload_status(session, upload_id=upload_id, status="queued")
+        raise
 
     except Exception as e:
         logger.error(
