@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 
+from curator.app.errors import HashLockError
 from curator.workers.celery import app
 from curator.workers.ingest import process_one
 
@@ -42,6 +43,11 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
     try:
         result = loop.run_until_complete(process_one(upload_id, edit_group_id))
         return result
+    except HashLockError as e:
+        logger.info(
+            f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
+        )
+        raise self.retry(countdown=60, exc=e)
     except Exception as e:
         logger.error(
             f"[celery] [{upload_id}] [{worker_id}] error processing upload: {e}",

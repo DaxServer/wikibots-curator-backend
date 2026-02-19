@@ -6,7 +6,8 @@ from typing import Any, Optional
 
 import httpx
 
-from curator.app.errors import DuplicateUploadError
+from curator.app.config import redis_client
+from curator.app.errors import DuplicateUploadError, HashLockError
 from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import Label, Statement
 
@@ -14,6 +15,12 @@ logger = logging.getLogger(__name__)
 
 # Maximum number of retries for Mapillary image download errors
 MAX_DOWNLOAD_RETRIES = 2
+
+# Lock TTL in seconds (1 minute)
+HASH_LOCK_TTL = 60
+
+# Cache key template for hash locks
+_HASH_LOCK_KEY = "hashlock:{hash}"
 
 
 def upload_file_chunked(
@@ -46,6 +53,11 @@ def upload_file_chunked(
                 duplicates_list,
                 f"File {file_name} already exists on Commons",
             )
+
+        # Acquire hash lock to prevent race condition on duplicate files
+        lock_key = _HASH_LOCK_KEY.format(hash=file_hash)
+        if not redis_client.set(lock_key, "1", nx=True, ex=HASH_LOCK_TTL):
+            raise HashLockError(f"Hash {file_hash} is locked by another worker")
 
         # Upload using temp file path
         upload_result = mediawiki_client.upload_file(

@@ -8,9 +8,7 @@ from curator.app.commons import (
     upload_file_chunked,
 )
 from curator.app.mediawiki_client import MediaWikiClient, UploadResult
-from curator.asyncapi import ErrorLink, Label, Statement
-from curator.asyncapi.NoValueSnak import NoValueSnak
-from curator.asyncapi.Rank import Rank
+from curator.asyncapi import ErrorLink
 
 
 @pytest.fixture
@@ -66,6 +64,10 @@ def test_upload_file_chunked_success(mocker, mock_mediawiki_client):
 
     # Mock download_file
     mocker.patch("curator.app.commons.download_file", return_value="abc123")
+
+    # Mock redis to acquire lock
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = True
 
     # Call upload_file_chunked (without site parameter - new signature)
     result = upload_file_chunked(
@@ -136,6 +138,10 @@ def test_upload_file_chunked_upload_failure_propagates(mocker, mock_mediawiki_cl
     # Mock download_file
     mocker.patch("curator.app.commons.download_file", return_value="abc123")
 
+    # Mock redis to acquire lock
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = True
+
     # Call upload_file_chunked and expect ValueError
     with pytest.raises(ValueError, match="network error"):
         upload_file_chunked(
@@ -149,29 +155,24 @@ def test_upload_file_chunked_upload_failure_propagates(mocker, mock_mediawiki_cl
         )
 
 
-def test_upload_file_chunked_applies_sdc(mocker, mock_mediawiki_client):
-    """Test that upload_file_chunked applies SDC after successful upload"""
-    no_value_snak = NoValueSnak(property="P180")
-    statement = Statement(
-        mainsnak=no_value_snak,
-        rank=Rank.NORMAL,
-    )
-    sdc = [statement]
-    label = Label(language="en", value="Test Label")
-
-    # Mock the upload to succeed
+def test_upload_file_chunked_acquires_hash_lock_after_duplicate_check(
+    mocker, mock_mediawiki_client
+):
+    """Test that upload_file_chunked acquires hash lock after duplicate check passes"""
+    mock_mediawiki_client.find_duplicates.return_value = []
     mock_mediawiki_client.upload_file.return_value = UploadResult(
         success=True,
         title="File:Test.jpg",
         url="https://commons.wikimedia.org/wiki/File:Test.jpg",
     )
-    mock_mediawiki_client.apply_sdc.return_value = True
 
-    # Mock download_file
-    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+    file_hash = "abc123"
+    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
 
-    # Call upload_file_chunked with SDC and labels
-    result = upload_file_chunked(
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = True
+
+    upload_file_chunked(
         file_name="Test.jpg",
         file_url="http://example.com/test.jpg",
         wikitext="== Summary ==",
@@ -179,17 +180,40 @@ def test_upload_file_chunked_applies_sdc(mocker, mock_mediawiki_client):
         upload_id=1,
         batch_id=123,
         mediawiki_client=mock_mediawiki_client,
-        sdc=sdc,
-        labels=label,
     )
 
-    # Verify result
-    assert result["result"] == "success"
+    mock_redis.set.assert_called_once()
+    call_args = mock_redis.set.call_args[0]
+    call_kwargs = mock_redis.set.call_args[1]
+    assert call_args[0] == f"hashlock:{file_hash}"
+    assert call_args[1] == "1"
+    assert call_kwargs["nx"] is True
+    assert call_kwargs["ex"] == 60
 
-    # Verify apply_sdc was called with correct parameters
-    mock_mediawiki_client.apply_sdc.assert_called_once()
-    call_kwargs = mock_mediawiki_client.apply_sdc.call_args.kwargs
-    assert call_kwargs["filename"] == "Test.jpg"
-    assert call_kwargs["sdc"] is not None
-    assert call_kwargs["labels"] is not None
-    assert call_kwargs["edit_summary"] == "Test upload"
+
+def test_upload_file_chunked_raises_hash_lock_error_when_lock_exists(
+    mocker, mock_mediawiki_client
+):
+    """Test that upload_file_chunked raises HashLockError when another worker holds the lock"""
+    from curator.app.commons import HashLockError
+
+    mock_mediawiki_client.find_duplicates.return_value = []
+
+    file_hash = "abc123"
+    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = False  # Lock already exists
+
+    with pytest.raises(HashLockError) as exc_info:
+        upload_file_chunked(
+            file_name="Test.jpg",
+            file_url="http://example.com/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+            upload_id=1,
+            batch_id=123,
+            mediawiki_client=mock_mediawiki_client,
+        )
+
+    assert "abc123" in str(exc_info.value)
