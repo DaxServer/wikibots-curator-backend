@@ -43,7 +43,7 @@ main.py (Routes) → handler.py (Business Logic) → dal.py (Database) → model
 3. **DAL** (`dal*.py`) → database queries and persistence
 4. **Models** (`models.py`) → SQLModel definitions
 
-All database access must go through DAL functions. Use `get_session()` dependency for database sessions.
+Database access goes through DAL functions using the `get_session()` dependency.
 
 ### Directory Structure
 ```
@@ -109,18 +109,20 @@ Retry functionality allows users and admins to retry failed uploads. The current
 - `MediaWikiClient` class handles all Wikimedia Commons operations
 - `create_mediawiki_client()` in `mediawiki_client.py` creates authenticated clients
 - Client instances are passed where needed (no global state)
-- Async methods are preferred where available, or use `asyncio.to_thread` for synchronous calls
-- Always close clients after use (e.g., using `try...finally`)
-- `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency - use `NamedTemporaryFile()` for large files
+- Async methods are used where available, or `asyncio.to_thread` for synchronous calls
+- Clients are closed after use (e.g., using `try...finally`)
+- `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency
 - `commons.py:upload_file_chunked()` provides the complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
-- When fetching SDC by title, use `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid an extra API call to fetch page ID
-- When using `sites`/`titles` in wbgetentities, the entity is keyed by entity ID, not title - extract with `next(iter(entities))`
-- Entity ID "-1" with site/title keys means non-existent file (raise error); positive entity ID with "missing" key means file exists but has no SDC (return None)
+- **Chunked upload flow**: Chunks are uploaded with `stash=1`, then a final commit publishes the file
+- **Duplicate detection**: Duplicate warnings appear on the final chunk response during stash phase (with `stash=1`), NOT during final commit. The code checks for `warnings.duplicate` in chunk upload response and raises `DuplicateUploadError` before final commit.
+- When fetching SDC by title, the code uses `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid an extra API call to fetch page ID
+- When using `sites`/`titles` in wbgetentities, the entity is keyed by entity ID, not title - extracted with `next(iter(entities))`
+- Entity ID "-1" with site/title keys means non-existent file (raises error); positive entity ID with "missing" key means file exists but has no SDC (returns None)
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
 - DAL's `_fix_sdc_keys()` function recursively maps snake_case to kebab-case for database storage
-- Mapping is defined in `dal.py` and must be updated when AsyncAPI schema changes
+- Mapping is defined in `dal.py` and is updated when AsyncAPI schema changes
 
 ### AsyncAPI WebSocket Protocol
 - Union types `ClientMessage` and `ServerMessage` defined in `protocol.py`
@@ -155,21 +157,31 @@ poetry run alembic upgrade head
 ## Testing
 
 - `pytest` with tests in `tests/`
-- All imports are at the top of test files (no inline imports)
+- All imports must be at the top of test files (no inline imports)
+- NO nested function definitions in tests - avoid `def func(): def inner():` pattern
+- For complex mock behavior, use module-level helper functions (prefix with `_`) passed to `side_effect`
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
 - pytest timeout is configured to `0` (disabled) in `pytest.ini`
 - Mock objects match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
 - When mocking `process_upload.apply_async()`, the queue is checked via `call[1]["queue"]` and args via `call[1]["args"]`
 - AsyncMock assertions use `assert_called_once_with()` for keyword arguments
 
-## Configuration
+### Writing Tests with Patches
 
-All configuration via environment variables:
-- `CURATOR_OAUTH1_KEY`, `CURATOR_OAUTH1_SECRET` - Wikimedia OAuth1 credentials
-- `TOKEN_ENCRYPTION_KEY` - Fernet key for encrypting access tokens
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` - Redis connection
-- `CELERY_CONCURRENCY`, `CELERY_MAXIMUM_WAIT_TIME`, `CELERY_TASKS_PER_WORKER` - Celery settings
-- `RATE_LIMIT_DEFAULT_NORMAL`, `RATE_LIMIT_DEFAULT_PERIOD` - Upload rate limits
+When mocking file operations or other builtins, use a single `with` statement with comma-separated patches:
+
+```python
+# Wrong (nested with statements)
+with patch("os.path.getsize", return_value=1000):
+    with patch("builtins.open", mock_open(read_data=b"data")):
+        result = func()
+
+# Correct (single with statement)
+with patch("os.path.getsize", return_value=1000), patch(
+    "builtins.open", mock_open(read_data=b"data")
+):
+    result = func()
+```
 
 ### Pull Request Review Workflow
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
@@ -177,13 +189,13 @@ All configuration via environment variables:
 
 ## Important Notes
 
-- Type errors in `dal_optimized.py` are known and should be ignored
-- Type errors in `alembic/` are known and should be ignored
-- For functions that always return or raise an exception, add `raise AssertionError("Unreachable")` at the end to satisfy the type checker
-- AsyncAPI models are auto-generated from `frontend/asyncapi.json` - do not edit manually
-- Large file uploads use `NamedTemporaryFile()` with streaming downloads (see `commons.py`) to avoid OOM
-- Use `get_session()` dependency for database sessions, don't create sessions directly
-- Follow layered architecture: routes → handlers → DAL → models
+- Type errors in `dal_optimized.py` are known and ignored
+- Type errors in `alembic/` are known and ignored
+- Functions that always return or raise an exception use `raise AssertionError("Unreachable")` to satisfy the type checker
+- AsyncAPI models are auto-generated from `frontend/asyncapi.json`
+- Large file uploads use `NamedTemporaryFile()` with streaming downloads (see `commons.py`)
+- Database sessions use the `get_session()` dependency
+- Code follows the layered architecture: routes → handlers → DAL → models
 
 ## Common Pitfalls and Troubleshooting
 
@@ -203,20 +215,3 @@ When adding imports between core modules (`commons.py`, `mediawiki_client.py`, e
 - `mediawiki_client.py` should NOT import from `commons.py` directly
 - For shared exceptions like `DuplicateUploadError`, use a dedicated `errors.py` module that only imports from `asyncapi` (which has no dependencies on other app modules)
 - Import exceptions inside functions if needed to avoid circular imports: `from curator.app.errors import DuplicateUploadError`
-
-### Writing Tests with Patches
-
-When mocking file operations or other builtins, use a single `with` statement with comma-separated patches:
-
-```python
-# Wrong (nested with statements)
-with patch("os.path.getsize", return_value=1000):
-    with patch("builtins.open", mock_open(read_data=b"data")):
-        result = func()
-
-# Correct (single with statement)
-with patch("os.path.getsize", return_value=1000), patch(
-    "builtins.open", mock_open(read_data=b"data")
-):
-    result = func()
-```

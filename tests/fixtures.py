@@ -370,8 +370,19 @@ def run_sync(coro, loop):
 
 
 @pytest.fixture(autouse=True)
-def mock_external_calls(mocker):
-    """Auto-use fixture to mock external calls in BDD tests"""
+def mock_external_calls(mocker, request):
+    """Auto-use fixture to mock external calls in BDD tests
+
+    Skipped for mediawiki_api unit tests to avoid multiprocessing issues
+    """
+    # Skip this fixture for mediawiki_api tests to avoid celery import issues
+    # Check both the test node name and the parent module/file
+    node_name = request.node.name
+    module_name = request.module.__name__ if request.module else ""
+
+    if "mediawiki" in node_name.lower() or "mediawiki" in module_name.lower():
+        return
+
     mock_client = mocker.MagicMock()
     mock_client.check_title_blacklisted.return_value = (False, "")
     mocker.patch(

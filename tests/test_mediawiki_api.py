@@ -1,6 +1,6 @@
 """Tests for MediaWiki API request handling"""
 
-from unittest.mock import mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mwoauth import AccessToken
@@ -100,26 +100,55 @@ def test_get_csrf_token_handles_api_error(mocker):
         mock_client.get_csrf_token()
 
 
-def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
-    """Test that upload_file returns success when final chunk returns 'Success'"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
-    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+def _mock_api_request_for_success(
+    params, method="GET", data=None, files=None, timeout=300.0
+):
+    """Helper function that returns appropriate responses based on request parameters"""
+    # CSRF token request
+    if params.get("action") == "query":
+        return {"query": {"tokens": {"csrftoken": "test-token"}}}
 
-    final_chunk_response = {
-        "upload": {
-            "result": "Success",
-            "filename": "Test.jpg",
-            "imageinfo": {
-                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
-            },
+    # Chunk upload with stash=1 returns stashed result (NO warnings)
+    if data and data.get("stash") == "1":
+        return {
+            "upload": {
+                "result": "Success",
+                "filekey": "test-filekey-abc123",
+                "canonicaltitle": "File:20260220163823!chunkedupload e744fe49c65b.jpg",
+            }
         }
-    }
 
-    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+    # Final commit (no stash parameter) returns FINAL filename
+    if data and data.get("filekey") and not data.get("stash"):
+        return {
+            "upload": {
+                "result": "Success",
+                "filename": "Test.jpg",
+                "imageinfo": {
+                    "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
+                },
+            }
+        }
+
+    return {}
+
+
+def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
+    """Test that upload_file returns success after chunked upload with final commit"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=_mock_api_request_for_success
+    )
+
+    # Create a mock file object that supports seeking
+    mock_file = MagicMock()
+    mock_file.read.return_value = b"test data"
+    mock_file.__enter__ = MagicMock(return_value=mock_file)
+    mock_file.__exit__ = MagicMock(return_value=False)
 
     with (
         patch("os.path.getsize", return_value=1000),
-        patch("builtins.open", mock_open(read_data=b"test data")),
+        patch("builtins.open", return_value=mock_file),
     ):
         result = mock_client.upload_file(
             filename="Test.jpg",
@@ -128,34 +157,59 @@ def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
             edit_summary="Test upload",
         )
 
+    # Verify final commit was called by checking call count
+    # Should have 3 calls: csrf token, chunk stash, final commit
+    assert mock_client._api_request.call_count == 3
+
+    # Verify the third call (final commit) had filekey but no stash
+    third_call_data = mock_client._api_request.call_args_list[2][1]["data"]
+    assert third_call_data.get("filekey") == "test-filekey-abc123"
+    assert third_call_data.get("stash") is None
+
     assert result.success is True
     assert result.title == "Test.jpg"
     assert result.url == "https://commons.wikimedia.org/wiki/File:Test.jpg"
 
 
-def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
-    """Test that upload_file raises DuplicateUploadError when API returns duplicate warnings"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
-    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+def _mock_api_request_for_duplicate(
+    params, method="GET", data=None, files=None, timeout=300.0
+):
+    """Helper function that returns duplicate warning on chunk upload"""
+    # CSRF token request
+    if params.get("action") == "query":
+        return {"query": {"tokens": {"csrftoken": "test-token"}}}
 
-    final_chunk_response = {
-        "upload": {
-            "result": "Success",
-            "filename": "Test.jpg",
-            "warnings": {
-                "duplicate": ["File:Existing_File_1.jpg", "File:Existing_File_2.jpg"]
-            },
-            "imageinfo": {
-                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
-            },
+    # Chunk upload with stash=1 returns duplicate warnings
+    if data and data.get("stash") == "1":
+        return {
+            "upload": {
+                "result": "Success",
+                "filekey": "test-filekey-abc123",
+                "canonicaltitle": "File:20260220163823!chunkedupload e744fe49c65b.jpg",
+                "warnings": {
+                    "duplicate": ["Existing_File_1.jpg", "Existing_File_2.jpg"]
+                },
+            }
         }
-    }
 
-    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+    return {}
+
+
+def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
+    """Test that upload_file raises DuplicateUploadError when final chunk returns duplicate warnings"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=_mock_api_request_for_duplicate
+    )
+
+    mock_file = MagicMock()
+    mock_file.read.return_value = b"test data"
+    mock_file.__enter__ = MagicMock(return_value=mock_file)
+    mock_file.__exit__ = MagicMock(return_value=False)
 
     with (
         patch("os.path.getsize", return_value=1000),
-        patch("builtins.open", mock_open(read_data=b"test data")),
+        patch("builtins.open", return_value=mock_file),
     ):
         with pytest.raises(DuplicateUploadError) as exc_info:
             mock_client.upload_file(
@@ -165,32 +219,51 @@ def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
                 edit_summary="Test upload",
             )
 
+    # Verify final commit was NOT called (only 2 calls: csrf + chunk)
+    assert mock_client._api_request.call_count == 2
+
     assert len(exc_info.value.duplicates) == 2
-    assert exc_info.value.duplicates[0].title == "File:Existing_File_1.jpg"
-    assert exc_info.value.duplicates[1].title == "File:Existing_File_2.jpg"
+    assert exc_info.value.duplicates[0].title == "Existing_File_1.jpg"
+    assert exc_info.value.duplicates[1].title == "Existing_File_2.jpg"
+
+
+def _mock_api_request_for_warnings(
+    params, method="GET", data=None, files=None, timeout=300.0
+):
+    """Helper function that returns non-duplicate warning on chunk upload"""
+    # CSRF token request
+    if params.get("action") == "query":
+        return {"query": {"tokens": {"csrftoken": "test-token"}}}
+
+    # Chunk upload with stash=1 returns non-duplicate warnings
+    if data and data.get("stash") == "1":
+        return {
+            "upload": {
+                "result": "Success",
+                "filekey": "test-filekey-abc123",
+                "canonicaltitle": "File:20260220163823!chunkedupload e744fe49c65b.jpg",
+                "warnings": {"exists": "File:Test.jpg"},
+            }
+        }
+
+    return {}
 
 
 def test_upload_file_fails_when_other_warnings(mocker):
-    """Test that upload_file returns failure when API returns non-duplicate warnings"""
+    """Test that upload_file returns failure when final chunk returns non-duplicate warnings"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
-    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-token")
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=_mock_api_request_for_warnings
+    )
 
-    final_chunk_response = {
-        "upload": {
-            "result": "Success",
-            "filename": "Test.jpg",
-            "warnings": {"exists": "File:Test.jpg"},
-            "imageinfo": {
-                "descriptionurl": "https://commons.wikimedia.org/wiki/File:Test.jpg"
-            },
-        }
-    }
-
-    mock_client._api_request = mocker.MagicMock(return_value=final_chunk_response)
+    mock_file = MagicMock()
+    mock_file.read.return_value = b"test data"
+    mock_file.__enter__ = MagicMock(return_value=mock_file)
+    mock_file.__exit__ = MagicMock(return_value=False)
 
     with (
         patch("os.path.getsize", return_value=1000),
-        patch("builtins.open", mock_open(read_data=b"test data")),
+        patch("builtins.open", return_value=mock_file),
     ):
         result = mock_client.upload_file(
             filename="Test.jpg",
@@ -198,6 +271,9 @@ def test_upload_file_fails_when_other_warnings(mocker):
             wikitext="== Summary ==",
             edit_summary="Test upload",
         )
+
+    # Verify final commit was NOT called (only 2 calls: csrf + chunk)
+    assert mock_client._api_request.call_count == 2
 
     assert result.success is False
     assert result.error is not None and "warnings" in result.error
