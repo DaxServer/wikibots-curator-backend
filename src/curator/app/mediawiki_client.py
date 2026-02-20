@@ -279,40 +279,35 @@ class MediaWikiClient:
                 if "upload" in data:
                     result = data["upload"]
 
-                    # Check if this is the final chunk with Success result
-                    if result.get("result") == "Success":
-                        title = result.get("filename", result.get("title"))
-                        imageinfo = result.get("imageinfo", {})
-                        image_url = imageinfo.get("descriptionurl")
-
-                        # Check for warnings
-                        warnings = result.get("warnings", {})
-                        if "duplicate" in warnings:
-                            dup_titles = warnings["duplicate"]
-                            duplicates = [
-                                ErrorLink(
-                                    title=d,
-                                    url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
-                                )
-                                for d in dup_titles
-                            ]
-                            raise DuplicateUploadError(
-                                duplicates, f"File already exists as {dup_titles}"
+                    # Check for warnings in chunk upload response
+                    # IMPORTANT: Duplicate warnings appear here on final chunk (with stash=1)
+                    # We must raise BEFORE final commit to avoid publishing duplicates
+                    warnings = result.get("warnings", {})
+                    if "duplicate" in warnings:
+                        dup_titles = warnings["duplicate"]
+                        duplicates = [
+                            ErrorLink(
+                                title=d,
+                                url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
                             )
-
-                        if warnings:
-                            logger.warning(warnings)
-                            return UploadResult(
-                                success=False,
-                                error=f"Upload warnings: {warnings}",
-                            )
-
-                        return UploadResult(
-                            success=True,
-                            title=title,
-                            url=image_url,
+                            for d in dup_titles
+                        ]
+                        raise DuplicateUploadError(
+                            duplicates, f"File already exists as {dup_titles}"
                         )
 
+                    if warnings:
+                        logger.warning(warnings)
+                        # For non-duplicate warnings, still return failure
+                        # but don't raise - caller can decide whether to retry
+                        return UploadResult(
+                            success=False,
+                            error=f"Upload warnings: {warnings}",
+                        )
+
+                    # Extract filekey for stashed chunks
+                    # Note: result: "Success" with stash=1 means "chunks stashed successfully"
+                    # The file is NOT published yet - final commit is still required
                     file_key = result.get("filekey")
 
                 logger.info(
@@ -342,7 +337,9 @@ class MediaWikiClient:
                 logger.error(data)
                 return UploadResult(
                     success=False,
-                    error=data["error"].get("info", "Upload failed"),
+                    error=data["error"].get(
+                        "info", "Upload failed while committing chunked uploads"
+                    ),
                 )
 
             logger.info(f"Final commit for {filename} with filekey {file_key}")
