@@ -21,16 +21,11 @@ from curator.app.dal import (
     get_batch,
     get_upload_request,
     reset_failed_uploads_to_new_batch,
-    update_celery_task_id,
 )
 from curator.app.db import get_session
 from curator.app.handler_optimized import OptimizedBatchStreamer
-from curator.app.mediawiki_client import MediaWikiClient
 from curator.app.models import Batch, UploadItem
-from curator.app.rate_limiter import (
-    get_next_upload_delay,
-    get_rate_limit_for_batch,
-)
+from curator.app.task_enqueuer import enqueue_uploads
 from curator.asyncapi import (
     BatchUploadsListData,
     CollectionImagesData,
@@ -50,9 +45,7 @@ from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
 from curator.protocol import AsyncAPIWebSocket
-from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
 from curator.workers.celery import app as celery_app
-from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
 
@@ -282,29 +275,12 @@ class Handler:
 
         # Enqueue uploads with rate limit spacing
         access_token = self.user.get("access_token")
-        client = MediaWikiClient(access_token)
-        rate_limit = await asyncio.to_thread(
-            get_rate_limit_for_batch,
+        await enqueue_uploads(
+            upload_ids=to_enqueue,
+            edit_group_id=edit_group_id,
             userid=self.user["userid"],
-            client=client,
+            access_token=access_token,
         )
-        queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
-
-        with get_session() as save_session:
-            for upload_id in to_enqueue:
-                delay = await asyncio.to_thread(
-                    get_next_upload_delay, self.user["userid"], rate_limit
-                )
-
-                task_result = process_upload.apply_async(
-                    args=[upload_id, edit_group_id],
-                    countdown=delay,
-                    queue=queue,
-                )
-
-                task_id = task_result.id
-                if isinstance(task_id, str):
-                    update_celery_task_id(save_session, upload_id, task_id)
 
         logger.info(
             f"[ws] [resp] Slice {sliceid} of batch {batchid} ({len(to_enqueue)} uploads) enqueued for {self.username}"
@@ -389,25 +365,13 @@ class Handler:
             return
 
         # Enqueue retries with new batch's edit_group_id
-        # Get rate limit to determine queue
         access_token = decrypt_access_token(encrypted_access_token)
-        client = MediaWikiClient(access_token)
-        rate_limit = await asyncio.to_thread(
-            get_rate_limit_for_batch,
+        await enqueue_uploads(
+            upload_ids=retried_ids,
+            edit_group_id=edit_group_id,
             userid=self.user["userid"],
-            client=client,
+            access_token=access_token,
         )
-        queue = QUEUE_PRIVILEGED if rate_limit.is_privileged else QUEUE_NORMAL
-        with get_session() as save_session:
-            for upload_id in retried_ids:
-                task_result = process_upload.apply_async(
-                    args=[upload_id, edit_group_id],
-                    queue=queue,
-                )
-                # Store the task ID for later cancellation (only if it's a real string)
-                task_id = task_result.id
-                if isinstance(task_id, str):
-                    update_celery_task_id(save_session, upload_id, task_id)
 
         logger.info(
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"

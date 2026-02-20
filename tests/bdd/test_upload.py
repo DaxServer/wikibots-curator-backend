@@ -44,13 +44,15 @@ def when_create(active_user, mock_sender, event_loop):
 )
 def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
     # Mock process_upload and rate limiter functions
-    mock_process = mocker.patch("curator.app.handler.process_upload")
+    mock_process = mocker.patch("curator.app.task_enqueuer.process_upload")
     mock_process.delay = mocker.MagicMock()
     mock_process.apply_async = mocker.MagicMock()
 
     # Mock rate limiter to return privileged user (no delay)
-    mock_get_rate_limit = mocker.patch("curator.app.handler.get_rate_limit_for_batch")
-    mock_get_delay = mocker.patch("curator.app.handler.get_next_upload_delay")
+    mock_get_rate_limit = mocker.patch(
+        "curator.app.task_enqueuer.get_rate_limit_for_batch"
+    )
+    mock_get_delay = mocker.patch("curator.app.task_enqueuer.get_next_upload_delay")
     mock_get_rate_limit.return_value = RateLimitInfo(
         uploads_per_period=999, period_seconds=1, is_privileged=True
     )

@@ -72,10 +72,16 @@ def _setup_admin_dependencies(app, admin_user):
 
 @when(parsers.parse("I retry uploads for batch {batch_id:d}"))
 def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
-    mock_apply_async = mocker.patch("curator.app.handler.process_upload.apply_async")
+    mock_apply_async = mocker.patch(
+        "curator.app.task_enqueuer.process_upload.apply_async"
+    )
     mocker.patch(
-        "curator.app.handler.get_rate_limit_for_batch",
+        "curator.app.task_enqueuer.get_rate_limit_for_batch",
         return_value=mocker.MagicMock(is_privileged=False),
+    )
+    mocker.patch(
+        "curator.app.task_enqueuer.get_next_upload_delay",
+        return_value=0.0,
     )
     h = Handler(active_user, mock_sender, MagicMock())
     run_sync(h.retry_uploads(batch_id), event_loop)

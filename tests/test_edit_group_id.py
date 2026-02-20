@@ -120,9 +120,11 @@ class TestUploadSliceUsesBatchEditGroupId:
                 "curator.app.handler.create_upload_requests_for_batch"
             ) as mock_create,
             patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
-            patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate,
-            patch("curator.app.handler.get_next_upload_delay", return_value=0.0),
-            patch("curator.app.handler.process_upload") as mock_process,
+            patch(
+                "curator.app.task_enqueuer.get_rate_limit_for_batch"
+            ) as mock_get_rate,
+            patch("curator.app.task_enqueuer.get_next_upload_delay", return_value=0.0),
+            patch("curator.app.task_enqueuer.process_upload") as mock_process,
         ):
             mock_create.return_value = [mock_req]
             mock_get_rate.return_value = RateLimitInfo(
@@ -156,13 +158,17 @@ class TestRetryCreatesNewBatch:
             patch(
                 "curator.app.handler.reset_failed_uploads_to_new_batch"
             ) as mock_reset,
-            patch("curator.app.handler.process_upload") as mock_process,
-            patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate,
+            patch("curator.app.task_enqueuer.process_upload") as mock_process,
+            patch(
+                "curator.app.task_enqueuer.get_rate_limit_for_batch"
+            ) as mock_get_rate,
+            patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
         ):
             mock_reset.return_value = ([1, 2], "newbatch123456")
             mock_get_rate.return_value = RateLimitInfo(
                 uploads_per_period=999, period_seconds=1, is_privileged=False
             )
+            mock_get_delay.return_value = 0.0
             mock_process.apply_async = mocker.MagicMock()
 
             await handler_instance.retry_uploads(123)

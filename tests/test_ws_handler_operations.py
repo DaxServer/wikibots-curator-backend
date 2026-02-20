@@ -37,11 +37,15 @@ async def test_handle_unsubscribe_batch(handler_instance):
 async def test_retry_uploads_success(mocker, handler_instance):
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
-        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch(
+            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+        ) as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch123")
         mock_get_rate_limit.return_value = mocker.MagicMock(is_privileged=False)
+        mock_get_delay.return_value = 0.0
         await handler_instance.retry_uploads(123)
 
         mock_reset.assert_called_once()
@@ -56,7 +60,7 @@ async def test_retry_uploads_success(mocker, handler_instance):
 async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.return_value = ([], None)
 
@@ -72,7 +76,7 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
 async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
@@ -88,7 +92,7 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
 async def test_retry_uploads_not_found(handler_instance, mock_sender):
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
@@ -106,11 +110,15 @@ async def test_retry_uploads_with_priority(mocker, handler_instance, priority):
     """Test retry uploads with different priorities"""
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.handler.process_upload") as mock_process_upload,
-        patch("curator.app.handler.get_rate_limit_for_batch") as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch(
+            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+        ) as mock_get_rate_limit,
+        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch456")
         mock_get_rate_limit.return_value = mocker.MagicMock(is_privileged=False)
+        mock_get_delay.return_value = 0.0
 
         if priority:
             await handler_instance.retry_uploads(123, priority=priority)
