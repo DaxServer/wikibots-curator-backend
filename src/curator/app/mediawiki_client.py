@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import secrets
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -70,28 +71,40 @@ class MediaWikiClient:
         files: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         timeout: float = 300.0,
+        retry: bool = False,
     ) -> dict[str, Any]:
         """
-        Make a request to the MediaWiki API.
+        Make a request to the MediaWiki API with optional retry logic.
         """
         # Format is added to params for GET requests
         if "format" not in params:
             params["format"] = "json"
 
-        try:
-            response = self._client.request(
-                method,
-                COMMONS_API,
-                params=params,
-                data=data,
-                files=files,
-                timeout=timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(e)
-            raise
+        backoffs = [0, 1, 3] if retry else [0]
+
+        for attempt, backoff in enumerate(backoffs):
+            if attempt > 0 and backoff > 0:
+                time.sleep(backoff)
+
+            try:
+                response = self._client.request(
+                    method,
+                    COMMONS_API,
+                    params=params,
+                    data=data,
+                    files=files,
+                    timeout=timeout,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.RequestException as e:
+                if attempt == len(backoffs) - 1:
+                    logger.error(f"API request failed: {e}")
+                    raise
+                logger.warning(
+                    f"API request failed (attempt {attempt + 1}), retrying in {backoffs[attempt + 1]}s"
+                )
+        raise AssertionError("Unreachable")
 
     def get_user_groups(self) -> set[str]:
         """
@@ -469,6 +482,7 @@ class MediaWikiClient:
             method="POST",
             data=post_data,
             timeout=60.0,
+            retry=True,
         )
 
         # Check for API errors in response

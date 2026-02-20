@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from mwoauth import AccessToken
 
 from curator.app.errors import DuplicateUploadError
@@ -277,3 +278,124 @@ def test_upload_file_fails_when_other_warnings(mocker):
 
     assert result.success is False
     assert result.error is not None and "warnings" in result.error
+
+
+# Tests for retry functionality with exponential backoff
+
+
+def test_api_request_succeeds_on_first_attempt_no_retry(mocker):
+    """Test that API request succeeds immediately when retry=False (default)"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"success": True}
+    mock_client._client.request = MagicMock(return_value=mock_response)
+
+    result = mock_client._api_request({"action": "test"})
+
+    assert result == {"success": True}
+    mock_client._client.request.assert_called_once()
+
+
+def test_api_request_succeeds_on_first_attempt_with_retry(mocker):
+    """Test that API request succeeds immediately when retry=True"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"success": True}
+    mock_client._client.request = MagicMock(return_value=mock_response)
+    mock_sleep = mocker.patch("time.sleep")
+
+    result = mock_client._api_request({"action": "test"}, retry=True)
+
+    assert result == {"success": True}
+    mock_client._client.request.assert_called_once()
+    mock_sleep.assert_not_called()
+
+
+def test_api_request_succeeds_after_first_retry(mocker):
+    """Test that API request succeeds after first retry with 1s backoff"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"success": True}
+    mock_client._client.request = MagicMock(
+        side_effect=[
+            requests.exceptions.RequestException("Network error"),
+            mock_response,
+        ]
+    )
+    mock_sleep = mocker.patch("time.sleep")
+
+    result = mock_client._api_request({"action": "test"}, retry=True)
+
+    assert result == {"success": True}
+    assert mock_client._client.request.call_count == 2
+    # Verify sleep was called with 1s backoff
+    mock_sleep.assert_called_once_with(1)
+
+
+def test_api_request_succeeds_after_second_retry(mocker):
+    """Test that API request succeeds after second retry with 1s then 3s backoff"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"success": True}
+    mock_client._client.request = MagicMock(
+        side_effect=[
+            requests.exceptions.RequestException("Network error"),
+            requests.exceptions.RequestException("Network error"),
+            mock_response,
+        ]
+    )
+    mock_sleep = mocker.patch("time.sleep")
+
+    result = mock_client._api_request({"action": "test"}, retry=True)
+
+    assert result == {"success": True}
+    assert mock_client._client.request.call_count == 3
+    # Verify sleep was called with 1s then 3s backoff
+    assert mock_sleep.call_args_list == [mocker.call(1), mocker.call(3)]
+
+
+def test_api_request_fails_after_all_retries(mocker):
+    """Test that API request raises exception after all retries exhausted"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._client.request = MagicMock(
+        side_effect=requests.exceptions.RequestException("Network error")
+    )
+    mock_sleep = mocker.patch("time.sleep")
+
+    with pytest.raises(requests.exceptions.RequestException, match="Network error"):
+        mock_client._api_request({"action": "test"}, retry=True)
+
+    # Should have attempted 3 times total
+    assert mock_client._client.request.call_count == 3
+    # Verify sleep was called with 1s then 3s backoff
+    assert mock_sleep.call_args_list == [mocker.call(1), mocker.call(3)]
+
+
+def test_only_request_exception_triggers_retry(mocker):
+    """Test that only RequestException triggers retry, other exceptions propagate immediately"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._client.request = MagicMock(side_effect=ValueError("Non-request error"))
+    mock_sleep = mocker.patch("time.sleep")
+
+    with pytest.raises(ValueError, match="Non-request error"):
+        mock_client._api_request({"action": "test"}, retry=True)
+
+    # Should only attempt once (no retry for non-RequestException)
+    assert mock_client._client.request.call_count == 1
+    mock_sleep.assert_not_called()
+
+
+def test_retry_false_means_no_retry_on_failure(mocker):
+    """Test that retry=False (default) means no retry on failure"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._client.request = MagicMock(
+        side_effect=requests.exceptions.RequestException("Network error")
+    )
+    mock_sleep = mocker.patch("time.sleep")
+
+    with pytest.raises(requests.exceptions.RequestException, match="Network error"):
+        mock_client._api_request({"action": "test"}, retry=False)
+
+    # Should only attempt once when retry=False
+    assert mock_client._client.request.call_count == 1
+    mock_sleep.assert_not_called()
