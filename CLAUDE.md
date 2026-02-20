@@ -30,6 +30,7 @@ poetry run isort . && poetry run ruff format && poetry run ruff check && poetry 
 ```
 Note: Type errors in `dal_optimized.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
 All other files must pass type check. Even pre-existing errors in modified files should be fixed before committing.
+To type-check specific files only: `poetry run ty check path/to/file.py`
 
 ## Architecture
 
@@ -108,6 +109,9 @@ Retry functionality allows users and admins to retry failed uploads. The current
 ### MediaWiki Client
 - `MediaWikiClient` class handles all Wikimedia Commons operations
 - `create_mediawiki_client()` in `mediawiki_client.py` creates authenticated clients
+- `_api_request()` supports optional retry with exponential backoff via `retry=True` parameter (3 attempts: 0s, 1s, 3s delays)
+- Only `requests.exceptions.RequestException` triggers retries; other exceptions propagate immediately
+- `apply_sdc()` uses `retry=True` for SDC operations which are prone to transient API errors
 - Client instances are passed where needed (no global state)
 - Async methods are used where available, or `asyncio.to_thread` for synchronous calls
 - Clients are closed after use (e.g., using `try...finally`)
