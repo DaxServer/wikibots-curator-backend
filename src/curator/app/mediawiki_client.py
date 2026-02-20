@@ -102,7 +102,7 @@ class MediaWikiClient:
                     logger.error(f"API request failed: {e}")
                     raise
                 logger.warning(
-                    f"API request failed (attempt {attempt + 1}), retrying in {backoff}s"
+                    f"API request failed (attempt {attempt + 1}), retrying in {backoffs[attempt + 1]}s"
                 )
         raise AssertionError("Unreachable")
 
