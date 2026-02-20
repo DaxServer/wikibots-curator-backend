@@ -191,6 +191,12 @@ with patch("os.path.getsize", return_value=1000), patch(
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
 - `gh pr view --json reviews` only shows high-level review summaries, not specific line comments
 
+### SQLModel vs SQLAlchemy Behavior
+- `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)
+- Raw SQLAlchemy's `session.execute()` returns `list[Row]` and needs `.scalars()` to extract values
+- SQLModel's `session.exec()` is a simplified wrapper that automatically unwraps scalar values
+- When using `session.execute()` (not `exec`), you need `.scalars().all()` to get plain values
+
 ## Important Notes
 
 - Type errors in `dal_optimized.py` are known and ignored
