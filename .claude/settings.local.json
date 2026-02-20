@@ -19,7 +19,8 @@
       "Bash(gh pr diff:*)",
       "Bash(wc:*)",
       "Bash(ls:*)",
-      "Bash(git remote get-url:*)"
+      "Bash(git remote get-url:*)",
+      "Bash(poetry show:*)"
     ]
   }
 }
