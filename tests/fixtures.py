@@ -108,7 +108,6 @@ def mock_upload_request():
     upload.key = "img-1"
     upload.filename = "Test.jpg"
     upload.wikitext = "== Summary =="
-    upload.sdc = [{"P180": "Q42"}]
     upload.labels = {"en": "Test"}
     upload.collection = "seq-1"
     upload.access_token = "cipher"
