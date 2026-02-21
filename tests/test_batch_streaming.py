@@ -120,13 +120,13 @@ async def test_handler_fetch_batches_workflow(
 
     patch_get_session("curator.app.handler_optimized.get_session")
     with (
-        patch("curator.app.handler_optimized.get_batches_optimized") as mock_full,
+        patch("curator.app.handler_optimized.get_batches") as mock_full,
         patch("curator.app.handler_optimized.get_batches_minimal") as mock_mini,
         patch(
             "curator.app.handler_optimized.get_batch_ids_with_recent_changes"
         ) as mock_changed,
         patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler_optimized.count_batches_optimized") as mock_count,
+        patch("curator.app.handler_optimized.count_batches") as mock_count,
     ):
         # 1. Initial sync (t1)
         mock_latest.side_effect = [t1, t2]  # t1 for init, t2 for loop check

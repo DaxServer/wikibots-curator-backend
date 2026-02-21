@@ -1,63 +1,63 @@
-"""Tests for optimized database query functions."""
+"""Tests for batch query functions."""
 
 from datetime import datetime
 
 from curator.app.dal import (
-    count_batches_optimized,
+    count_batches,
     get_batch_ids_with_recent_changes,
+    get_batches,
     get_batches_minimal,
-    get_batches_optimized,
     get_latest_update_time,
 )
 
 
-def test_count_batches_optimized_basic(mocker, mock_session):
-    """Test count_batches_optimized returns correct count"""
-    # Mock the exec result - count_batches_optimized uses .one() not .scalar_one()
+def test_count_batches_basic(mocker, mock_session):
+    """Test count_batches returns correct count"""
+    # Mock the exec result - count_batches uses .one() not .scalar_one()
     mock_result = mocker.MagicMock()
     mock_result.one.return_value = 150
     mock_session.exec.return_value = mock_result
 
     # Execute
-    result = count_batches_optimized(mock_session, userid="user123", filter_text=None)
+    result = count_batches(mock_session, userid="user123", filter_text=None)
 
     # Verify
     assert result == 150
     mock_session.exec.assert_called_once()
 
 
-def test_count_batches_optimized_with_filter(mock_session, mocker):
-    """Test count_batches_optimized with filter text"""
+def test_count_batches_with_filter(mock_session, mocker):
+    """Test count_batches with filter text"""
     # Mock the exec result
     mock_result = mocker.MagicMock()
     mock_result.one.return_value = 75
     mock_session.exec.return_value = mock_result
 
     # Execute
-    result = count_batches_optimized(mock_session, userid="user123", filter_text="test")
+    result = count_batches(mock_session, userid="user123", filter_text="test")
 
     # Verify
     assert result == 75
     mock_session.exec.assert_called_once()
 
 
-def test_count_batches_optimized_zero(mock_session, mocker):
-    """Test count_batches_optimized returns zero"""
+def test_count_batches_zero(mock_session, mocker):
+    """Test count_batches returns zero"""
     # Mock the exec result
     mock_result = mocker.MagicMock()
     mock_result.one.return_value = 0
     mock_session.exec.return_value = mock_result
 
     # Execute
-    result = count_batches_optimized(mock_session, userid="user123", filter_text=None)
+    result = count_batches(mock_session, userid="user123", filter_text=None)
 
     # Verify
     assert result == 0
     mock_session.exec.assert_called_once()
 
 
-def test_get_batches_optimized_basic(mock_session, mocker):
-    """Test get_batches_optimized returns batches correctly"""
+def test_get_batches_basic(mock_session, mocker):
+    """Test get_batches returns batches correctly"""
     # Create datetime objects for created_at
     created_at1 = datetime(2024, 1, 1, 1, 0, 0)
     created_at2 = datetime(2024, 1, 1, 2, 0, 0)
@@ -86,7 +86,7 @@ def test_get_batches_optimized_basic(mock_session, mocker):
     ]
 
     # Execute
-    result = get_batches_optimized(mock_session, userid="user123", filter_text=None)
+    result = get_batches(mock_session, userid="user123", filter_text=None)
 
     # Verify
     assert len(result) == 2
