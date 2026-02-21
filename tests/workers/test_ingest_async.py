@@ -80,7 +80,6 @@ async def test_process_one_missing_access_token(
 ):
     # Setup - modify the mock upload request to have no access token
     mock_upload_request.access_token = None
-    mock_upload_request.sdc = None
 
     # Execute
     ok = await process_one(1, "test_edit_group_abc123")

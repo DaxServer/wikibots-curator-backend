@@ -10,7 +10,6 @@ from curator.asyncapi import (
     DuplicateError,
     GenericError,
     Label,
-    Statement,
     TitleBlacklistedError,
 )
 
@@ -80,7 +79,6 @@ class UploadRequest(SQLModel, table=True):
     filename: str = Field(index=True, max_length=255)
     wikitext: str = Field(sa_column=Column(Text))
     copyright_override: bool = Field(default=False)
-    sdc: Optional[list[Statement]] = Field(default=[], sa_column=Column(JSON))
     labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
     error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
@@ -118,7 +116,6 @@ class UploadItem(SQLModel):
     wikitext: str
     labels: Optional[Label] = None
     copyright_override: bool = False
-    sdc: Optional[list[Statement]] = []
 
 
 class RetrySelectedUploadsRequest(SQLModel):

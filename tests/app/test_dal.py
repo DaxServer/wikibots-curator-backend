@@ -8,7 +8,6 @@ from curator.app.dal import (
     retry_selected_uploads_to_new_batch,
 )
 from curator.app.models import UploadItem
-from curator.asyncapi import Rank, SomeValueSnak, Statement
 
 
 def test_get_upload_request_by_id(mocker, mock_session):
@@ -88,17 +87,14 @@ def test_get_batch_not_found(mock_session):
     mock_session.exec.assert_called_once()
 
 
-def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
-    """Test that create_upload_requests_for_batch does not persist SDC data."""
-    statement = Statement(mainsnak=SomeValueSnak(property="P170"), rank=Rank.NORMAL)
-
+def test_create_upload_requests_for_batch_persists_required_fields(mock_session):
+    """Test that create_upload_requests_for_batch persists required fields."""
     item = UploadItem(
         id="img1",
         input="seq1",
         title="Test Image",
         wikitext="Some wikitext",
         copyright_override=True,
-        sdc=[statement],
     )
 
     reqs = create_upload_requests_for_batch(
@@ -113,8 +109,6 @@ def test_create_upload_requests_for_batch_does_not_persist_sdc(mock_session):
 
     assert len(reqs) == 1
     assert reqs[0].copyright_override is True
-    assert reqs[0].sdc is not None
-    assert len(reqs[0].sdc) == 0
 
     mock_session.add.assert_called()
     mock_session.flush.assert_called_once()
@@ -138,7 +132,6 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
     mock_failed_upload1.filename = "Test_file_1.jpg"
     mock_failed_upload1.wikitext = "== {{int:filedesc}} =="
     mock_failed_upload1.copyright_override = True
-    mock_failed_upload1.sdc = []
     mock_failed_upload1.labels = None
     mock_failed_upload1.error = {"type": "generic_error"}
     mock_failed_upload1.result = "failed result"
@@ -156,7 +149,6 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
     mock_failed_upload2.filename = "Test_file_2.jpg"
     mock_failed_upload2.wikitext = "== {{int:filedesc}} =="
     mock_failed_upload2.copyright_override = False
-    mock_failed_upload2.sdc = [{"P170": "creator"}]
     mock_failed_upload2.labels = {"en": "label"}
     mock_failed_upload2.error = {"type": "duplicate_error"}
     mock_failed_upload2.result = None
@@ -224,7 +216,6 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
     assert upload1.filename == "Test_file_1.jpg"
     assert upload1.wikitext == "== {{int:filedesc}} =="
     assert upload1.copyright_override is True
-    assert upload1.sdc == []
 
     upload2 = created_uploads[1]
     assert upload2.key == "img_key_2"
@@ -232,7 +223,6 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
     assert upload2.collection == "album456"
     assert upload2.filename == "Test_file_2.jpg"
     assert upload2.copyright_override is False
-    assert upload2.sdc == [{"P170": "creator"}]
     assert upload2.labels == {"en": "label"}
 
 
@@ -249,7 +239,6 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
     mock_upload1.filename = "Test_file_1.jpg"
     mock_upload1.wikitext = "== wikitext =="
     mock_upload1.copyright_override = True
-    mock_upload1.sdc = []
     mock_upload1.labels = None
     mock_upload1.error = {"type": "error"}
     mock_upload1.result = "failed"
@@ -267,7 +256,6 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
     mock_upload2.filename = "Test_file_2.jpg"
     mock_upload2.wikitext = "== more wikitext =="
     mock_upload2.copyright_override = False
-    mock_upload2.sdc = [{"P170": "creator"}]
     mock_upload2.labels = {"en": "label"}
     mock_upload2.error = None
     mock_upload2.result = None

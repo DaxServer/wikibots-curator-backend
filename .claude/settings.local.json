@@ -20,7 +20,8 @@
       "Bash(wc:*)",
       "Bash(ls:*)",
       "Bash(git remote get-url:*)",
-      "Bash(poetry show:*)"
+      "Bash(poetry show:*)",
+      "Bash(poetry run alembic revision:*)"
     ]
   }
 }
