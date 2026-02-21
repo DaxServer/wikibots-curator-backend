@@ -33,7 +33,7 @@ def test_fetch_batches_with_cancelled():
 @when("I request to fetch my batches")
 def when_streaming(mock_sender, event_loop, mocker):
     mocker.patch(
-        "curator.app.handler_optimized.asyncio.sleep",
+        "curator.app.handler.asyncio.sleep",
         side_effect=[None, asyncio.CancelledError],
     )
 

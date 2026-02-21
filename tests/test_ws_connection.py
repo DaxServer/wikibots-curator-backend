@@ -46,7 +46,6 @@ def mock_dal():
 @pytest.fixture
 def mock_get_session_patch(patch_get_session):
     patch_get_session("curator.app.handler.get_session")
-    patch_get_session("curator.app.handler_optimized.get_session")
     return True
 
 
@@ -97,10 +96,10 @@ async def test_stream_uploads_completion(mocker, mock_dal, mock_get_session_patc
 def test_ws_subscribe_batches_list(mock_get_session_patch):
     """Test that SUBSCRIBE_BATCHES_LIST message starts streaming batches."""
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_get_batches,
-        patch("curator.app.handler_optimized.count_batches") as mock_count_batches,
+        patch("curator.app.handler.get_batches") as mock_get_batches,
+        patch("curator.app.handler.count_batches") as mock_count_batches,
         patch(
-            "curator.app.handler_optimized.get_latest_update_time",
+            "curator.app.handler.get_latest_update_time",
             return_value=datetime.now(),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
@@ -124,10 +123,10 @@ def test_ws_subscribe_batches_list(mock_get_session_patch):
 def test_ws_fetch_batches_auto_subscribe(mock_get_session_patch):
     """Test that FETCH_BATCHES automatically subscribes to batch updates."""
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_get_batches,
-        patch("curator.app.handler_optimized.count_batches") as mock_count_batches,
+        patch("curator.app.handler.get_batches") as mock_get_batches,
+        patch("curator.app.handler.count_batches") as mock_count_batches,
         patch(
-            "curator.app.handler_optimized.get_latest_update_time",
+            "curator.app.handler.get_latest_update_time",
             return_value=datetime.now(),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,

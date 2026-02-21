@@ -6,13 +6,13 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app.handler_optimized import OptimizedBatchStreamer
+from curator.app.handler import OptimizedBatchStreamer
 from curator.asyncapi import BatchItem, BatchStats
 
 
 @pytest.fixture(autouse=True)
 def patch_streamer_get_session(patch_get_session):
-    return patch_get_session("curator.app.handler_optimized.get_session")
+    return patch_get_session("curator.app.handler.get_session")
 
 
 @pytest.mark.asyncio
@@ -20,9 +20,9 @@ async def test_streamer_full_sync_initially(mock_sender):
     streamer = OptimizedBatchStreamer(mock_sender, "testuser")
 
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_get_batches,
-        patch("curator.app.handler_optimized.count_batches") as mock_count_batches,
-        patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
+        patch("curator.app.handler.get_batches") as mock_get_batches,
+        patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch("curator.app.handler.get_latest_update_time") as mock_latest,
         patch("asyncio.sleep", side_effect=asyncio.CancelledError),
     ):
         mock_get_batches.return_value = [
@@ -57,13 +57,11 @@ async def test_streamer_incremental_update(mock_sender):
     t2 = datetime(2023, 1, 1, 12, 0, 5)
 
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_full,
-        patch("curator.app.handler_optimized.get_batches_minimal") as mock_mini,
-        patch(
-            "curator.app.handler_optimized.get_batch_ids_with_recent_changes"
-        ) as mock_changed,
-        patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler_optimized.count_batches") as mock_count,
+        patch("curator.app.handler.get_batches") as mock_full,
+        patch("curator.app.handler.get_batches_minimal") as mock_mini,
+        patch("curator.app.handler.get_batch_ids_with_recent_changes") as mock_changed,
+        patch("curator.app.handler.get_latest_update_time") as mock_latest,
+        patch("curator.app.handler.count_batches") as mock_count,
         patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]),
     ):
         # Initial sync
@@ -103,9 +101,9 @@ async def test_streamer_no_update_if_time_same(mock_sender):
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_full,
-        patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler_optimized.count_batches") as mock_count,
+        patch("curator.app.handler.get_batches") as mock_full,
+        patch("curator.app.handler.get_latest_update_time") as mock_latest,
+        patch("curator.app.handler.count_batches") as mock_count,
         patch("asyncio.sleep", side_effect=[None, asyncio.CancelledError()]),
     ):
         # Time doesn't change
@@ -130,9 +128,9 @@ async def test_streamer_no_updates_on_paginated_page(mock_sender):
     t1 = datetime(2023, 1, 1, 12, 0, 0)
 
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_full,
-        patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler_optimized.count_batches") as mock_count,
+        patch("curator.app.handler.get_batches") as mock_full,
+        patch("curator.app.handler.get_latest_update_time") as mock_latest,
+        patch("curator.app.handler.count_batches") as mock_count,
         patch("asyncio.sleep") as mock_sleep,
     ):
         mock_latest.return_value = t1
