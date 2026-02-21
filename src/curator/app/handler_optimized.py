@@ -6,10 +6,10 @@ from typing import Optional
 from sqlmodel import Session
 
 from curator.app.dal import (
-    count_batches_optimized,
+    count_batches,
     get_batch_ids_with_recent_changes,
+    get_batches,
     get_batches_minimal,
-    get_batches_optimized,
     get_latest_update_time,
 )
 from curator.app.db import get_session
@@ -106,12 +106,8 @@ class OptimizedBatchStreamer:
         """Send a full sync of all batches."""
         # Calculate offset based on page and limit
         offset = (self.page - 1) * self.limit
-
-        # Use optimized single-query approach
-        batch_items = get_batches_optimized(
-            session, userid, offset, self.limit, filter_text
-        )
-        total_count = count_batches_optimized(session, userid, filter_text)
+        batch_items = get_batches(session, userid, offset, self.limit, filter_text)
+        total_count = count_batches(session, userid, filter_text)
         current_data = BatchesListData(items=batch_items, total=total_count)
 
         await self.socket.send_batches_list(current_data, partial=False)
@@ -142,7 +138,7 @@ class OptimizedBatchStreamer:
         if not changed_batches:
             return
 
-        total_count = count_batches_optimized(session, userid, filter_text)
+        total_count = count_batches(session, userid, filter_text)
 
         # Send only the changed batches as an update with the current total
         update_data = BatchesListData(items=changed_batches, total=total_count)

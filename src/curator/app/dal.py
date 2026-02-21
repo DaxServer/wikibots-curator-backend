@@ -148,27 +148,6 @@ def create_upload_requests_for_batch(
     return reqs
 
 
-def count_batches(
-    session: Session, userid: Optional[str] = None, filter_text: Optional[str] = None
-) -> int:
-    query = select(func.count(Batch.id))
-    if filter_text:
-        query = query.join(User)
-
-    if userid:
-        query = query.where(Batch.userid == userid)
-
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
-            )
-        )
-
-    return session.exec(query).one()
-
-
 def get_batches_stats(session: Session, batch_ids: list[int]) -> dict[int, BatchStats]:
     if not batch_ids:
         return {}
@@ -207,54 +186,6 @@ def get_batches_stats(session: Session, batch_ids: list[int]) -> dict[int, Batch
                 stats[batch_id].duplicate = count
 
     return stats
-
-
-def get_batches(
-    session: Session,
-    userid: Optional[str] = None,
-    offset: int = 0,
-    limit: int = 100,
-    filter_text: Optional[str] = None,
-) -> list[BatchItem]:
-    """Fetch batches for a user, ordered by creation time descending."""
-    user_attr = class_mapper(Batch).relationships["user"].class_attribute
-    query = (
-        select(Batch)
-        .options(selectinload(user_attr))
-        .order_by(col(Batch.created_at).desc())
-    )
-
-    if filter_text:
-        query = query.join(User)
-
-    if userid:
-        query = query.where(Batch.userid == userid)
-
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
-            )
-        )
-
-    batches = session.exec(query.offset(offset).limit(limit)).all()
-    batch_ids = [b.id for b in batches]
-    stats = get_batches_stats(session, batch_ids)
-
-    return [
-        BatchItem(
-            id=batch.id,
-            created_at=batch.created_at.isoformat(),
-            username=batch.user.username if batch.user else "Unknown",
-            userid=batch.userid,
-            stats=stats.get(
-                batch.id,
-                BatchStats(),
-            ),
-        )
-        for batch in batches
-    ]
 
 
 def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
@@ -619,14 +550,14 @@ def _populate_batch_stats(
             )
 
 
-def get_batches_optimized(
+def get_batches(
     session: Session,
     userid: Optional[str] = None,
     offset: int = 0,
     limit: int = 100,
     filter_text: Optional[str] = None,
 ) -> list[BatchItem]:
-    """Optimized batch fetching by separating record fetch and stats aggregation."""
+    """Fetch batches for a user, ordered by creation time descending."""
     base_query = select(Batch, User.username).join(User)
 
     if userid:
@@ -674,12 +605,12 @@ def get_batches_optimized(
     return ordered_items
 
 
-def count_batches_optimized(
+def count_batches(
     session: Session,
     userid: Optional[str] = None,
     filter_text: Optional[str] = None,
 ) -> int:
-    """Optimized batch counting with single query."""
+    """Batch counting with single query."""
     query = select(func.count(col(Batch.id))).select_from(Batch)
 
     if filter_text:
