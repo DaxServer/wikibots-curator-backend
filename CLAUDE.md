@@ -148,6 +148,12 @@ Backend models are auto-generated from `frontend/asyncapi.json`. When updating s
 - Use short names without redundant prefixes (e.g., `original` not `url_original`)
 - Boolean flags should be required with defaults, not Optional
 
+**When adding new server messages, update all 4 locations in `asyncapi.json`:**
+1. `components/messages/` - Message definition (`"RetryUploadsResponse": {"payload": {...}}`)
+2. `components/schemas/` - Schema definition with type, data, nonce properties
+3. `channels/wsChannel/messages/` - Channel message reference
+4. `operations/ServerMessage/messages/` - Server operation reference (alphabetical order)
+
 ## Database Migrations
 
 Use Alembic CLI auto-generator:
@@ -184,6 +190,10 @@ with patch("os.path.getsize", return_value=1000), patch(
 ):
     result = func()
 ```
+
+**When adding new async send methods to `protocol.py`:**
+- Add `sender.send_new_method = AsyncMock()` to `mock_sender` fixture in `tests/fixtures.py`
+- This is required for tests that use WebSocket handlers (mock_sender is autouse for BDD tests)
 
 ### Pull Request Review Workflow
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers

@@ -381,15 +381,15 @@ def retry_selected_uploads_to_new_batch(
     encrypted_access_token: str,
     admin_userid: str,
     admin_username: str,
-) -> tuple[list[int], str | None]:
+) -> tuple[list[int], str | None, int]:
     """
     Create copies of selected uploads in a new batch.
     Original uploads remain unchanged in their original batches.
 
-    Returns a tuple of (new_upload_ids, edit_group_id).
+    Returns a tuple of (new_upload_ids, edit_group_id, new_batch_id).
     """
     if not upload_ids:
-        return [], None
+        return [], None, 0
 
     statement = select(UploadRequest).where(
         col(UploadRequest.id).in_(upload_ids),
@@ -398,7 +398,7 @@ def retry_selected_uploads_to_new_batch(
     uploads = session.exec(statement).all()
 
     if not uploads:
-        return [], None
+        return [], None, 0
 
     new_batch = create_batch(
         session=session, userid=admin_userid, username=admin_username
@@ -429,7 +429,7 @@ def retry_selected_uploads_to_new_batch(
     session.flush()
     new_ids = [u.id for u in new_uploads]
 
-    return new_ids, new_batch.edit_group_id
+    return new_ids, new_batch.edit_group_id, new_batch.id
 
 
 def reset_failed_uploads_to_new_batch(
@@ -438,12 +438,12 @@ def reset_failed_uploads_to_new_batch(
     userid: str,
     encrypted_access_token: str,
     username: str,
-) -> tuple[list[int], str | None]:
+) -> tuple[list[int], str | None, int]:
     """
     Create copies of failed uploads in a new batch.
     Original uploads remain unchanged in their original batch.
 
-    Returns a tuple of (new_upload_ids, edit_group_id).
+    Returns a tuple of (new_upload_ids, edit_group_id, new_batch_id).
     """
     batch = session.get(Batch, batchid)
     if not batch:
@@ -458,7 +458,7 @@ def reset_failed_uploads_to_new_batch(
     failed_uploads = session.exec(statement).all()
 
     if not failed_uploads:
-        return [], None
+        return [], None, 0
 
     new_batch = create_batch(session=session, userid=userid, username=username)
 
@@ -487,7 +487,7 @@ def reset_failed_uploads_to_new_batch(
     session.flush()
     new_ids = [u.id for u in new_uploads]
 
-    return new_ids, new_batch.edit_group_id
+    return new_ids, new_batch.edit_group_id, new_batch.id
 
 
 def _populate_batch_stats(

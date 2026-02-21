@@ -85,7 +85,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = ([1, 2, 3], "adminretry123")
+        mock_retry.return_value = ([1, 2, 3], "adminretry123", 456)
 
         result = await admin_retry_uploads(request, user)
 
@@ -95,6 +95,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
             "message": "Retried 3 uploads",
             "retried_count": 3,
             "requested_count": 3,
+            "new_batch_id": 456,
         }
 
         # Verify Celery tasks were queued with upload_id, edit_group_id, and privileged queue
@@ -132,7 +133,11 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = ([1, 3], "adminretry456")  # Only 1 and 3 were retried
+        mock_retry.return_value = (
+            [1, 3],
+            "adminretry456",
+            789,
+        )  # Only 1 and 3 were retried
 
         result = await admin_retry_uploads(request, user)
 
@@ -140,6 +145,7 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
             "message": "Retried 2 uploads",
             "retried_count": 2,
             "requested_count": 4,
+            "new_batch_id": 789,
         }
 
         # Only 2 tasks should be queued
@@ -166,7 +172,7 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
         patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
     ):
         mock_encrypt.return_value = "encrypted_token"
-        mock_retry.return_value = ([], None)
+        mock_retry.return_value = ([], None, 0)
 
         result = await admin_retry_uploads(request, user)
 
@@ -174,6 +180,7 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
             "message": "Retried 0 uploads",
             "retried_count": 0,
             "requested_count": 0,
+            "new_batch_id": None,
         }
 
         # No tasks should be queued

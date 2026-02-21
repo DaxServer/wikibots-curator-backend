@@ -188,9 +188,10 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
         mock_session, 123, "user1", "new_encrypted_token", "testuser"
     )
 
-    upload_ids, edit_group_id = result
+    upload_ids, edit_group_id, new_batch_id_result = result
     assert len(upload_ids) == 2
     assert edit_group_id == "newbatch12345"
+    assert new_batch_id_result == new_batch_id
 
     assert mock_failed_upload1.status == "failed"
     assert mock_failed_upload1.error == {"type": "generic_error"}
@@ -296,9 +297,10 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
         "admin_username",
     )
 
-    upload_ids, edit_group_id = result
+    upload_ids, edit_group_id, new_batch_id_result = result
     assert len(upload_ids) == 2
     assert edit_group_id == "adminbatch789"
+    assert new_batch_id_result == new_batch_id
 
     assert mock_upload1.status == "failed"
     assert mock_upload1.batchid == 100

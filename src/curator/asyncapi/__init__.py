@@ -52,6 +52,7 @@ from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
 from .Reference import Reference
 from .RetryUploads import RetryUploads
+from .RetryUploadsResponse import RetryUploadsResponse
 from .SnakDataType import SnakDataType
 from .SnakType import SnakType
 from .SomeValueSnak import SomeValueSnak
@@ -132,6 +133,7 @@ __all__ = [
     "Error",
     "PartialCollectionImages",
     "PartialCollectionImagesData",
+    "RetryUploadsResponse",
     "Subscribed",
     "TryBatchRetrieval",
     "UploadCreated",

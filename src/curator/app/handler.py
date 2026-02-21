@@ -354,8 +354,10 @@ class Handler:
 
         try:
             with get_session() as session:
-                retried_ids, edit_group_id = reset_failed_uploads_to_new_batch(
-                    session, batchid, userid, encrypted_access_token, self.username
+                retried_ids, edit_group_id, new_batch_id = (
+                    reset_failed_uploads_to_new_batch(
+                        session, batchid, userid, encrypted_access_token, self.username
+                    )
                 )
         except ValueError:
             await self.socket.send_error(f"Batch {batchid} not found")
@@ -383,6 +385,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Retried {len(retried_ids)} uploads for batch {batchid} for {self.username}"
         )
+        await self.socket.send_retry_uploads_response(new_batch_id)
 
     @handle_exceptions
     async def cancel_batch(self, batchid: int):
