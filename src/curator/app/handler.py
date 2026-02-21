@@ -1,10 +1,12 @@
 import asyncio
 import functools
 import logging
+from datetime import datetime
 from typing import Any, Optional, cast
 
 import httpx
 from fastapi import WebSocketDisconnect
+from sqlmodel import Session
 
 from curator.app.auth import UserSession
 from curator.app.config import QueuePriority
@@ -14,19 +16,24 @@ from curator.app.crypto import (
 )
 from curator.app.dal import (
     cancel_batch,
+    count_batches,
     count_uploads_in_batch,
     create_batch,
     create_upload_requests_for_batch,
     ensure_user,
     get_batch,
+    get_batch_ids_with_recent_changes,
+    get_batches,
+    get_batches_minimal,
+    get_latest_update_time,
     get_upload_request,
     reset_failed_uploads_to_new_batch,
 )
 from curator.app.db import get_session
-from curator.app.handler_optimized import OptimizedBatchStreamer
 from curator.app.models import Batch, UploadItem
 from curator.app.task_enqueuer import enqueue_uploads
 from curator.asyncapi import (
+    BatchesListData,
     BatchUploadsListData,
     CollectionImagesData,
     DuplicatedSdcNotUpdatedError,
@@ -536,3 +543,126 @@ def revoke_celery_tasks_by_id(upload_task_ids: dict[int, str]) -> dict[int, bool
             results[upload_id] = False
 
     return results
+
+
+class OptimizedBatchStreamer:
+    """Optimized batch streaming with intelligent updates and reduced payload size."""
+
+    def __init__(self, socket: AsyncAPIWebSocket, username: str):
+        self.socket = socket
+        self.username = username
+        self.last_update_time: Optional[datetime] = None
+        self.is_running = False
+        self.page = 1
+        self.limit = 100
+
+    async def start_streaming(
+        self,
+        userid: Optional[str] = None,
+        filter_text: Optional[str] = None,
+        page: int = 1,
+        limit: int = 100,
+        update_check_interval: int = 2,
+    ):
+        """Start optimized batch streaming with intelligent updates."""
+        self.is_running = True
+        self.page = page
+        self.limit = limit
+        logger.info(
+            f"[ws] [resp] Starting optimized batch streaming for {self.username} (page: {page}, limit: {limit})"
+        )
+
+        try:
+            with get_session() as session:
+                await self._send_full_sync(session, userid, filter_text)
+                self.last_update_time = get_latest_update_time(
+                    session, userid, filter_text
+                )
+
+            if self.page > 1:
+                logger.info(
+                    f"[ws] [resp] Pagination detected (page {self.page}), not streaming updates for {self.username}"
+                )
+                return
+
+            while self.is_running:
+                await asyncio.sleep(update_check_interval)
+
+                with get_session() as session:
+                    current_latest = get_latest_update_time(
+                        session, userid, filter_text
+                    )
+
+                    if current_latest and (
+                        self.last_update_time is None
+                        or current_latest > self.last_update_time
+                    ):
+                        logger.info(
+                            f"[ws] [resp] Updates detected for {self.username}, sending incremental update"
+                        )
+                        check_time = self.last_update_time or datetime.min
+                        await self._send_incremental_updates(
+                            session, userid, filter_text, check_time
+                        )
+                        self.last_update_time = current_latest
+
+        except asyncio.CancelledError:
+            logger.info(
+                f"[ws] [resp] Stopping optimized batch streaming for {self.username}"
+            )
+        except Exception as e:
+            logger.error(f"[ws] [resp] Error in optimized batch streaming: {e}")
+            raise
+
+    async def stop_streaming(self):
+        """Stop the streaming process."""
+        if self.is_running:
+            self.is_running = False
+            logger.info(
+                f"[ws] [resp] Stopped optimized batch streaming for {self.username}"
+            )
+
+    async def _send_full_sync(
+        self, session: Session, userid: Optional[str], filter_text: Optional[str]
+    ):
+        """Send a full sync of all batches."""
+        offset = (self.page - 1) * self.limit
+        batch_items = get_batches(session, userid, offset, self.limit, filter_text)
+        total_count = count_batches(session, userid, filter_text)
+        current_data = BatchesListData(items=batch_items, total=total_count)
+
+        await self.socket.send_batches_list(current_data, partial=False)
+
+        logger.info(
+            f"[ws] [resp] Full sync completed for {self.username}: sent {len(batch_items)} batches (total: {total_count})"
+        )
+
+    async def _send_incremental_updates(
+        self,
+        session: Session,
+        userid: Optional[str],
+        filter_text: Optional[str],
+        last_update_time: datetime,
+    ):
+        """Send only batches that have changed recently."""
+        changed_batch_ids = get_batch_ids_with_recent_changes(
+            session, last_update_time, userid, filter_text
+        )
+
+        if not changed_batch_ids:
+            return
+
+        changed_batches = get_batches_minimal(session, changed_batch_ids)
+
+        if not changed_batches:
+            return
+
+        total_count = count_batches(session, userid, filter_text)
+
+        update_data = BatchesListData(items=changed_batches, total=total_count)
+
+        await self.socket.send_batches_list(update_data, partial=True)
+
+        logger.info(
+            f"[ws] [resp] Sent incremental update for {self.username}: {len(changed_batches)} batches (total: {total_count})"
+        )

@@ -114,19 +114,17 @@ async def test_handler_fetch_batches_workflow(
 
     # Only mock sleep for the streamer loop to avoid real 2s wait
     mock_sleep = mocker.patch(
-        "curator.app.handler_optimized.asyncio.sleep", new_callable=AsyncMock
+        "curator.app.handler.asyncio.sleep", new_callable=AsyncMock
     )
     mock_sleep.side_effect = [None, asyncio.CancelledError()]
 
-    patch_get_session("curator.app.handler_optimized.get_session")
+    patch_get_session("curator.app.handler.get_session")
     with (
-        patch("curator.app.handler_optimized.get_batches") as mock_full,
-        patch("curator.app.handler_optimized.get_batches_minimal") as mock_mini,
-        patch(
-            "curator.app.handler_optimized.get_batch_ids_with_recent_changes"
-        ) as mock_changed,
-        patch("curator.app.handler_optimized.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler_optimized.count_batches") as mock_count,
+        patch("curator.app.handler.get_batches") as mock_full,
+        patch("curator.app.handler.get_batches_minimal") as mock_mini,
+        patch("curator.app.handler.get_batch_ids_with_recent_changes") as mock_changed,
+        patch("curator.app.handler.get_latest_update_time") as mock_latest,
+        patch("curator.app.handler.count_batches") as mock_count,
     ):
         # 1. Initial sync (t1)
         mock_latest.side_effect = [t1, t2]  # t1 for init, t2 for loop check

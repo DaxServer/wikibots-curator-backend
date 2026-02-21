@@ -16,7 +16,7 @@ Curator Backend is a FastAPI service that manages CuratorBot jobs for uploading 
 poetry run web       # FastAPI server (port 8000) - DO NOT RUN
 poetry run worker    # Celery worker - DO NOT RUN
 poetry run pytest -q # Run tests
-poetry run ty check --exclude src/curator/app/dal_optimized.py --exclude alembic  # Type check (excludes asyncapi/)
+poetry run ty check --exclude src/curator/app/dal.py --exclude alembic  # Type check (excludes asyncapi/)
 poetry run isort .   # Sort imports
 poetry run ruff format  # Format code
 poetry run ruff check  # Run linter
@@ -26,9 +26,9 @@ poetry run alembic upgrade head  # Apply migrations
 **Project-Specific Development Workflow:**
 After completing backend tasks, always run in order:
 ```bash
-poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude src/curator/app/dal_optimized.py --exclude alembic
+poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude src/curator/app/dal.py --exclude alembic
 ```
-Note: Type errors in `dal_optimized.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
+Note: Type errors in `dal.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
 All other files must pass type check. Even pre-existing errors in modified files should be fixed before committing.
 To type-check specific files only: `poetry run ty check path/to/file.py`
 
@@ -41,7 +41,7 @@ main.py (Routes) → handler.py (Business Logic) → dal.py (Database) → model
 
 1. **Routes** (`main.py`) → validate request, get user session
 2. **Handlers** (`handler*.py`) → business logic, orchestration
-3. **DAL** (`dal*.py`) → database queries and persistence
+3. **DAL** (`dal.py`) → database queries and persistence
 4. **Models** (`models.py`) → SQLModel definitions
 
 Database access goes through DAL functions using the `get_session()` dependency.
@@ -59,10 +59,8 @@ src/curator/
 │   ├── config.py        # Configuration from environment
 │   ├── db.py           # Database engine
 │   ├── models.py        # SQLModel models
-│   ├── dal.py          # Data Access Layer
-│   ├── dal_optimized.py # Optimized DAL (type errors known, ignore)
+│   ├── dal.py          # Data Access Layer (type errors known, ignore)
 │   ├── handler.py      # Business logic
-│   ├── handler_optimized.py # Optimized handlers
 │   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, commons.py
 │   ├── mediawiki_client.py # MediaWiki API client
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
@@ -199,7 +197,7 @@ with patch("os.path.getsize", return_value=1000), patch(
 
 ## Important Notes
 
-- Type errors in `dal_optimized.py` are known and ignored
+- Type errors in `dal.py` are known and ignored
 - Type errors in `alembic/` are known and ignored
 - Functions that always return or raise an exception use `raise AssertionError("Unreachable")` to satisfy the type checker
 - AsyncAPI models are auto-generated from `frontend/asyncapi.json`
