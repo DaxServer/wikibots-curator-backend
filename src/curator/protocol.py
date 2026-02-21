@@ -22,6 +22,7 @@ from curator.asyncapi import (
     PartialCollectionImages,
     PartialCollectionImagesData,
     RetryUploads,
+    RetryUploadsResponse,
     SubscribeBatch,
     SubscribeBatchesList,
     Subscribed,
@@ -66,14 +67,15 @@ ServerMessage = Annotated[
         BatchUploadsList,
         CollectionImages,
         Error,
+        PartialCollectionImages,
+        RetryUploadsResponse,
         Subscribed,
+        TryBatchRetrieval,
+        CollectionImageIds,
+        BatchCreated,
         UploadCreated,
         UploadsComplete,
         UploadsUpdate,
-        TryBatchRetrieval,
-        CollectionImageIds,
-        PartialCollectionImages,
-        BatchCreated,
         UploadSliceAck,
     ],
     Field(discriminator="type"),
@@ -149,3 +151,6 @@ class AsyncAPIWebSocket(WebSocket):
         await self.send_json(
             UploadSliceAck(data=data, sliceid=sliceid, nonce=self._get_nonce())
         )
+
+    async def send_retry_uploads_response(self, data: int) -> None:
+        await self.send_json(RetryUploadsResponse(data=data, nonce=self._get_nonce()))

@@ -164,7 +164,7 @@ class TestRetryCreatesNewBatch:
             ) as mock_get_rate,
             patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
         ):
-            mock_reset.return_value = ([1, 2], "newbatch123456")
+            mock_reset.return_value = ([1, 2], "newbatch123456", 456)
             mock_get_rate.return_value = RateLimitInfo(
                 uploads_per_period=999, period_seconds=1, is_privileged=False
             )
@@ -195,7 +195,7 @@ class TestRetryCreatesNewBatch:
             patch("curator.admin.retry_selected_uploads_to_new_batch") as mock_retry,
             patch("curator.workers.tasks.process_upload.apply_async") as mock_task,
         ):
-            mock_retry.return_value = ([1, 2, 3], "adminbatch789")
+            mock_retry.return_value = ([1, 2, 3], "adminbatch789", 789)
 
             await admin_retry_uploads(request, user)
 
