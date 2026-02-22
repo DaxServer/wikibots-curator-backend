@@ -218,6 +218,7 @@ def mock_sender():
     sender.send_batch_created = AsyncMock()
     sender.send_cancel_batch_ack = AsyncMock()
     sender.send_error = AsyncMock()
+    sender.send_retry_uploads_response = AsyncMock()
     return sender
 
 

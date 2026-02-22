@@ -90,7 +90,7 @@ async def admin_retry_uploads(
     with get_session() as session:
         encrypted_token = encrypt_access_token(user["access_token"])
 
-        reset_ids, edit_group_id = retry_selected_uploads_to_new_batch(
+        reset_ids, edit_group_id, new_batch_id = retry_selected_uploads_to_new_batch(
             session,
             request.upload_ids,
             encrypted_token,
@@ -105,6 +105,7 @@ async def admin_retry_uploads(
             "message": "Retried 0 uploads",
             "retried_count": 0,
             "requested_count": len(request.upload_ids),
+            "new_batch_id": None,
         }
 
     tasks_to_update = []
@@ -125,4 +126,5 @@ async def admin_retry_uploads(
         "message": f"Retried {len(reset_ids)} uploads",
         "retried_count": len(reset_ids),
         "requested_count": len(request.upload_ids),
+        "new_batch_id": new_batch_id,
     }
