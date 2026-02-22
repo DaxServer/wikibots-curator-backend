@@ -126,6 +126,12 @@ Retry functionality allows users and admins to retry failed uploads. The current
 - DAL's `_fix_sdc_keys()` function recursively maps snake_case to kebab-case for database storage
 - Mapping is defined in `dal.py` and is updated when AsyncAPI schema changes
 
+### Type Conversion Patterns
+- `ImageHandler` enum - use `str(handler)` when passing to functions expecting `str` type
+- Pydantic objects (e.g., `Label`) - use `model_dump(mode="json")` to convert to dict for database storage
+- Optional asyncapi booleans - add `or False`/`or True` when passing to functions expecting non-optional `bool`
+- When AsyncAPI fields become required with defaults (e.g., `Field(default=False)`), remove the fallback pattern
+
 ### AsyncAPI WebSocket Protocol
 - Union types `ClientMessage` and `ServerMessage` defined in `protocol.py`
 - 50+ auto-generated message types in `asyncapi/`
@@ -134,10 +140,10 @@ Retry functionality allows users and admins to retry failed uploads. The current
 
 ## AsyncAPI Schema Updates
 
-Backend models are auto-generated from `frontend/asyncapi.json`. When updating schema:
+Backend models are auto-generated from `../frontend/asyncapi.json`. When updating schema:
 
-1. Update `frontend/asyncapi.json` with schema changes
-2. Run `bun generate` from frontend directory
+1. Update `../frontend/asyncapi.json` with schema changes
+2. Run `cd ../frontend && bun generate` from frontend directory
    - Generates Python models to `src/curator/asyncapi/`
    - Auto-formats generated code
 3. Update all code that constructs or accesses the modified models
@@ -147,8 +153,9 @@ Backend models are auto-generated from `frontend/asyncapi.json`. When updating s
 - Group related fields into nested objects (e.g., `MediaImage.urls`, `MediaImage.camera`)
 - Use short names without redundant prefixes (e.g., `original` not `url_original`)
 - Boolean flags should be required with defaults, not Optional
+- Required boolean fields generate as `Field(default=False)` in Python models
 
-**When adding new server messages, update all 4 locations in `asyncapi.json`:**
+**When adding new server messages, update all 4 locations in `asyncapi.json` (alphabetical order):**
 1. `components/messages/` - Message definition (`"RetryUploadsResponse": {"payload": {...}}`)
 2. `components/schemas/` - Schema definition with type, data, nonce properties
 3. `channels/wsChannel/messages/` - Channel message reference
@@ -166,6 +173,7 @@ poetry run alembic upgrade head
 
 - `pytest` with tests in `tests/`
 - All imports must be at the top of test files (no inline imports)
+- Use `patch()` from `unittest.mock`, not `pytest.mock.patch`
 - NO nested function definitions in tests - avoid `def func(): def inner():` pattern
 - For complex mock behavior, use module-level helper functions (prefix with `_`) passed to `side_effect`
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
@@ -195,17 +203,21 @@ with patch("os.path.getsize", return_value=1000), patch(
 - Add `sender.send_new_method = AsyncMock()` to `mock_sender` fixture in `tests/fixtures.py`
 - This is required for tests that use WebSocket handlers (mock_sender is autouse for BDD tests)
 
-### Pull Request Review Workflow
+### Test Fixture Issues
+
+The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` that patches many external dependencies. This fixture is designed for BDD tests but can cause issues with other tests. If tests fail with strange errors:
+
+- Check if the test needs to be isolated from the autouse fixture
+- The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
+- Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
+
+## Pull Request Review Workflow
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
 - `gh pr view --json reviews` only shows high-level review summaries, not specific line comments
 
-### SQLModel vs SQLAlchemy Behavior
-- `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)
-- Raw SQLAlchemy's `session.execute()` returns `list[Row]` and needs `.scalars()` to extract values
-- SQLModel's `session.exec()` is a simplified wrapper that automatically unwraps scalar values
-- When using `session.execute()` (not `exec`), you need `.scalars().all()` to get plain values
+## Common Pitfalls and Troubleshooting
 
-## Important Notes
+### Important Notes
 
 - Type errors in `dal.py` are known and ignored
 - Type errors in `alembic/` are known and ignored
@@ -215,16 +227,6 @@ with patch("os.path.getsize", return_value=1000), patch(
 - Database sessions use the `get_session()` dependency
 - Code follows the layered architecture: routes → handlers → DAL → models
 
-## Common Pitfalls and Troubleshooting
-
-### Test Fixture Issues
-
-The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` that patches many external dependencies. This fixture is designed for BDD tests but can cause issues with other tests. If tests fail with strange errors:
-
-- Check if the test needs to be isolated from the autouse fixture
-- The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
-- Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
-
 ### Circular Imports
 
 When adding imports between core modules (`commons.py`, `mediawiki_client.py`, etc.), be aware of circular dependencies:
@@ -233,3 +235,9 @@ When adding imports between core modules (`commons.py`, `mediawiki_client.py`, e
 - `mediawiki_client.py` should NOT import from `commons.py` directly
 - For shared exceptions like `DuplicateUploadError`, use a dedicated `errors.py` module that only imports from `asyncapi` (which has no dependencies on other app modules)
 - Import exceptions inside functions if needed to avoid circular imports: `from curator.app.errors import DuplicateUploadError`
+
+### SQLModel vs SQLAlchemy Behavior
+- `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)
+- Raw SQLAlchemy's `session.execute()` returns `list[Row]` and needs `.scalars()` to extract values
+- SQLModel's `session.exec()` is a simplified wrapper that automatically unwraps scalar values
+- When using `session.execute()` (not `exec`), you need `.scalars().all()` to get plain values

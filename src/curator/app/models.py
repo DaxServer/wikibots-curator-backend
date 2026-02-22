@@ -40,6 +40,28 @@ class User(SQLModel, table=True):
             "primaryjoin": "User.userid==UploadRequest.userid",
         },
     )
+    presets: list["Preset"] = Relationship(back_populates="user")
+
+
+class Preset(SQLModel, table=True):
+    __tablename__ = "presets"
+    __table_args__ = {"extend_existing": True}
+
+    id: int = Field(default=None, primary_key=True)
+    userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
+    handler: str = Field(index=True, max_length=50)
+    title: str = Field(max_length=255)
+    title_template: str = Field(max_length=500)
+    labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
+    categories: Optional[str] = Field(default=None, max_length=500)
+    exclude_from_date_category: bool = Field(default=False)
+    is_default: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(
+        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+    )
+
+    user: Optional[User] = Relationship(back_populates="presets")
 
 
 class Batch(SQLModel, table=True):

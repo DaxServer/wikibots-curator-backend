@@ -8,10 +8,13 @@ from curator.app.handler import Handler
 from curator.asyncapi import (
     CancelBatch,
     CreateBatch,
+    DeletePreset,
     FetchBatches,
     FetchBatchUploads,
     FetchImages,
+    FetchPresets,
     RetryUploads,
+    SavePreset,
     SubscribeBatch,
     SubscribeBatchesList,
     UnsubscribeBatch,
@@ -58,10 +61,6 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 await handler.fetch_batch_uploads(message.data)
                 continue
 
-            if isinstance(message, FetchImages):
-                await handler.fetch_images(message.data, "mapillary")
-                continue
-
             if isinstance(message, RetryUploads):
                 await handler.retry_uploads(message.data)
                 continue
@@ -88,6 +87,22 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, CreateBatch):
                 await handler.create_batch()
+                continue
+
+            if isinstance(message, DeletePreset):
+                await handler.delete_preset(message.data.preset_id)
+                continue
+
+            if isinstance(message, FetchImages):
+                await handler.fetch_images(message.data, "mapillary")
+                continue
+
+            if isinstance(message, FetchPresets):
+                await handler.fetch_presets(message.data.handler)
+                continue
+
+            if isinstance(message, SavePreset):
+                await handler.save_preset(message.data)
                 continue
 
             if isinstance(message, UploadSlice):

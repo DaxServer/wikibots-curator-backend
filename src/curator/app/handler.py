@@ -19,18 +19,22 @@ from curator.app.dal import (
     count_batches,
     count_uploads_in_batch,
     create_batch,
+    create_preset,
     create_upload_requests_for_batch,
+    delete_preset,
     ensure_user,
     get_batch,
     get_batch_ids_with_recent_changes,
     get_batches,
     get_batches_minimal,
     get_latest_update_time,
+    get_presets_for_handler,
     get_upload_request,
     reset_failed_uploads_to_new_batch,
+    update_preset,
 )
 from curator.app.db import get_session
-from curator.app.models import Batch, UploadItem
+from curator.app.models import Batch, Preset, UploadItem
 from curator.app.task_enqueuer import enqueue_uploads
 from curator.asyncapi import (
     BatchesListData,
@@ -43,6 +47,8 @@ from curator.asyncapi import (
     ImageHandler,
     MediaImage,
     PartialCollectionImagesData,
+    PresetItem,
+    SavePresetData,
     SubscribeBatchesListData,
     UploadSliceAckItem,
     UploadSliceData,
@@ -524,6 +530,107 @@ class Handler:
             await self.batch_streamer.stop_streaming()
 
         logger.info(f"[ws] [resp] Unsubscribed from batches list for {self.username}")
+
+    @handle_exceptions
+    async def fetch_presets(self, handler: ImageHandler):
+        """Fetch all presets for user and handler."""
+        handler_str = str(handler)
+        with get_session() as session:
+            presets = get_presets_for_handler(session, self.user["userid"], handler_str)
+
+        preset_items = [
+            PresetItem(
+                id=p.id,
+                title=p.title,
+                title_template=p.title_template,
+                labels=p.labels,
+                categories=p.categories,
+                exclude_from_date_category=p.exclude_from_date_category,
+                handler=p.handler,
+                is_default=p.is_default,
+                created_at=p.created_at.isoformat(),
+                updated_at=p.updated_at.isoformat(),
+            )
+            for p in presets
+        ]
+
+        logger.info(
+            f"[ws] [resp] Sending {len(preset_items)} presets for {self.username} handler={handler}"
+        )
+        await self.socket.send_presets_list(handler_str, preset_items)
+
+    @handle_exceptions
+    async def save_preset(self, data: SavePresetData):
+        """Save or update a preset."""
+        userid = self.user["userid"]
+        handler = data.handler
+
+        # Convert labels to dict if needed
+        labels_data: Optional[dict] = None
+        if data.labels:
+            model_dump = getattr(data.labels, "model_dump", None)
+            if callable(model_dump):
+                labels_data = model_dump(mode="json")
+            else:
+                labels_data = data.labels  # type: ignore[assignment]
+
+        with get_session() as session:
+            if data.preset_id:
+                # Update existing preset
+                preset = update_preset(
+                    session=session,
+                    preset_id=data.preset_id,
+                    userid=userid,
+                    title=data.title,
+                    title_template=data.title_template,
+                    labels=labels_data,
+                    categories=data.categories,
+                    exclude_from_date_category=data.exclude_from_date_category,
+                    is_default=data.is_default,
+                )
+
+                if not preset:
+                    await self.socket.send_error(
+                        "Preset not found or permission denied"
+                    )
+                    return
+            else:
+                # Create new preset
+                create_preset(
+                    session=session,
+                    userid=userid,
+                    handler=handler,
+                    title=data.title,
+                    title_template=data.title_template,
+                    labels=labels_data,
+                    categories=data.categories,
+                    exclude_from_date_category=data.exclude_from_date_category,
+                    is_default=data.is_default,
+                )
+
+        # Return updated list
+        await self.fetch_presets(handler)
+
+    @handle_exceptions
+    async def delete_preset(self, preset_id: int):
+        """Delete a preset."""
+        with get_session() as session:
+            preset = session.get(Preset, preset_id)
+            if not preset or preset.userid != self.user["userid"]:
+                await self.socket.send_error("Preset not found or permission denied")
+                return
+
+            handler = preset.handler
+            success = delete_preset(session, preset_id, self.user["userid"])
+
+        if not success:
+            await self.socket.send_error("Failed to delete preset")
+            return
+
+        logger.info(f"[ws] [resp] Deleted preset {preset_id} for {self.username}")
+
+        # Return updated list
+        await self.fetch_presets(handler)
 
 
 def revoke_celery_tasks_by_id(upload_task_ids: dict[int, str]) -> dict[int, bool]:
