@@ -211,6 +211,8 @@ def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
     return BatchItem(
         id=batch.id,
         created_at=batch.created_at.isoformat(),
+        updated_at=batch.updated_at.isoformat(),
+        edit_group_id=batch.edit_group_id,
         username=batch.user.username if batch.user else "Unknown",
         userid=batch.userid,
         stats=stats.get(batch.id, BatchStats()),
@@ -596,6 +598,8 @@ def get_batches(
         item = BatchItem(
             id=batch_obj.id,
             created_at=batch_obj.created_at.isoformat(),
+            updated_at=batch_obj.updated_at.isoformat(),
+            edit_group_id=batch_obj.edit_group_id,
             username=username or "Unknown",
             userid=batch_obj.userid,
             stats=stats,
@@ -703,6 +707,8 @@ def get_batches_minimal(
         item = BatchItem(
             id=batch_obj.id,
             created_at=batch_obj.created_at.isoformat(),
+            updated_at=batch_obj.updated_at.isoformat(),
+            edit_group_id=batch_obj.edit_group_id,
             username=username or "Unknown",
             userid=batch_obj.userid,
             stats=stats,
@@ -763,6 +769,25 @@ def get_presets_for_handler(
             .order_by(col(Preset.created_at).desc())
         ).all()
     )
+
+
+def get_all_presets(
+    session: Session, offset: int = 0, limit: int = 100
+) -> list[Preset]:
+    """Fetch all presets across all users."""
+    return list(
+        session.exec(
+            select(Preset)
+            .order_by(col(Preset.created_at).desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+    )
+
+
+def count_all_presets(session: Session) -> int:
+    """Count total presets across all users."""
+    return session.exec(select(func.count(Preset.id))).one()
 
 
 def get_default_preset(session: Session, userid: str, handler: str) -> Optional[Preset]:

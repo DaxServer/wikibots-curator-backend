@@ -6,8 +6,10 @@ from unittest.mock import MagicMock
 import pytest
 
 from curator.app.dal import (
+    count_all_presets,
     create_preset,
     delete_preset,
+    get_all_presets,
     get_default_preset,
     get_presets_for_handler,
     update_preset,
@@ -31,6 +33,58 @@ def mock_preset():
     preset.created_at = datetime.now()
     preset.updated_at = datetime.now()
     return preset
+
+
+def test_get_all_presets_returns_all_presets(mock_session):
+    """Test get_all_presets returns presets across all users."""
+    preset1 = MagicMock(spec=Preset)
+    preset1.userid = "user1"
+    preset2 = MagicMock(spec=Preset)
+    preset2.userid = "user2"
+
+    mock_session.exec.return_value.all.return_value = [preset1, preset2]
+
+    result = get_all_presets(mock_session)
+
+    assert result == [preset1, preset2]
+    mock_session.exec.assert_called_once()
+
+
+def test_get_all_presets_returns_empty_list_when_none(mock_session):
+    """Test get_all_presets returns empty list when no presets exist."""
+    mock_session.exec.return_value.all.return_value = []
+
+    result = get_all_presets(mock_session)
+
+    assert result == []
+
+
+def test_get_all_presets_passes_offset_and_limit(mock_session):
+    """Test get_all_presets passes offset and limit for pagination."""
+    mock_session.exec.return_value.all.return_value = []
+
+    get_all_presets(mock_session, offset=50, limit=25)
+
+    mock_session.exec.assert_called_once()
+
+
+def test_count_all_presets_returns_total(mock_session):
+    """Test count_all_presets returns total count across all users."""
+    mock_session.exec.return_value.one.return_value = 42
+
+    result = count_all_presets(mock_session)
+
+    assert result == 42
+    mock_session.exec.assert_called_once()
+
+
+def test_count_all_presets_returns_zero_when_empty(mock_session):
+    """Test count_all_presets returns zero when no presets exist."""
+    mock_session.exec.return_value.one.return_value = 0
+
+    result = count_all_presets(mock_session)
+
+    assert result == 0
 
 
 def test_get_presets_for_handler_returns_user_presets_ordered(mock_session):

@@ -3,9 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from curator.app.auth import LoggedInUser
 from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
+    count_all_presets,
     count_all_upload_requests,
     count_batches,
     count_users,
+    get_all_presets,
     get_all_upload_requests,
     get_batches,
     get_users,
@@ -65,6 +67,19 @@ async def admin_get_upload_requests(
         items = get_all_upload_requests(session, offset=offset, limit=limit)
         total = count_all_upload_requests(session)
     return {"items": items, "total": total}
+
+
+@router.get("/presets")
+async def admin_get_presets(
+    page: int = 1,
+    limit: int = 100,
+):
+    offset = (page - 1) * limit
+    with get_session() as session:
+        items = get_all_presets(session, offset=offset, limit=limit)
+        total = count_all_presets(session)
+        serialized = [p.model_dump() for p in items]
+    return {"items": serialized, "total": total}
 
 
 @router.put("/upload_requests/{upload_request_id}")
