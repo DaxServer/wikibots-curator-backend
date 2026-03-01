@@ -35,11 +35,14 @@ router = APIRouter(
 async def admin_get_batches(
     page: int = 1,
     limit: int = 100,
+    filter_text: str | None = None,
 ):
     offset = (page - 1) * limit
     with get_session() as session:
-        items = get_batches(session, offset=offset, limit=limit)
-        total = count_batches(session)
+        items = get_batches(
+            session, offset=offset, limit=limit, filter_text=filter_text
+        )
+        total = count_batches(session, filter_text=filter_text)
     return {"items": items, "total": total}
 
 
@@ -47,11 +50,12 @@ async def admin_get_batches(
 async def admin_get_users(
     page: int = 1,
     limit: int = 100,
+    filter_text: str | None = None,
 ):
     offset = (page - 1) * limit
     with get_session() as session:
-        items = get_users(session, offset=offset, limit=limit)
-        total = count_users(session)
+        items = get_users(session, offset=offset, limit=limit, filter_text=filter_text)
+        total = count_users(session, filter_text=filter_text)
         # Serialize User objects to dicts BEFORE session closes
         serialized = [u.model_dump() for u in items]
     return {"items": serialized, "total": total}
@@ -61,11 +65,14 @@ async def admin_get_users(
 async def admin_get_upload_requests(
     page: int = 1,
     limit: int = 100,
+    filter_text: str | None = None,
 ):
     offset = (page - 1) * limit
     with get_session() as session:
-        items = get_all_upload_requests(session, offset=offset, limit=limit)
-        total = count_all_upload_requests(session)
+        items = get_all_upload_requests(
+            session, offset=offset, limit=limit, filter_text=filter_text
+        )
+        total = count_all_upload_requests(session, filter_text=filter_text)
     return {"items": items, "total": total}
 
 
@@ -73,11 +80,14 @@ async def admin_get_upload_requests(
 async def admin_get_presets(
     page: int = 1,
     limit: int = 100,
+    filter_text: str | None = None,
 ):
     offset = (page - 1) * limit
     with get_session() as session:
-        items = get_all_presets(session, offset=offset, limit=limit)
-        total = count_all_presets(session)
+        items = get_all_presets(
+            session, offset=offset, limit=limit, filter_text=filter_text
+        )
+        total = count_all_presets(session, filter_text=filter_text)
         serialized = [p.model_dump() for p in items]
     return {"items": serialized, "total": total}
 

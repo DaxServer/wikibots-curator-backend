@@ -30,25 +30,59 @@ from curator.asyncapi import (
 logger = logging.getLogger(__name__)
 
 
-def get_users(session: Session, offset: int = 0, limit: int = 100) -> list[User]:
+def get_users(
+    session: Session,
+    offset: int = 0,
+    limit: int = 100,
+    filter_text: Optional[str] = None,
+) -> list[User]:
     """Fetch all users."""
-    return list(session.exec(select(User).offset(offset).limit(limit)).all())
+    query = select(User)
+    if filter_text:
+        query = query.where(
+            or_(
+                col(User.userid).ilike(f"%{filter_text}%"),
+                col(User.username).ilike(f"%{filter_text}%"),
+            )
+        )
+    return list(session.exec(query.offset(offset).limit(limit)).all())
 
 
-def count_users(session: Session) -> int:
-    return session.exec(select(func.count(User.userid))).one()
+def count_users(session: Session, filter_text: Optional[str] = None) -> int:
+    query = select(func.count(User.userid))
+    if filter_text:
+        query = query.where(
+            or_(
+                col(User.userid).ilike(f"%{filter_text}%"),
+                col(User.username).ilike(f"%{filter_text}%"),
+            )
+        )
+    return session.exec(query).one()
 
 
 def get_all_upload_requests(
-    session: Session, offset: int = 0, limit: int = 100
+    session: Session,
+    offset: int = 0,
+    limit: int = 100,
+    filter_text: Optional[str] = None,
 ) -> list[BatchUploadItem]:
     """Fetch all upload requests."""
-    result = session.exec(
-        select(UploadRequest)
-        .order_by(col(UploadRequest.id).desc())
-        .offset(offset)
-        .limit(limit)
-    ).all()
+    query = select(UploadRequest).order_by(col(UploadRequest.id).desc())
+    if filter_text:
+        query = query.where(
+            or_(
+                sqlalchemy_cast(col(UploadRequest.id), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                col(UploadRequest.userid).ilike(f"%{filter_text}%"),
+                col(UploadRequest.filename).ilike(f"%{filter_text}%"),
+                col(UploadRequest.status).ilike(f"%{filter_text}%"),
+            )
+        )
+    result = session.exec(query.offset(offset).limit(limit)).all()
 
     return [
         BatchUploadItem(
@@ -73,8 +107,25 @@ def get_all_upload_requests(
     ]
 
 
-def count_all_upload_requests(session: Session) -> int:
-    return session.exec(select(func.count(UploadRequest.id))).one()
+def count_all_upload_requests(
+    session: Session, filter_text: Optional[str] = None
+) -> int:
+    query = select(func.count(UploadRequest.id))
+    if filter_text:
+        query = query.where(
+            or_(
+                sqlalchemy_cast(col(UploadRequest.id), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                col(UploadRequest.userid).ilike(f"%{filter_text}%"),
+                col(UploadRequest.filename).ilike(f"%{filter_text}%"),
+                col(UploadRequest.status).ilike(f"%{filter_text}%"),
+            )
+        )
+    return session.exec(query).one()
 
 
 def ensure_user(session: Session, userid: str, username: str) -> User:
@@ -773,22 +824,36 @@ def get_presets_for_handler(
 
 
 def get_all_presets(
-    session: Session, offset: int = 0, limit: int = 100
+    session: Session,
+    offset: int = 0,
+    limit: int = 100,
+    filter_text: Optional[str] = None,
 ) -> list[Preset]:
     """Fetch all presets across all users."""
-    return list(
-        session.exec(
-            select(Preset)
-            .order_by(col(Preset.created_at).desc())
-            .offset(offset)
-            .limit(limit)
-        ).all()
-    )
+    query = select(Preset).order_by(col(Preset.created_at).desc())
+    if filter_text:
+        query = query.where(
+            or_(
+                sqlalchemy_cast(col(Preset.id), String).ilike(f"%{filter_text}%"),
+                col(Preset.userid).ilike(f"%{filter_text}%"),
+                col(Preset.title).ilike(f"%{filter_text}%"),
+            )
+        )
+    return list(session.exec(query.offset(offset).limit(limit)).all())
 
 
-def count_all_presets(session: Session) -> int:
+def count_all_presets(session: Session, filter_text: Optional[str] = None) -> int:
     """Count total presets across all users."""
-    return session.exec(select(func.count(Preset.id))).one()
+    query = select(func.count(Preset.id))
+    if filter_text:
+        query = query.where(
+            or_(
+                sqlalchemy_cast(col(Preset.id), String).ilike(f"%{filter_text}%"),
+                col(Preset.userid).ilike(f"%{filter_text}%"),
+                col(Preset.title).ilike(f"%{filter_text}%"),
+            )
+        )
+    return session.exec(query).one()
 
 
 def get_default_preset(session: Session, userid: str, handler: str) -> Optional[Preset]:

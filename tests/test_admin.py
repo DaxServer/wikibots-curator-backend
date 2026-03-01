@@ -27,8 +27,10 @@ async def test_admin_get_batches_success(mock_session, patch_get_session):
 
         result = await admin_get_batches(page=1, limit=100)
 
-        mock_get_batches.assert_called_once_with(mock_session, offset=0, limit=100)
-        mock_count_batches.assert_called_once_with(mock_session)
+        mock_get_batches.assert_called_once_with(
+            mock_session, offset=0, limit=100, filter_text=None
+        )
+        mock_count_batches.assert_called_once_with(mock_session, filter_text=None)
         assert result == {"items": [], "total": 0}
 
 
@@ -44,8 +46,10 @@ async def test_admin_get_users_success(mock_session, patch_get_session):
 
         result = await admin_get_users(page=1, limit=100)
 
-        mock_get_users.assert_called_once_with(mock_session, offset=0, limit=100)
-        mock_count_users.assert_called_once_with(mock_session)
+        mock_get_users.assert_called_once_with(
+            mock_session, offset=0, limit=100, filter_text=None
+        )
+        mock_count_users.assert_called_once_with(mock_session, filter_text=None)
         assert result == {"items": [], "total": 0}
 
 
@@ -64,9 +68,11 @@ async def test_admin_get_upload_requests_success(mock_session, patch_get_session
         result = await admin_get_upload_requests(page=1, limit=100)
 
         mock_get_all_upload_requests.assert_called_once_with(
-            mock_session, offset=0, limit=100
+            mock_session, offset=0, limit=100, filter_text=None
         )
-        mock_count_all_upload_requests.assert_called_once_with(mock_session)
+        mock_count_all_upload_requests.assert_called_once_with(
+            mock_session, filter_text=None
+        )
         assert result == {"items": [], "total": 0}
 
 
