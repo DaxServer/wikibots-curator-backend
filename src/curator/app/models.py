@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, Union
 
+from pydantic import field_validator
 from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -54,6 +55,14 @@ class Preset(SQLModel, table=True):
     title_template: str = Field(max_length=500)
     labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
     categories: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("labels", mode="before")
+    @classmethod
+    def coerce_labels(cls, v: object) -> Optional[Label]:
+        """Coerce dict from JSON column to Label instance."""
+        if isinstance(v, dict):
+            return Label(**v)
+        return v  # type: ignore[return-value]
     exclude_from_date_category: bool = Field(default=False)
     is_default: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=datetime.now)
