@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Union
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import JSON, Column, Text
 from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
@@ -40,9 +40,11 @@ class LabelJSON(TypeDecorator[Optional[Label]]):
 
     def process_result_value(self, value: object, dialect: object) -> Optional[Label]:
         """Convert dict from storage to Label."""
+        if value is None:
+            return None
         if isinstance(value, dict):
             return Label.model_validate(value)
-        return value  # type: ignore[return-value]
+        return None
 
 
 class StructuredErrorJSON(TypeDecorator[Optional[StructuredError]]):
@@ -53,17 +55,19 @@ class StructuredErrorJSON(TypeDecorator[Optional[StructuredError]]):
 
     def process_bind_param(self, value: object, dialect: object) -> object:
         """Convert StructuredError to dict for storage."""
-        if hasattr(value, "model_dump"):
-            return value.model_dump()  # type: ignore[union-attr]
+        if isinstance(value, BaseModel):
+            return value.model_dump()
         return value
 
     def process_result_value(
         self, value: object, dialect: object
     ) -> Optional[StructuredError]:
         """Convert dict from storage to typed error instance."""
+        if value is None:
+            return None
         if isinstance(value, dict):
             return _error_adapter.validate_python(value)
-        return value  # type: ignore[return-value]
+        return None
 
 
 class User(SQLModel, table=True):
