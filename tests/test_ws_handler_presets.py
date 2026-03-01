@@ -125,7 +125,9 @@ async def test_save_preset_with_preset_id_updates_not_creates(
 
     patch_get_session("curator.app.handler.get_session")
     with (
-        patch("curator.app.handler.update_preset", return_value=mock_preset) as mock_update,
+        patch(
+            "curator.app.handler.update_preset", return_value=mock_preset
+        ) as mock_update,
         patch("curator.app.handler.create_preset") as mock_create,
         patch("curator.app.handler.get_presets_for_handler", return_value=[]),
     ):
