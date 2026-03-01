@@ -565,15 +565,6 @@ class Handler:
         userid = self.user["userid"]
         handler = data.handler
 
-        # Convert labels to dict if needed
-        labels_data: Optional[dict] = None
-        if data.labels:
-            model_dump = getattr(data.labels, "model_dump", None)
-            if callable(model_dump):
-                labels_data = model_dump(mode="json")
-            else:
-                labels_data = data.labels  # type: ignore[assignment]
-
         with get_session() as session:
             if data.preset_id:
                 # Update existing preset
@@ -583,7 +574,7 @@ class Handler:
                     userid=userid,
                     title=data.title,
                     title_template=data.title_template,
-                    labels=labels_data,
+                    labels=data.labels,
                     categories=data.categories,
                     exclude_from_date_category=data.exclude_from_date_category,
                     is_default=data.is_default,
@@ -602,7 +593,7 @@ class Handler:
                     handler=handler,
                     title=data.title,
                     title_template=data.title_template,
-                    labels=labels_data,
+                    labels=data.labels,
                     categories=data.categories,
                     exclude_from_date_category=data.exclude_from_date_category,
                     is_default=data.is_default,

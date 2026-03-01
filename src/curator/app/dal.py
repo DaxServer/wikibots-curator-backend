@@ -24,6 +24,7 @@ from curator.asyncapi import (
     DuplicatedSdcNotUpdatedError,
     DuplicatedSdcUpdatedError,
     DuplicateError,
+    Label,
 )
 
 logger = logging.getLogger(__name__)
@@ -807,7 +808,7 @@ def create_preset(
     handler: str,
     title: str,
     title_template: str,
-    labels: Optional[dict] = None,
+    labels: Optional[Label] = None,
     categories: Optional[str] = None,
     exclude_from_date_category: bool = False,
     is_default: bool = False,
@@ -848,7 +849,7 @@ def update_preset(
     userid: str,
     title: str,
     title_template: str,
-    labels: Optional[dict] = None,
+    labels: Optional[Label] = None,
     categories: Optional[str] = None,
     exclude_from_date_category: bool = False,
     is_default: bool = False,

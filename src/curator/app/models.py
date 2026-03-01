@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Optional, Union
 
+from pydantic import BaseModel, TypeAdapter
 from sqlalchemy import JSON, Column, Text
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, Relationship, SQLModel
 
 from curator.asyncapi import (
@@ -20,6 +22,52 @@ StructuredError = Union[
     GenericError,
     TitleBlacklistedError,
 ]
+
+_error_adapter: TypeAdapter[StructuredError] = TypeAdapter(StructuredError)
+
+
+class LabelJSON(TypeDecorator[Optional[Label]]):
+    """JSON column that serializes Label to dict and deserializes dict to Label."""
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value: object, dialect: object) -> object:
+        """Convert Label to dict for storage."""
+        if isinstance(value, Label):
+            return value.model_dump()
+        return value
+
+    def process_result_value(self, value: object, dialect: object) -> Optional[Label]:
+        """Convert dict from storage to Label."""
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return Label.model_validate(value)
+        return None
+
+
+class StructuredErrorJSON(TypeDecorator[Optional[StructuredError]]):
+    """JSON column that serializes StructuredError to dict and deserializes to typed error."""
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value: object, dialect: object) -> object:
+        """Convert StructuredError to dict for storage."""
+        if isinstance(value, BaseModel):
+            return value.model_dump()
+        return value
+
+    def process_result_value(
+        self, value: object, dialect: object
+    ) -> Optional[StructuredError]:
+        """Convert dict from storage to typed error instance."""
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return _error_adapter.validate_python(value)
+        return None
 
 
 class User(SQLModel, table=True):
@@ -52,7 +100,7 @@ class Preset(SQLModel, table=True):
     handler: str = Field(index=True, max_length=50)
     title: str = Field(max_length=255)
     title_template: str = Field(max_length=500)
-    labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
+    labels: Optional[Label] = Field(default=None, sa_column=Column(LabelJSON))
     categories: Optional[str] = Field(default=None, max_length=500)
     exclude_from_date_category: bool = Field(default=False)
     is_default: bool = Field(default=False, index=True)
@@ -101,9 +149,11 @@ class UploadRequest(SQLModel, table=True):
     filename: str = Field(index=True, max_length=255)
     wikitext: str = Field(sa_column=Column(Text))
     copyright_override: bool = Field(default=False)
-    labels: Optional[Label] = Field(default=None, sa_column=Column(JSON))
+    labels: Optional[Label] = Field(default=None, sa_column=Column(LabelJSON))
     result: Optional[str] = Field(default=None, sa_column=Column(Text))
-    error: Optional[StructuredError] = Field(default=None, sa_column=Column(JSON))
+    error: Optional[StructuredError] = Field(
+        default=None, sa_column=Column(StructuredErrorJSON)
+    )
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_edited_by: Optional[str] = Field(
         default=None, foreign_key="users.userid", index=True, max_length=255
