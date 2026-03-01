@@ -132,6 +132,7 @@ async def test_handler_fetch_batches_workflow(
             BatchItem(
                 id=1,
                 created_at=t1.isoformat(),
+                updated_at=t1.isoformat(),
                 username="testuser",
                 userid="user123",
                 stats=BatchStats(total=10, completed=0),
@@ -145,6 +146,7 @@ async def test_handler_fetch_batches_workflow(
             BatchItem(
                 id=1,
                 created_at=t1.isoformat(),
+                updated_at=t1.isoformat(),
                 username="testuser",
                 userid="user123",
                 stats=BatchStats(total=10, completed=5),  # Changed!
