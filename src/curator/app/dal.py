@@ -771,7 +771,7 @@ def get_default_preset(session: Session, userid: str, handler: str) -> Optional[
         select(Preset).where(
             col(Preset.userid) == userid,
             col(Preset.handler) == handler,
-            col(Preset.is_default),
+            col(Preset.is_default).is_(True),
         )
     ).first()
 
