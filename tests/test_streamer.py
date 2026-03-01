@@ -29,6 +29,7 @@ async def test_streamer_full_sync_initially(mock_sender):
             BatchItem(
                 id=1,
                 created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
                 username="u1",
                 userid="u1",
                 stats=BatchStats(),
@@ -75,6 +76,7 @@ async def test_streamer_incremental_update(mock_sender):
             BatchItem(
                 id=1,
                 created_at=t1.isoformat(),
+                updated_at=t1.isoformat(),
                 username="u1",
                 userid="u1",
                 stats=BatchStats(total=1, completed=1),

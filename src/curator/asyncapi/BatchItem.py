@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .BatchStats import BatchStats
@@ -11,6 +13,8 @@ from .BatchStats import BatchStats
 class BatchItem(BaseModel):
     id: int = Field()
     created_at: str = Field()
+    updated_at: str = Field()
+    edit_group_id: Optional[str] = Field(default=None)
     username: str = Field()
     userid: str = Field()
     stats: BatchStats = Field()

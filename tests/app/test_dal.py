@@ -52,6 +52,8 @@ def test_get_batch(mocker, mock_session):
     mock_batch.userid = "user123"
     mock_batch.name = "Test Batch"
     mock_batch.created_at.isoformat.return_value = "2023-01-01T00:00:00"
+    mock_batch.updated_at.isoformat.return_value = "2023-01-01T00:00:00"
+    mock_batch.edit_group_id = None
 
     # Create mock user
     mock_user = mocker.MagicMock()

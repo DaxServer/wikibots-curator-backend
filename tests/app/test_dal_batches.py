@@ -66,11 +66,15 @@ def test_get_batches_basic(mock_session, mocker):
     batch1 = mocker.MagicMock()
     batch1.id = 1
     batch1.created_at = created_at1
+    batch1.updated_at = created_at1
+    batch1.edit_group_id = None
     batch1.userid = "user123"
 
     batch2 = mocker.MagicMock()
     batch2.id = 2
     batch2.created_at = created_at2
+    batch2.updated_at = created_at2
+    batch2.edit_group_id = None
     batch2.userid = "user123"
 
     mock_session.exec.return_value.all.return_value = [
@@ -108,6 +112,8 @@ def test_get_batches_minimal(mock_session, mocker):
     batch1 = mocker.MagicMock()
     batch1.id = 1
     batch1.created_at = created_at1
+    batch1.updated_at = created_at1
+    batch1.edit_group_id = None
     batch1.userid = "user123"
 
     mock_session.exec.return_value.all.return_value = [
