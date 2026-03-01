@@ -538,21 +538,21 @@ class Handler:
         with get_session() as session:
             presets = get_presets_for_handler(session, self.user["userid"], handler_str)
 
-        preset_items = [
-            PresetItem(
-                id=p.id,
-                title=p.title,
-                title_template=p.title_template,
-                labels=p.labels,
-                categories=p.categories,
-                exclude_from_date_category=p.exclude_from_date_category,
-                handler=p.handler,
-                is_default=p.is_default,
-                created_at=p.created_at.isoformat(),
-                updated_at=p.updated_at.isoformat(),
-            )
-            for p in presets
-        ]
+            preset_items = [
+                PresetItem(
+                    id=p.id,
+                    title=p.title,
+                    title_template=p.title_template,
+                    labels=p.labels,
+                    categories=p.categories,
+                    exclude_from_date_category=p.exclude_from_date_category,
+                    handler=p.handler,
+                    is_default=p.is_default,
+                    created_at=p.created_at.isoformat(),
+                    updated_at=p.updated_at.isoformat(),
+                )
+                for p in presets
+            ]
 
         logger.info(
             f"[ws] [resp] Sending {len(preset_items)} presets for {self.username} handler={handler}"
