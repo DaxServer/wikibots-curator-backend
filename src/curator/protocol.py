@@ -15,14 +15,20 @@ from curator.asyncapi import (
     CollectionImages,
     CollectionImagesData,
     CreateBatch,
+    DeletePreset,
     Error,
     FetchBatches,
     FetchBatchUploads,
     FetchImages,
+    FetchPresets,
     PartialCollectionImages,
     PartialCollectionImagesData,
+    PresetItem,
+    PresetsList,
+    PresetsListData,
     RetryUploads,
     RetryUploadsResponse,
+    SavePreset,
     SubscribeBatch,
     SubscribeBatchesList,
     Subscribed,
@@ -47,10 +53,13 @@ ClientMessage = Annotated[
     Union[
         CancelBatch,
         CreateBatch,
+        DeletePreset,
         FetchBatches,
         FetchBatchUploads,
         FetchImages,
+        FetchPresets,
         RetryUploads,
+        SavePreset,
         SubscribeBatch,
         SubscribeBatchesList,
         UnsubscribeBatch,
@@ -66,13 +75,14 @@ ServerMessage = Annotated[
         BatchesList,
         BatchUploadsList,
         CollectionImages,
+        CollectionImageIds,
+        BatchCreated,
         Error,
         PartialCollectionImages,
+        PresetsList,
         RetryUploadsResponse,
         Subscribed,
         TryBatchRetrieval,
-        CollectionImageIds,
-        BatchCreated,
         UploadCreated,
         UploadsComplete,
         UploadsUpdate,
@@ -154,3 +164,11 @@ class AsyncAPIWebSocket(WebSocket):
 
     async def send_retry_uploads_response(self, data: int) -> None:
         await self.send_json(RetryUploadsResponse(data=data, nonce=self._get_nonce()))
+
+    async def send_presets_list(self, handler: str, presets: list[PresetItem]) -> None:
+        await self.send_json(
+            PresetsList(
+                data=PresetsListData(handler=handler, presets=presets),
+                nonce=self._get_nonce(),
+            )
+        )

@@ -22,6 +22,8 @@ from .DataValueQuantity import DataValueQuantity
 from .DataValueTime import DataValueTime
 from .DataValueType import DataValueType
 from .Dates import Dates
+from .DeletePreset import DeletePreset
+from .DeletePresetData import DeletePresetData
 from .DuplicatedSdcNotUpdatedError import DuplicatedSdcNotUpdatedError
 from .DuplicatedSdcUpdatedError import DuplicatedSdcUpdatedError
 from .DuplicateError import DuplicateError
@@ -35,6 +37,8 @@ from .FetchBatches import FetchBatches
 from .FetchBatchesData import FetchBatchesData
 from .FetchBatchUploads import FetchBatchUploads
 from .FetchImages import FetchImages
+from .FetchPresets import FetchPresets
+from .FetchPresetsData import FetchPresetsData
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
@@ -47,12 +51,17 @@ from .MediaImage import MediaImage
 from .NoValueSnak import NoValueSnak
 from .PartialCollectionImages import PartialCollectionImages
 from .PartialCollectionImagesData import PartialCollectionImagesData
+from .PresetItem import PresetItem
+from .PresetsList import PresetsList
+from .PresetsListData import PresetsListData
 from .QuantityDataValue import QuantityDataValue
 from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
 from .Reference import Reference
 from .RetryUploads import RetryUploads
 from .RetryUploadsResponse import RetryUploadsResponse
+from .SavePreset import SavePreset
+from .SavePresetData import SavePresetData
 from .SnakDataType import SnakDataType
 from .SnakType import SnakType
 from .SomeValueSnak import SomeValueSnak
@@ -88,12 +97,19 @@ from .WikibaseEntityType import WikibaseEntityType
 __all__ = [
     "CancelBatch",
     "CreateBatch",
+    "DeletePreset",
+    "DeletePresetData",
     "FetchBatches",
     "FetchBatchesData",
     "FetchBatchUploads",
     "FetchImages",
     "ImageHandler",
+    "FetchPresets",
+    "FetchPresetsData",
     "RetryUploads",
+    "SavePreset",
+    "SavePresetData",
+    "Label",
     "SubscribeBatch",
     "SubscribeBatchesList",
     "SubscribeBatchesListData",
@@ -102,7 +118,6 @@ __all__ = [
     "Upload",
     "UploadData",
     "UploadItem",
-    "Label",
     "UploadSlice",
     "UploadSliceData",
     "BatchCreated",
@@ -133,6 +148,9 @@ __all__ = [
     "Error",
     "PartialCollectionImages",
     "PartialCollectionImagesData",
+    "PresetsList",
+    "PresetsListData",
+    "PresetItem",
     "RetryUploadsResponse",
     "Subscribed",
     "TryBatchRetrieval",
