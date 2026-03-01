@@ -69,7 +69,7 @@ class Preset(SQLModel, table=True):
     def coerce_labels(cls, v: object) -> Optional[Label]:
         """Coerce dict from JSON column to Label instance."""
         if isinstance(v, dict):
-            return Label(**v)
+            return Label.model_validate(v)
         return v  # type: ignore[return-value]
 
 
@@ -144,7 +144,7 @@ class UploadRequest(SQLModel, table=True):
     def coerce_labels(cls, v: object) -> Optional[Label]:
         """Coerce dict from JSON column to Label instance."""
         if isinstance(v, dict):
-            return Label(**v)
+            return Label.model_validate(v)
         return v  # type: ignore[return-value]
 
     @field_validator("error", mode="before")
