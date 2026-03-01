@@ -15,6 +15,7 @@ from curator.app.dal import (
     update_preset,
 )
 from curator.app.models import Preset
+from curator.asyncapi import Label
 
 
 @pytest.fixture
@@ -159,7 +160,7 @@ def test_update_preset_updates_values_correctly(mock_session, mock_preset):
         userid="user123",
         title="Updated Title",
         title_template="Updated Template",
-        labels={"language": "en", "value": "Updated"},
+        labels=Label(language="en", value="Updated"),
         categories="Updated",
         exclude_from_date_category=True,
         is_default=True,
@@ -168,7 +169,7 @@ def test_update_preset_updates_values_correctly(mock_session, mock_preset):
     assert result == mock_preset
     assert mock_preset.title == "Updated Title"
     assert mock_preset.title_template == "Updated Template"
-    assert mock_preset.labels == {"language": "en", "value": "Updated"}
+    assert mock_preset.labels == Label(language="en", value="Updated")
     assert mock_preset.categories == "Updated"
     assert mock_preset.exclude_from_date_category is True
     assert mock_preset.is_default is True
