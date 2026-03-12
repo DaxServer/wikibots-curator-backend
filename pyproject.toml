@@ -38,7 +38,7 @@ worker = "curator.workers.celery:start"
 packages = [{include = "curator", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.12.0"
+black = "^26.3.1"
 isort = "^7.0.0"
 pytest = "^9.0.2"
 pytest-asyncio = "^1.3.0"
