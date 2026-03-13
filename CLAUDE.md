@@ -211,6 +211,25 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
 - Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
 
+### BDD Testing Patterns (pytest-bdd)
+
+- Use `@given(..., target_fixture="fixture_name")` to make fixture values available to other steps
+- Use `global` variables to track state across BDD step definitions (e.g., `_use_default_mock` flag)
+- Mock `time.sleep` in tests involving retry logic to avoid pytest-timeout (default 0.25s)
+- Use `@when(..., target_fixture="result")` to make return values available to `@then` steps
+- Handle expected exceptions in `@when` steps, return them in result dict for `@then` verification
+
+### Mock Patterns for Instance Methods
+
+- When patching instance methods, use `side_effect` with functions accepting `*args, **kwargs`
+- This avoids "got multiple values for argument" errors when method is called with keyword arguments
+- Example: `mocker.patch("path.to.Class.method", side_effect=lambda *args, **kwargs: {...})`
+
+### pytest-timeout Quirks
+
+- pytest-timeout may enforce 0.25s default even with `timeout = 0` in pytest.ini
+- Tests with `time.sleep()` must mock `time` module to avoid timeouts: `mocker.patch("time.sleep")`
+
 ## Pull Request Review Workflow
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
 - `gh pr view --json reviews` only shows high-level review summaries, not specific line comments
@@ -235,6 +254,11 @@ When adding imports between core modules (`commons.py`, `mediawiki_client.py`, e
 - `mediawiki_client.py` should NOT import from `commons.py` directly
 - For shared exceptions like `DuplicateUploadError`, use a dedicated `errors.py` module that only imports from `asyncapi` (which has no dependencies on other app modules)
 - Import exceptions inside functions if needed to avoid circular imports: `from curator.app.errors import DuplicateUploadError`
+
+### FastAPI List Query Parameters
+- `list[str] | None = None` without `Query()` always resolves to `None` — repeated URL params like `?status=queued&status=failed` are silently ignored
+- Use `Query(default=None)` for any list-typed query parameter: `status: list[str] | None = Query(default=None)`
+- Tests that call endpoint functions directly bypass HTTP query string parsing, so list param issues won't be caught — use `TestClient` to verify HTTP-level behavior
 
 ### SQLModel vs SQLAlchemy Behavior
 - `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)

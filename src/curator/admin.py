@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from curator.app.auth import LoggedInUser
 from curator.app.crypto import encrypt_access_token
 from curator.app.dal import (
+    cancel_upload_requests,
     count_all_presets,
     count_all_upload_requests,
     count_batches,
@@ -15,7 +18,11 @@ from curator.app.dal import (
     update_celery_task_id,
 )
 from curator.app.db import get_session
-from curator.app.models import RetrySelectedUploadsRequest, UploadRequest
+from curator.app.models import (
+    BulkCancelRequest,
+    RetrySelectedUploadsRequest,
+    UploadRequest,
+)
 from curator.workers.celery import QUEUE_PRIVILEGED
 from curator.workers.tasks import process_upload
 
@@ -66,14 +73,36 @@ async def admin_get_upload_requests(
     page: int = 1,
     limit: int = 100,
     filter_text: str | None = None,
+    status: list[str] | None = Query(default=None),
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
     offset = (page - 1) * limit
     with get_session() as session:
         items = get_all_upload_requests(
-            session, offset=offset, limit=limit, filter_text=filter_text
+            session,
+            offset=offset,
+            limit=limit,
+            filter_text=filter_text,
+            statuses=status,
+            date_from=date_from,
+            date_to=date_to,
         )
-        total = count_all_upload_requests(session, filter_text=filter_text)
+        total = count_all_upload_requests(
+            session,
+            filter_text=filter_text,
+            statuses=status,
+            date_from=date_from,
+            date_to=date_to,
+        )
     return {"items": items, "total": total}
+
+
+@router.post("/upload_requests/bulk-cancel")
+async def admin_bulk_cancel_upload_requests(request: BulkCancelRequest):
+    with get_session() as session:
+        count = cancel_upload_requests(session, request.ids)
+    return {"cancelled_count": count}
 
 
 @router.get("/presets")

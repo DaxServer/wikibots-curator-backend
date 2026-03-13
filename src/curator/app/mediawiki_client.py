@@ -22,6 +22,10 @@ from curator.asyncapi import ErrorLink
 
 logger = logging.getLogger(__name__)
 
+# Retry configuration
+MAX_CHUNK_RETRIES = 2  # Maximum retries for failed chunk uploads
+CHUNK_RETRY_DELAY_SECONDS = 2  # Delay between chunk upload retry attempts
+
 # Wikimedia Commons API endpoints
 # Note: Must use non-nice URL format for OAuth requests
 # See: https://phabricator.wikimedia.org/T59500
@@ -273,13 +277,35 @@ class MediaWikiClient:
                     "chunk": (f"{chunk_num}.jpg", chunk, "application/octet-stream")
                 }
 
-                data = self._api_request(
-                    query_params,
-                    method="POST",
-                    data=post_data,
-                    files=files,
-                    timeout=60.0,
-                )
+                # Retry loop for chunk upload
+                for chunk_attempt in range(MAX_CHUNK_RETRIES + 1):
+                    try:
+                        data = self._api_request(
+                            query_params,
+                            method="POST",
+                            data=post_data,
+                            files=files,
+                            timeout=60.0,
+                        )
+                        break  # Success, exit retry loop
+                    except requests.exceptions.RequestException as e:
+                        is_last_attempt = chunk_attempt == MAX_CHUNK_RETRIES
+                        if is_last_attempt:
+                            logger.error(
+                                f"Failed to upload chunk {chunk_num + 1}/{total_chunks} "
+                                f"after {MAX_CHUNK_RETRIES + 1} attempts: {e}"
+                            )
+                            return UploadResult(
+                                success=False,
+                                error=f"Chunk {chunk_num + 1}/{total_chunks} failed after {MAX_CHUNK_RETRIES + 1} attempts: {e}",
+                            )
+
+                        logger.warning(
+                            f"Chunk {chunk_num + 1}/{total_chunks} upload failed "
+                            f"(attempt {chunk_attempt + 1}/{MAX_CHUNK_RETRIES + 1}), "
+                            f"retrying in {CHUNK_RETRY_DELAY_SECONDS} seconds: {e}"
+                        )
+                        time.sleep(CHUNK_RETRY_DELAY_SECONDS)
 
                 if "error" in data:
                     logger.error(data)
