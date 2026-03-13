@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import String, case
@@ -65,6 +65,9 @@ def get_all_upload_requests(
     offset: int = 0,
     limit: int = 100,
     filter_text: Optional[str] = None,
+    statuses: Optional[list[str]] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
 ) -> list[BatchUploadItem]:
     """Fetch all upload requests."""
     query = select(UploadRequest).order_by(col(UploadRequest.id).desc())
@@ -82,6 +85,12 @@ def get_all_upload_requests(
                 col(UploadRequest.status).ilike(f"%{filter_text}%"),
             )
         )
+    if statuses:
+        query = query.where(col(UploadRequest.status).in_(statuses))
+    if date_from:
+        query = query.where(col(UploadRequest.created_at) >= date_from)
+    if date_to:
+        query = query.where(col(UploadRequest.created_at) < date_to + timedelta(days=1))
     result = session.exec(query.offset(offset).limit(limit)).all()
 
     return [
@@ -108,7 +117,11 @@ def get_all_upload_requests(
 
 
 def count_all_upload_requests(
-    session: Session, filter_text: Optional[str] = None
+    session: Session,
+    filter_text: Optional[str] = None,
+    statuses: Optional[list[str]] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
 ) -> int:
     query = select(func.count(UploadRequest.id))
     if filter_text:
@@ -125,7 +138,29 @@ def count_all_upload_requests(
                 col(UploadRequest.status).ilike(f"%{filter_text}%"),
             )
         )
+    if statuses:
+        query = query.where(col(UploadRequest.status).in_(statuses))
+    if date_from:
+        query = query.where(col(UploadRequest.created_at) >= date_from)
+    if date_to:
+        query = query.where(col(UploadRequest.created_at) < date_to + timedelta(days=1))
     return session.exec(query).one()
+
+
+def cancel_upload_requests(session: Session, ids: list[int]) -> int:
+    """Cancel upload requests by ID if they are queued or in_progress."""
+    if not ids:
+        return 0
+    result = session.exec(
+        update(UploadRequest)
+        .where(
+            col(UploadRequest.id).in_(ids),
+            col(UploadRequest.status).in_(["queued", "in_progress"]),
+        )
+        .values(status="cancelled")
+    )
+    session.commit()
+    return result.rowcount
 
 
 def ensure_user(session: Session, userid: str, username: str) -> User:

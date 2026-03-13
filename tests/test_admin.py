@@ -1,17 +1,19 @@
 """Tests for admin endpoint operations."""
 
+from datetime import date
 from unittest.mock import patch
 
 import pytest
 from mwoauth import AccessToken
 
 from curator.admin import (
+    admin_bulk_cancel_upload_requests,
     admin_get_batches,
     admin_get_upload_requests,
     admin_get_users,
     admin_retry_uploads,
 )
-from curator.app.models import RetrySelectedUploadsRequest
+from curator.app.models import BulkCancelRequest, RetrySelectedUploadsRequest
 from curator.workers.celery import QUEUE_PRIVILEGED
 
 
@@ -65,15 +67,117 @@ async def test_admin_get_upload_requests_success(mock_session, patch_get_session
         mock_get_all_upload_requests.return_value = []
         mock_count_all_upload_requests.return_value = 0
 
-        result = await admin_get_upload_requests(page=1, limit=100)
+        result = await admin_get_upload_requests(page=1, limit=100, status=None)
 
         mock_get_all_upload_requests.assert_called_once_with(
-            mock_session, offset=0, limit=100, filter_text=None
+            mock_session,
+            offset=0,
+            limit=100,
+            filter_text=None,
+            statuses=None,
+            date_from=None,
+            date_to=None,
         )
         mock_count_all_upload_requests.assert_called_once_with(
-            mock_session, filter_text=None
+            mock_session, filter_text=None, statuses=None, date_from=None, date_to=None
         )
         assert result == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+async def test_admin_get_upload_requests_passes_status_filter(
+    mock_session, patch_get_session
+):
+    patch_get_session("curator.admin.get_session")
+    with (
+        patch("curator.admin.get_all_upload_requests") as mock_get,
+        patch("curator.admin.count_all_upload_requests") as mock_count,
+    ):
+        mock_get.return_value = []
+        mock_count.return_value = 0
+
+        result = await admin_get_upload_requests(
+            page=1, limit=100, status=["queued", "failed"]
+        )
+
+        mock_get.assert_called_once_with(
+            mock_session,
+            offset=0,
+            limit=100,
+            filter_text=None,
+            statuses=["queued", "failed"],
+            date_from=None,
+            date_to=None,
+        )
+        mock_count.assert_called_once_with(
+            mock_session,
+            filter_text=None,
+            statuses=["queued", "failed"],
+            date_from=None,
+            date_to=None,
+        )
+        assert result == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+async def test_admin_get_upload_requests_passes_date_filter(
+    mock_session, patch_get_session
+):
+    patch_get_session("curator.admin.get_session")
+    with (
+        patch("curator.admin.get_all_upload_requests") as mock_get,
+        patch("curator.admin.count_all_upload_requests") as mock_count,
+    ):
+        mock_get.return_value = []
+        mock_count.return_value = 0
+
+        result = await admin_get_upload_requests(
+            page=1, limit=100, status=None, date_from=date(2026, 3, 1), date_to=date(2026, 3, 13)
+        )
+
+        mock_get.assert_called_once_with(
+            mock_session,
+            offset=0,
+            limit=100,
+            filter_text=None,
+            statuses=None,
+            date_from=date(2026, 3, 1),
+            date_to=date(2026, 3, 13),
+        )
+        mock_count.assert_called_once_with(
+            mock_session,
+            filter_text=None,
+            statuses=None,
+            date_from=date(2026, 3, 1),
+            date_to=date(2026, 3, 13),
+        )
+        assert result == {"items": [], "total": 0}
+
+
+@pytest.mark.asyncio
+async def test_admin_bulk_cancel_success(mock_session, patch_get_session):
+    patch_get_session("curator.admin.get_session")
+    with patch("curator.admin.cancel_upload_requests") as mock_cancel:
+        mock_cancel.return_value = 2
+
+        result = await admin_bulk_cancel_upload_requests(
+            BulkCancelRequest(ids=[1, 2, 3])
+        )
+
+        mock_cancel.assert_called_once_with(mock_session, [1, 2, 3])
+        assert result == {"cancelled_count": 2}
+
+
+@pytest.mark.asyncio
+async def test_admin_bulk_cancel_empty(mock_session, patch_get_session):
+    patch_get_session("curator.admin.get_session")
+    with patch("curator.admin.cancel_upload_requests") as mock_cancel:
+        mock_cancel.return_value = 0
+
+        result = await admin_bulk_cancel_upload_requests(BulkCancelRequest(ids=[]))
+
+        mock_cancel.assert_called_once_with(mock_session, [])
+        assert result == {"cancelled_count": 0}
 
 
 @pytest.mark.asyncio
