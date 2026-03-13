@@ -159,7 +159,6 @@ def cancel_upload_requests(session: Session, ids: list[int]) -> int:
         )
         .values(status="cancelled")
     )
-    session.commit()
     return result.rowcount
 
 

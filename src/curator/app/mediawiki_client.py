@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Retry configuration
 MAX_CHUNK_RETRIES = 2  # Maximum retries for failed chunk uploads
+CHUNK_RETRY_DELAY_SECONDS = 2  # Delay between chunk upload retry attempts
 
 # Wikimedia Commons API endpoints
 # Note: Must use non-nice URL format for OAuth requests
@@ -302,9 +303,9 @@ class MediaWikiClient:
                         logger.warning(
                             f"Chunk {chunk_num + 1}/{total_chunks} upload failed "
                             f"(attempt {chunk_attempt + 1}/{MAX_CHUNK_RETRIES + 1}), "
-                            f"retrying in 2 seconds: {e}"
+                            f"retrying in {CHUNK_RETRY_DELAY_SECONDS} seconds: {e}"
                         )
-                        time.sleep(2)
+                        time.sleep(CHUNK_RETRY_DELAY_SECONDS)
 
                 if "error" in data:
                     logger.error(data)

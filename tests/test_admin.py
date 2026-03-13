@@ -132,7 +132,11 @@ async def test_admin_get_upload_requests_passes_date_filter(
         mock_count.return_value = 0
 
         result = await admin_get_upload_requests(
-            page=1, limit=100, status=None, date_from=date(2026, 3, 1), date_to=date(2026, 3, 13)
+            page=1,
+            limit=100,
+            status=None,
+            date_from=date(2026, 3, 1),
+            date_to=date(2026, 3, 13),
         )
 
         mock_get.assert_called_once_with(
