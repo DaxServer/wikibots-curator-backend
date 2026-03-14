@@ -198,5 +198,5 @@ class BulkCancelRequest(SQLModel):
     ids: list[int]
 
 
-class BulkFailRequest(BaseModel):
+class BulkFailRequest(SQLModel):
     ids: list[int]
