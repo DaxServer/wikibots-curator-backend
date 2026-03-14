@@ -75,3 +75,8 @@ class QueuePriority(Enum):
 
 class WikidataProperty:
     MapillaryPhotoID = "P1947"
+
+
+# Geocoding configuration
+GEOCODING_API_URL: str = "https://geocoding.daxserver.com/reverse"
+GEOCODING_CONCURRENCY_LIMIT: int = int(os.getenv("GEOCODING_CONCURRENCY_LIMIT", "10"))

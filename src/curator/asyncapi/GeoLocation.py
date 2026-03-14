@@ -10,8 +10,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class GeoLocation(BaseModel):
     accuracy: Optional[int] = Field(default=None)
+    city: Optional[str] = Field(default=None)
     compass_angle: Optional[float] = Field(default=None)
+    country: Optional[str] = Field(default=None)
+    country_code: Optional[str] = Field(default=None)
+    county: Optional[str] = Field(default=None)
     latitude: float = Field()
     longitude: float = Field()
+    postcode: Optional[str] = Field(default=None)
+    state: Optional[str] = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
