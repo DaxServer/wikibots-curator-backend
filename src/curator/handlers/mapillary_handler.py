@@ -16,6 +16,7 @@ from curator.app.config import (
     MAPILLARY_API_TOKEN,
     WikidataProperty,
 )
+from curator.app.geocoding import reverse_geocode_batch
 from curator.app.wcqs import WcqsSession
 from curator.asyncapi import (
     CameraInfo,
@@ -203,7 +204,13 @@ class MapillaryHandler(Handler):
 
     async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
         collection = await _fetch_sequence_data(input)
-        return {k: from_mapillary(v) for k, v in collection.items()}
+        images = {k: from_mapillary(v) for k, v in collection.items()}
+
+        # Add reverse geocoding data
+        async with httpx.AsyncClient() as client:
+            await reverse_geocode_batch(list(images.values()), client)
+
+        return images
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
         return await _get_sequence_ids(input)

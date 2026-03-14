@@ -376,12 +376,16 @@ def mock_external_calls(mocker, request):
 
     Skipped for mediawiki_api unit tests to avoid multiprocessing issues
     """
-    # Skip this fixture for mediawiki_api tests to avoid celery import issues
+    # Skip this fixture for mediawiki_api and geocoding tests to avoid celery import issues
     # Check both the test node name and the parent module/file
     node_name = request.node.name
     module_name = request.module.__name__ if request.module else ""
 
-    if "mediawiki" in node_name.lower() or "mediawiki" in module_name.lower():
+    if (
+        "mediawiki" in node_name.lower()
+        or "mediawiki" in module_name.lower()
+        or "geocoding" in module_name.lower()
+    ):
         return
 
     mock_client = mocker.MagicMock()
