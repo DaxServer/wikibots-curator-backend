@@ -8,12 +8,17 @@ from mwoauth import AccessToken
 
 from curator.admin import (
     admin_bulk_cancel_upload_requests,
+    admin_bulk_fail_upload_requests,
     admin_get_batches,
     admin_get_upload_requests,
     admin_get_users,
     admin_retry_uploads,
 )
-from curator.app.models import BulkCancelRequest, RetrySelectedUploadsRequest
+from curator.app.models import (
+    BulkCancelRequest,
+    BulkFailRequest,
+    RetrySelectedUploadsRequest,
+)
 from curator.workers.celery import QUEUE_PRIVILEGED
 
 
@@ -299,3 +304,27 @@ async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
 
         # No tasks should be queued
         assert mock_task.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_admin_bulk_fail_success(mock_session, patch_get_session):
+    patch_get_session("curator.admin.get_session")
+    with patch("curator.admin.fail_upload_requests") as mock_fail:
+        mock_fail.return_value = 2
+
+        result = await admin_bulk_fail_upload_requests(BulkFailRequest(ids=[1, 2, 3]))
+
+        mock_fail.assert_called_once_with(mock_session, [1, 2, 3])
+        assert result == {"failed_count": 2}
+
+
+@pytest.mark.asyncio
+async def test_admin_bulk_fail_empty(mock_session, patch_get_session):
+    patch_get_session("curator.admin.get_session")
+    with patch("curator.admin.fail_upload_requests") as mock_fail:
+        mock_fail.return_value = 0
+
+        result = await admin_bulk_fail_upload_requests(BulkFailRequest(ids=[]))
+
+        mock_fail.assert_called_once_with(mock_session, [])
+        assert result == {"failed_count": 0}

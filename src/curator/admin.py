@@ -10,6 +10,7 @@ from curator.app.dal import (
     count_all_upload_requests,
     count_batches,
     count_users,
+    fail_upload_requests,
     get_all_presets,
     get_all_upload_requests,
     get_batches,
@@ -20,6 +21,7 @@ from curator.app.dal import (
 from curator.app.db import get_session
 from curator.app.models import (
     BulkCancelRequest,
+    BulkFailRequest,
     RetrySelectedUploadsRequest,
     UploadRequest,
 )
@@ -103,6 +105,13 @@ async def admin_bulk_cancel_upload_requests(request: BulkCancelRequest):
     with get_session() as session:
         count = cancel_upload_requests(session, request.ids)
     return {"cancelled_count": count}
+
+
+@router.post("/upload_requests/bulk-fail")
+async def admin_bulk_fail_upload_requests(request: BulkFailRequest):
+    with get_session() as session:
+        count = fail_upload_requests(session, request.ids)
+    return {"failed_count": count}
 
 
 @router.get("/presets")

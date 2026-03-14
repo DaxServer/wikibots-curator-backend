@@ -2,6 +2,7 @@
 
 from curator.app.dal import (
     create_upload_requests_for_batch,
+    fail_upload_requests,
     get_batch,
     get_upload_request_by_id,
     reset_failed_uploads_to_new_batch,
@@ -334,3 +335,53 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
     assert upload2.handler == "flickr"
     assert upload2.filename == "Test_file_2.jpg"
     assert upload2.copyright_override is False
+
+
+def test_fail_upload_requests_filters_failed(mocker, mock_session):
+    """fail_upload_requests should exclude items already failed."""
+    # Create mock upload requests
+    upload1 = mocker.MagicMock()
+    upload1.id = 1
+    upload1.status = "queued"
+    upload1.error = None
+
+    upload2 = mocker.MagicMock()
+    upload2.id = 2
+    upload2.status = "failed"
+    upload2.error = {"message": "Already failed"}
+
+    upload3 = mocker.MagicMock()
+    upload3.id = 3
+    upload3.status = "in_progress"
+    upload3.error = None
+
+    # Mock the update result
+    mock_result = mocker.MagicMock()
+    mock_result.rowcount = 2
+    mock_session.exec.return_value = mock_result
+
+    # Try to fail all three
+    ids = [1, 2, 3]
+    count = fail_upload_requests(mock_session, ids)
+
+    # Only 2 should be marked as failed (upload2 already failed)
+    assert count == 2
+
+    # Verify the update was called with correct where clause
+    mock_session.exec.assert_called_once()
+
+    # Get the update statement that was passed to exec
+    call_args = mock_session.exec.call_args
+    update_stmt = call_args[0][0]
+
+    # Verify it's an update statement on UploadRequest
+    assert update_stmt.table.name == "upload_requests"
+
+
+def test_fail_upload_requests_empty(mocker, mock_session):
+    """fail_upload_requests should return 0 for empty list."""
+    count = fail_upload_requests(mock_session, [])
+    assert count == 0
+
+    # exec should not be called for empty list
+    mock_session.exec.assert_not_called()
