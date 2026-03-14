@@ -162,6 +162,21 @@ def cancel_upload_requests(session: Session, ids: list[int]) -> int:
     return result.rowcount
 
 
+def fail_upload_requests(session: Session, ids: list[int]) -> int:
+    """Mark upload requests as failed if they are not already failed."""
+    if not ids:
+        return 0
+    result = session.exec(
+        update(UploadRequest)
+        .where(
+            col(UploadRequest.id).in_(ids),
+            col(UploadRequest.status) != "failed",
+        )
+        .values(status="failed", error={"message": "Manually marked as failed"})
+    )
+    return result.rowcount
+
+
 def ensure_user(session: Session, userid: str, username: str) -> User:
     """Ensure a `User` row exists for `userid`; set username.
 

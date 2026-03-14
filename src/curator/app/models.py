@@ -196,3 +196,7 @@ class RetrySelectedUploadsRequest(SQLModel):
 
 class BulkCancelRequest(SQLModel):
     ids: list[int]
+
+
+class BulkFailRequest(SQLModel):
+    ids: list[int]
