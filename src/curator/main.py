@@ -16,6 +16,7 @@ from alembic.config import Config
 from curator.admin import router as admin_router
 from curator.app.config import TOKEN_ENCRYPTION_KEY
 from curator.app.db import DB_URL
+from curator.app.recovery import recover_queued_uploads
 from curator.auth import router as auth_router
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
 from curator.ws import router as ws_router
@@ -35,6 +36,9 @@ async def lifespan(app: FastAPI):
     cfg.set_main_option("script_location", os.path.join(root, "alembic"))
     cfg.set_main_option("sqlalchemy.url", DB_URL)
     await asyncio.to_thread(command.upgrade, cfg, "head")
+
+    # Re-enqueue uploads stuck in queued state after a Redis restart
+    await recover_queued_uploads()
 
     # Download and set up frontend assets
     setup_frontend_assets()

@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlalchemy import String, case
 from sqlalchemy import cast as sqlalchemy_cast
@@ -1011,3 +1011,42 @@ def delete_preset(session: Session, preset_id: int, userid: str) -> bool:
     logger.info(f"[dal] Deleted preset {preset_id} for {userid}")
 
     return True
+
+
+def mark_uploads_expired(session: Session, ids: list[int]) -> None:
+    """Mark queued uploads as failed due to an expired or invalid OAuth token."""
+    if not ids:
+        return
+    session.exec(
+        update(UploadRequest)
+        .where(
+            col(UploadRequest.id).in_(ids),
+            col(UploadRequest.status) == "queued",
+        )
+        .values(
+            status="failed",
+            error={
+                "type": "error",
+                "message": "Your session has expired. Please log in and retry.",
+            },
+        )
+    )
+
+
+def get_queued_uploads_for_recovery(
+    session: Session,
+) -> Sequence[tuple[int, str, str, str]]:
+    """Return (upload_id, userid, access_token, edit_group_id) for all queued uploads."""
+    statement = (
+        select(
+            col(UploadRequest.id),
+            col(UploadRequest.userid),
+            col(UploadRequest.access_token),
+            col(Batch.edit_group_id),
+        )
+        .join(Batch, col(UploadRequest.batchid) == col(Batch.id))
+        .where(col(UploadRequest.status) == "queued")
+        .where(col(UploadRequest.access_token).isnot(None))
+        .where(col(Batch.edit_group_id).isnot(None))
+    )
+    return session.exec(statement).all()

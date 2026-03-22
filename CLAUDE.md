@@ -64,6 +64,7 @@ src/curator/
 │   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, commons.py
 │   ├── mediawiki_client.py # MediaWiki API client
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
+│   ├── recovery.py      # Startup recovery for uploads stuck in queued state
 │   └── image_models.py # Image-related models
 ├── handlers/            # Image source handlers
 │   ├── interfaces.py   # Abstract Handler class
@@ -88,6 +89,9 @@ Abstract `Handler` class in `handlers/interfaces.py` defines the contract for im
 
 Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket handler and ingestion worker.
 
+### Startup Recovery
+`recovery.py` handles uploads stuck in `queued` state after a Redis restart. Uses a sentinel key (`curator:started`) written to Redis on successful startup — missing key means Redis was restarted and recovery is needed. On recovery, queued uploads are grouped by `(userid, edit_group_id)`, the OAuth token validated against MediaWiki, then re-enqueued via `enqueue_uploads()`. Invalid tokens mark the group's uploads as failed with a session-expired message in a single DB call. Called from `main.py` lifespan after Alembic migrations.
+
 ### Retry Functionality
 
 Retry functionality allows users and admins to retry failed uploads. The current implementation creates new `UploadRequest` objects (copies) in a new batch rather than modifying the originals. This preserves the original failed uploads in the original batch for history/audit purposes.
@@ -95,6 +99,9 @@ Retry functionality allows users and admins to retry failed uploads. The current
 - `dal.reset_failed_uploads_to_new_batch()` - User retry, creates copies of failed uploads in new batch
 - `dal.retry_selected_uploads_to_new_batch()` - Admin retry, same pattern
 - After enqueueing Celery tasks, `update_celery_task_id()` is called to enable cancellation
+
+### Redis Role
+Redis serves as both the Celery **broker** (task queue) and **result backend**. A Redis restart destroys all in-flight task data — tasks sitting in the broker queue are gone, but the database retains `status="queued"` records. The startup recovery system (`recovery.py`) reconciles this.
 
 ### Rate Limiting with Privileged Users
 - Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
@@ -113,6 +120,7 @@ Retry functionality allows users and admins to retry failed uploads. The current
 - Client instances are passed where needed (no global state)
 - Async methods are used where available, or `asyncio.to_thread` for synchronous calls
 - Clients are closed after use (e.g., using `try...finally`)
+- `_client` is the underlying `requests.Session` — close it explicitly with `client._client.close()` in a `finally` block when the client is short-lived (not managed by a context manager)
 - `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency
 - `commons.py:upload_file_chunked()` provides the complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
 - **Chunked upload flow**: Chunks are uploaded with `stash=1`, then a final commit publishes the file
