@@ -91,7 +91,7 @@ def get_next_upload_delay(userid: str, rate_limit: RateLimitInfo) -> float:
 
     # Update next available slot (1 hour TTL)
     new_next_available = max(current_time, next_available) + spacing
-    redis_client.setex(cache_key, 3600, str(new_next_available))
+    redis_client.set(cache_key, str(new_next_available))
 
     logger.debug(
         f"[rate_limiter] User {userid}: delay={delay:.2f}s, "

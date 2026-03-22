@@ -31,7 +31,7 @@ def _validate_token(access_token_cipher: str) -> AccessToken:
 
 async def recover_queued_uploads() -> None:
     """Re-enqueue uploads stuck in queued state after a Redis restart."""
-    if redis_client.exists(SENTINEL_KEY):
+    if not redis_client.set(SENTINEL_KEY, "1", nx=True):
         return
 
     with get_session() as session:
@@ -70,5 +70,4 @@ async def recover_queued_uploads() -> None:
         with get_session() as session:
             mark_uploads_expired(session, expired_ids)
 
-    redis_client.set(SENTINEL_KEY, "1")
-    logger.info("[recovery] Recovery complete, sentinel key set")
+    logger.info("[recovery] Recovery complete")
