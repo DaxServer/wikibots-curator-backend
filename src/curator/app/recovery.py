@@ -50,7 +50,8 @@ async def recover_queued_uploads() -> None:
             access_token = await asyncio.to_thread(_validate_token, uploads[0][1])
         except Exception:
             logger.warning(
-                f"[recovery] Token invalid for user {userid}, marking {len(upload_ids)} uploads as failed"
+                f"[recovery] Token invalid for user {userid}, marking {len(upload_ids)} uploads as failed",
+                exc_info=True,
             )
             expired_ids.extend(upload_ids)
             continue
