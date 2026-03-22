@@ -17,7 +17,6 @@ def setup_redis_mock(mocker):
     mock_redis = MagicMock()
     mock_redis.get.return_value = None
     mock_redis.set.return_value = True
-    mock_redis.setex.return_value = True
     mock_redis.delete.return_value = 1
     mocker.patch("curator.app.rate_limiter.redis_client", mock_redis)
     return mock_redis
@@ -93,7 +92,7 @@ class TestGetNextUploadDelay:
 
         assert delay == 0.0
         mock_redis.get.assert_not_called()
-        mock_redis.setex.assert_not_called()
+        mock_redis.set.assert_not_called()
 
     def test_normal_user_first_upload(self, mocker):
         """Test first upload has no delay."""
@@ -106,7 +105,7 @@ class TestGetNextUploadDelay:
         delay = get_next_upload_delay("user123", rate_limit)
 
         assert delay == 0.0
-        mock_redis.setex.assert_called_once()
+        mock_redis.set.assert_called_once()
 
     def test_normal_user_subsequent_uploads_spaced(self, mocker):
         """Test that uploads are properly spaced."""
@@ -125,9 +124,8 @@ class TestGetNextUploadDelay:
         assert delay1 == 0.0
 
         # Get the next_available time that was set (100 + 15 = 115)
-        call_args = mock_redis.setex.call_args
-        # setex(name, ttl, value) - value is at index 2
-        next_available = float(call_args[0][2])
+        call_args = mock_redis.set.call_args
+        next_available = float(call_args[0][1])
 
         # Simulate second call - time hasn't advanced much
         mock_time.time.return_value = 100.1
@@ -164,5 +162,5 @@ class TestGetNextUploadDelay:
         assert delay2 == 15.0
 
         # New next available should be 115 + 15 = 130
-        call_args = mock_redis.setex.call_args
-        assert float(call_args[0][2]) == 130.0
+        call_args = mock_redis.set.call_args
+        assert float(call_args[0][1]) == 130.0

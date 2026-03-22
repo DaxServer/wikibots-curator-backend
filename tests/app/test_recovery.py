@@ -11,7 +11,7 @@ from curator.app.recovery import SENTINEL_KEY, recover_queued_uploads
 @pytest.mark.asyncio
 async def test_skips_recovery_when_sentinel_key_present(mocker):
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 1
+    mock_redis.set.return_value = None
     mock_enqueue = mocker.patch(
         "curator.app.recovery.enqueue_uploads", new_callable=AsyncMock
     )
@@ -24,7 +24,7 @@ async def test_skips_recovery_when_sentinel_key_present(mocker):
 @pytest.mark.asyncio
 async def test_sets_sentinel_key_when_no_queued_uploads(mocker):
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=[]
@@ -33,7 +33,7 @@ async def test_sets_sentinel_key_when_no_queued_uploads(mocker):
 
     await recover_queued_uploads()
 
-    mock_redis.set.assert_called_once_with(SENTINEL_KEY, "1")
+    mock_redis.set.assert_called_once_with(SENTINEL_KEY, "1", nx=True)
 
 
 @pytest.mark.asyncio
@@ -45,7 +45,7 @@ async def test_reenqueues_queued_uploads_after_redis_restart(mocker):
     mock_token = MWAccessToken("key", "secret")
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued
@@ -78,7 +78,7 @@ async def test_groups_uploads_by_userid_and_batch(mocker):
     mock_token2 = MWAccessToken("key2", "secret2")
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued
@@ -106,7 +106,7 @@ async def test_marks_uploads_failed_when_token_is_corrupted(mocker):
     queued = [(1, "user1", "bad_cipher", "eg1")]
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued
@@ -132,7 +132,7 @@ async def test_marks_uploads_failed_when_oauth_token_is_invalid(mocker):
     mock_token = MWAccessToken("key", "secret")
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued
@@ -163,7 +163,7 @@ async def test_continues_recovering_valid_groups_after_invalid_token(mocker):
     mock_client.get_user_groups.return_value = set()
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued
@@ -184,7 +184,7 @@ async def test_continues_recovering_valid_groups_after_invalid_token(mocker):
 
     mock_fail.assert_called_once_with(ANY, [1])
     mock_enqueue.assert_called_once()
-    mock_redis.set.assert_called_once_with(SENTINEL_KEY, "1")
+    mock_redis.set.assert_called_once_with(SENTINEL_KEY, "1", nx=True)
 
 
 @pytest.mark.asyncio
@@ -195,7 +195,7 @@ async def test_marks_all_expired_uploads_in_single_session_call(mocker):
     ]
 
     mock_redis = mocker.patch("curator.app.recovery.redis_client")
-    mock_redis.exists.return_value = 0
+    mock_redis.set.return_value = True
     mocker.patch("curator.app.recovery.get_session", MagicMock())
     mocker.patch(
         "curator.app.recovery.get_queued_uploads_for_recovery", return_value=queued

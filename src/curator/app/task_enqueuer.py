@@ -54,15 +54,6 @@ async def enqueue_uploads(
     2. Determines the appropriate queue based on user privilege
     3. Enqueues each upload with proper rate limiting delays
     4. Updates all celery_task_ids in a single batch operation
-
-    Args:
-        upload_ids: List of upload request IDs to enqueue
-        edit_group_id: The batch edit group ID
-        userid: The user ID
-        access_token: The decrypted access token
-
-    Returns:
-        List of enqueued task IDs
     """
     client = MediaWikiClient(access_token)
     queue, rate_limit = await get_queue_for_user(userid, client)

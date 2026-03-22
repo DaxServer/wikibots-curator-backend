@@ -91,6 +91,7 @@ Implementations: `MapillaryHandler`, `FlickrHandler`. Used by both WebSocket han
 
 ### Startup Recovery
 `recovery.py` handles uploads stuck in `queued` state after a Redis restart. Uses a sentinel key (`curator:started`) written to Redis on successful startup — missing key means Redis was restarted and recovery is needed. On recovery, queued uploads are grouped by `(userid, edit_group_id)`, the OAuth token validated against MediaWiki, then re-enqueued via `enqueue_uploads()`. Invalid tokens mark the group's uploads as failed with a session-expired message in a single DB call. Called from `main.py` lifespan after Alembic migrations.
+- The sentinel key is set atomically using `redis_client.set(SENTINEL_KEY, "1", nx=True)` — if it returns `None`, another instance already claimed recovery and the function returns immediately. This prevents double-enqueuing on concurrent startups.
 
 ### Retry Functionality
 
@@ -107,6 +108,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
 - Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
+- Rate limit keys have no TTL — stale past-timestamp values are handled correctly by `max(0.0, next_available - current_time)`, and a TTL would incorrectly reset the slot for large batches (>240 uploads at 4/min)
 - Celery tasks are spaced out to match allowed rate, preventing API throttling
 - Tasks are dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
 - Queue constants are defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
