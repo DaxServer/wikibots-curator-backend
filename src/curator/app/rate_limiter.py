@@ -35,17 +35,6 @@ _PRIVILEGED_LIMIT = RateLimitInfo(
     uploads_per_period=999, period_seconds=1, is_privileged=True
 )
 
-# User groups that are exempt from rate limiting
-_PRIVILEGED_GROUPS: set[str] = {
-    "accountcreator",
-    "autopatrolled",
-    "bureaucrat",
-    "image-reviewer",
-    "patroller",
-    "sysop",
-    "translationadmin",
-}
-
 
 def get_rate_limit_for_batch(
     userid: str,

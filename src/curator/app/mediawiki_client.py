@@ -34,6 +34,17 @@ COMMONS_OAUTH_IDENTIFY = (
     "https://commons.wikimedia.org/w/index.php?title=Special:OAuth/identify"
 )
 
+# User groups that are exempt from rate limiting
+_PRIVILEGED_GROUPS: set[str] = {
+    "accountcreator",
+    "autopatrolled",
+    "bureaucrat",
+    "image-reviewer",
+    "patroller",
+    "sysop",
+    "translationadmin",
+}
+
 
 @dataclass
 class UploadResult:
@@ -158,13 +169,13 @@ class MediaWikiClient:
         """
         Check if user has privileged groups (patroller, sysop).
         """
-        return bool(self.get_user_groups() & {"patroller", "sysop"})
+        return bool(self.get_user_groups() & _PRIVILEGED_GROUPS)
 
     def get_csrf_token(self) -> str:
         """
         Get CSRF token for edit operations.
         """
-        params = {
+        params: dict[str, str] = {
             "action": "query",
             "meta": "tokens",
             "type": "csrf",
@@ -179,7 +190,7 @@ class MediaWikiClient:
         """
         Check if a filename is blacklisted.
         """
-        params = {
+        params: dict[str, str] = {
             "action": "titleblacklist",
             "tbaction": "create",
             "tbtitle": f"File:{filename}",
@@ -207,7 +218,7 @@ class MediaWikiClient:
 
         Returns list of ErrorLink objects with title and url.
         """
-        params = {
+        params: dict[str, str] = {
             "action": "query",
             "list": "allimages",
             "aisha1": sha1,
@@ -253,12 +264,12 @@ class MediaWikiClient:
 
                 # Separate query params from POST data
                 # MediaWiki API requires token to be POST body, not query string
-                query_params = {
+                query_params: dict[str, str] = {
                     "action": "upload",
                     "format": "json",
                 }
 
-                post_data = {
+                post_data: dict[str, str] = {
                     "filename": filename,
                     "comment": edit_summary,
                     "text": wikitext,
@@ -488,14 +499,14 @@ class MediaWikiClient:
         # Separate query params from POST data
         # MediaWiki API requires action, site, title in query params
         # and data, token, summary, bot in POST body
-        query_params = {
+        query_params: dict[str, str] = {
             "action": "wbeditentity",
             "site": "commonswiki",
             "title": f"File:{filename}",
             "format": "json",
         }
 
-        post_data = {
+        post_data: dict[str, str] = {
             "data": json.dumps(payload_data),
             "token": csrf_token,
             "summary": edit_summary,
@@ -532,7 +543,7 @@ class MediaWikiClient:
         # Ensure title has "File:" prefix for API request
         api_title = title if title.startswith("File:") else f"File:{title}"
 
-        params = {
+        params: dict[str, str] = {
             "action": "wbgetentities",
             "sites": "commonswiki",
             "titles": api_title,
