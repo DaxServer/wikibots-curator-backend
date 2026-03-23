@@ -36,7 +36,15 @@ _PRIVILEGED_LIMIT = RateLimitInfo(
 )
 
 # User groups that are exempt from rate limiting
-_PRIVILEGED_GROUPS = {"patroller", "sysop"}
+_PRIVILEGED_GROUPS: set[str] = {
+    "accountcreator",
+    "autopatrolled",
+    "bureaucrat",
+    "image-reviewer",
+    "patroller",
+    "sysop",
+    "translationadmin",
+}
 
 
 def get_rate_limit_for_batch(
