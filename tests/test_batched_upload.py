@@ -6,7 +6,7 @@ import pytest
 
 from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceAckItem, UploadSliceData
-from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -51,7 +51,7 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
 
         # Mock rate limiter to return privileged user (no delay)
         mock_get_rate_limit.return_value = RateLimitInfo(
-            uploads_per_period=999, period_seconds=1, is_privileged=True
+            uploads_per_period=999, period_seconds=1
         )
         mock_get_delay.return_value = 0.0
 
@@ -83,10 +83,7 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         )  # Second arg is edit_group_id string
         assert len(call_kwargs["args"][1]) == 12  # edit_group_id is 12 characters
         assert call_kwargs["args"][1] == "abc123def456"  # Uses batch's edit_group_id
-        assert call_kwargs["queue"] in [
-            QUEUE_PRIVILEGED,
-            QUEUE_NORMAL,
-        ]  # Check queue parameter
+        assert call_kwargs["queue"] == QUEUE_NORMAL
 
         mock_sender.send_upload_slice_ack.assert_called_once_with(
             data=[UploadSliceAckItem(id="img1", status="queued")], sliceid=0
@@ -120,7 +117,7 @@ async def test_upload_slice_multiple_items(
 
         # Mock rate limiter to return privileged user (no delay)
         mock_get_rate_limit.return_value = RateLimitInfo(
-            uploads_per_period=999, period_seconds=1, is_privileged=True
+            uploads_per_period=999, period_seconds=1
         )
         mock_get_delay.return_value = 0.0
 
@@ -151,7 +148,7 @@ async def test_upload_slice_multiple_items(
         assert mock_process_upload.apply_async.call_count == 2
         # Verify both calls have queue parameter and use batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
-            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["queue"] == QUEUE_NORMAL
             assert call[1]["args"][1] == "xyz789uvw012"  # Uses batch's edit_group_id
 
         # Verify send_upload_slice_ack was called with data and sliceid

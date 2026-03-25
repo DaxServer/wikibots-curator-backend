@@ -44,7 +44,7 @@ async def test_retry_uploads_success(mocker, handler_instance):
         patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch123", 456)
-        mock_get_rate_limit.return_value = mocker.MagicMock(is_privileged=False)
+        mock_get_rate_limit.return_value = mocker.MagicMock()
         mock_get_delay.return_value = 0.0
         await handler_instance.retry_uploads(123)
 
@@ -117,7 +117,7 @@ async def test_retry_uploads_with_priority(mocker, handler_instance, priority):
         patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch456", 789)
-        mock_get_rate_limit.return_value = mocker.MagicMock(is_privileged=False)
+        mock_get_rate_limit.return_value = mocker.MagicMock()
         mock_get_delay.return_value = 0.0
 
         if priority:

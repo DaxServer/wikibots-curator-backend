@@ -54,7 +54,7 @@ def when_upload(active_user, mock_sender, count, batch_id, mocker, event_loop):
     )
     mock_get_delay = mocker.patch("curator.app.task_enqueuer.get_next_upload_delay")
     mock_get_rate_limit.return_value = RateLimitInfo(
-        uploads_per_period=999, period_seconds=1, is_privileged=True
+        uploads_per_period=999, period_seconds=1
     )
     mock_get_delay.return_value = 0.0
 

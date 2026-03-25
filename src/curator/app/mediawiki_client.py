@@ -34,17 +34,6 @@ COMMONS_OAUTH_IDENTIFY = (
     "https://commons.wikimedia.org/w/index.php?title=Special:OAuth/identify"
 )
 
-# User groups that are exempt from rate limiting
-_PRIVILEGED_GROUPS: set[str] = {
-    "accountcreator",
-    "autopatrolled",
-    "bureaucrat",
-    "image-reviewer",
-    "patroller",
-    "sysop",
-    "translationadmin",
-}
-
 
 @dataclass
 class UploadResult:
@@ -165,11 +154,16 @@ class MediaWikiClient:
         self._groups = groups
         return groups
 
-    def is_privileged(self) -> bool:
-        """
-        Check if user has privileged groups (patroller, sysop).
-        """
-        return bool(self.get_user_groups() & _PRIVILEGED_GROUPS)
+    def get_user_rate_limits(self) -> tuple[dict[str, dict], list[str]]:
+        """Fetch user rate limits and rights from the MediaWiki userinfo API."""
+        params: dict[str, str] = {
+            "action": "query",
+            "meta": "userinfo",
+            "uiprop": "ratelimits|rights",
+        }
+        data = self._api_request(params)
+        userinfo = data["query"]["userinfo"]
+        return userinfo["ratelimits"], userinfo.get("rights", [])
 
     def get_csrf_token(self) -> str:
         """

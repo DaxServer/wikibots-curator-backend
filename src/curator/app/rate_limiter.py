@@ -1,7 +1,10 @@
 """Rate limiting for Wikimedia Commons uploads.
 
-Checks if user is privileged (patroller/sysop) using MediaWikiClient.get_user_groups()
-and spaces out Celery task enqueueing to match the allowed rate, preventing API throttling.
+Determines rate limits by fetching upload and edit limits from the MediaWiki
+userinfo API and taking the most restrictive effective rate. Each upload requires
+2 edit API calls (SDC apply + null edit), so the edit limit is halved before
+comparing against the upload limit. Users with the 'noratelimit' right are exempt
+and receive _NO_RATE_LIMIT.
 """
 
 import logging
@@ -27,51 +30,81 @@ class RateLimitInfo:
 
     uploads_per_period: int
     period_seconds: int
-    is_privileged: bool
 
 
-# Privileged user rate limit (effectively no limit)
-_PRIVILEGED_LIMIT = RateLimitInfo(
-    uploads_per_period=999, period_seconds=1, is_privileged=True
-)
+# For users exempt from rate limiting (have 'noratelimit' right)
+_NO_RATE_LIMIT = RateLimitInfo(uploads_per_period=9999, period_seconds=60)
 
 
-def get_rate_limit_for_batch(
-    userid: str,
-    client: MediaWikiClient,
-) -> RateLimitInfo:
-    """
-    Get rate limit info for a user.
+def _most_permissive(limits: dict[str, dict]) -> tuple[int, int] | None:
+    """Return (hits, seconds) for the group with the highest hits/second rate."""
+    best: tuple[int, int] | None = None
+    best_rate = -1.0
+    for limit in limits.values():
+        rate = limit["hits"] / limit["seconds"]
+        if rate > best_rate:
+            best_rate = rate
+            best = (limit["hits"], limit["seconds"])
+    return best
 
-    Uses MediaWiki API via MediaWikiClient.
-    """
+
+def _more_restrictive(
+    a: tuple[int, int] | None, b: tuple[int, int] | None
+) -> tuple[int, int] | None:
+    """Return the tuple with the lower hits/second rate (more restrictive)."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return a if a[0] / a[1] <= b[0] / b[1] else b
+
+
+def get_rate_limit_for_batch(userid: str, client: MediaWikiClient) -> RateLimitInfo:
+    """Get rate limit info for a user from the MediaWiki userinfo API."""
     try:
-        is_privileged = client.is_privileged()
+        rate_limits, rights = client.get_user_rate_limits()
 
-        logger.info(f"[rate_limiter] User {userid} privileged={is_privileged}")
+        if "noratelimit" in rights:
+            logger.info(f"[rate_limiter] User {userid} is exempt from rate limiting")
+            return _NO_RATE_LIMIT
 
-        if is_privileged:
-            return _PRIVILEGED_LIMIT
+        upload_limits = rate_limits.get("upload", {})
+        edit_limits = rate_limits.get("edit", {})
+
+        best_upload = _most_permissive(upload_limits)
+        best_edit = _most_permissive(edit_limits)
+
+        # Each upload costs 2 edits (SDC + null edit), so halve the edit limit.
+        # Clamp to minimum of 1 to avoid ZeroDivisionError when hits is odd (e.g. 1//2=0)
+        adjusted_edit = (max(1, best_edit[0] // 2), best_edit[1]) if best_edit else None
+
+        effective = _more_restrictive(best_upload, adjusted_edit)
+
+        if effective is None:
+            logger.info(
+                f"[rate_limiter] User {userid} has no rate limits, treating as exempt"
+            )
+            return _NO_RATE_LIMIT
+
+        logger.info(
+            f"[rate_limiter] User {userid} effective rate: "
+            f"{effective[0]}/{effective[1]}s"
+        )
+        return RateLimitInfo(
+            uploads_per_period=effective[0],
+            period_seconds=effective[1],
+        )
     except Exception as e:
-        logger.warning(f"[rate_limiter] Failed to fetch user groups: {e}")
+        logger.warning(f"[rate_limiter] Failed to fetch rate limits: {e}")
 
-    # Default rate limit for normal users
     return RateLimitInfo(
         uploads_per_period=RATE_LIMIT_DEFAULT_NORMAL,
         period_seconds=RATE_LIMIT_DEFAULT_PERIOD,
-        is_privileged=False,
     )
 
 
 def get_next_upload_delay(userid: str, rate_limit: RateLimitInfo) -> float:
-    """Calculate delay for next upload based on rate limit.
-
-    For privileged users, returns 0.0 (no delay).
-    For normal users, tracks next available slot in Redis and returns delay.
-    """
-    if rate_limit.is_privileged:
-        return 0.0
-
+    """Calculate delay for next upload based on rate limit."""
     cache_key = _NEXT_AVAILABLE_KEY.format(userid=userid)
     current_time = time.time()
 
