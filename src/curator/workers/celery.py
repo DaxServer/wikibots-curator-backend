@@ -27,8 +27,6 @@ from curator.app.config import (
     CELERY_TASKS_PER_WORKER,
 )
 
-# Queue names for tier-based worker separation
-QUEUE_PRIVILEGED = "uploads-privileged"
 QUEUE_NORMAL = "uploads-normal"
 
 app = Celery("curator")
@@ -162,16 +160,7 @@ def start():
     if sys.platform == "darwin":
         os.environ.setdefault("NO_PROXY", "*")
 
-    # Determine which queue(s) this worker should process
-    worker_queue = os.environ.get("WORKER_QUEUE")
-
-    if worker_queue == "privileged":
-        queues = QUEUE_PRIVILEGED
-    elif worker_queue == "normal":
-        queues = QUEUE_NORMAL
-    else:
-        # Default: process both queues (backward compatible)
-        queues = f"{QUEUE_PRIVILEGED},{QUEUE_NORMAL}"
+    queues = QUEUE_NORMAL
 
     app.worker_main(
         [

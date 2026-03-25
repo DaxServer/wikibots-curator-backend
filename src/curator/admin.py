@@ -25,7 +25,7 @@ from curator.app.models import (
     RetrySelectedUploadsRequest,
     UploadRequest,
 )
-from curator.workers.celery import QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 from curator.workers.tasks import process_upload
 
 
@@ -161,8 +161,6 @@ async def admin_retry_uploads(
             user["username"],
         )
 
-    # Queue the uploads for processing with new batch's edit_group_id (admin retries always use privileged queue)
-
     if not reset_ids or not edit_group_id:
         return {
             "message": "Retried 0 uploads",
@@ -174,7 +172,7 @@ async def admin_retry_uploads(
     tasks_to_update = []
     for upload_id in reset_ids:
         task_result = process_upload.apply_async(
-            args=[upload_id, edit_group_id], queue=QUEUE_PRIVILEGED
+            args=[upload_id, edit_group_id], queue=QUEUE_NORMAL
         )
         task_id = task_result.id
         if isinstance(task_id, str):

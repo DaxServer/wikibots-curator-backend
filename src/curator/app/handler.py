@@ -9,7 +9,6 @@ from fastapi import WebSocketDisconnect
 from sqlmodel import Session
 
 from curator.app.auth import UserSession
-from curator.app.config import QueuePriority
 from curator.app.crypto import (
     decrypt_access_token,
     encrypt_access_token,
@@ -245,7 +244,6 @@ class Handler:
     async def upload_slice(
         self,
         data: UploadSliceData,
-        priority: Optional[QueuePriority] = QueuePriority.NORMAL,
     ):
         batchid = data.batchid
         items = data.items
@@ -352,9 +350,7 @@ class Handler:
         )
 
     @handle_exceptions
-    async def retry_uploads(
-        self, batchid: int, priority: Optional[QueuePriority] = QueuePriority.NORMAL
-    ):
+    async def retry_uploads(self, batchid: int):
         userid = self.user["userid"]
         encrypted_access_token = encrypt_access_token(self.user.get("access_token"))
 

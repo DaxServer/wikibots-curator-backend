@@ -5,9 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from curator.app.config import QueuePriority
 from curator.asyncapi import RetryUploads
-from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -52,7 +51,7 @@ async def test_retry_uploads_success(mocker, handler_instance):
         assert mock_process_upload.apply_async.call_count == 2
         # Check that calls were made with queue parameter and new batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
-            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["queue"] == QUEUE_NORMAL
             assert call[1]["args"][1] == "newbatch123"
 
 
@@ -105,9 +104,8 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("priority", [None, QueuePriority.URGENT, QueuePriority.LATER])
-async def test_retry_uploads_with_priority(mocker, handler_instance, priority):
-    """Test retry uploads with different priorities"""
+async def test_retry_uploads_enqueues_with_edit_group_id(mocker, handler_instance):
+    """Test retry uploads enqueues with correct upload_ids and edit_group_id"""
     with (
         patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
         patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
@@ -120,19 +118,13 @@ async def test_retry_uploads_with_priority(mocker, handler_instance, priority):
         mock_get_rate_limit.return_value = mocker.MagicMock()
         mock_get_delay.return_value = 0.0
 
-        if priority:
-            await handler_instance.retry_uploads(123, priority=priority)
-        else:
-            await handler_instance.retry_uploads(123)
+        await handler_instance.retry_uploads(123)
 
         assert mock_process_upload.apply_async.call_count == 2
-        # Check that calls were made with upload_id, edit_group_id, and queue
         calls = mock_process_upload.apply_async.call_args_list
         upload_ids = {call[1]["args"][0] for call in calls}
         assert upload_ids == {1, 2}
-        # Verify all calls have new batch's edit_group_id and queue
         for call in calls:
             assert len(call[1]["args"]) == 2
-            assert isinstance(call[1]["args"][1], str)
             assert call[1]["args"][1] == "newbatch456"
-            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["queue"] == QUEUE_NORMAL
