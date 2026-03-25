@@ -1,6 +1,5 @@
 import logging
 import os
-from enum import Enum
 
 import redis
 from cryptography.fernet import Fernet
@@ -63,14 +62,6 @@ RATE_LIMIT_DEFAULT_PERIOD = int(
 )  # 60 seconds
 
 logger = logging.getLogger(__name__)
-
-
-class QueuePriority(Enum):
-    """Queue priority levels"""
-
-    URGENT = "urgent"
-    NORMAL = "normal"
-    LATER = "later"
 
 
 class WikidataProperty:
