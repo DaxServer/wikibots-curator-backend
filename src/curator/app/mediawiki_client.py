@@ -76,6 +76,7 @@ class MediaWikiClient:
         data: dict[str, Any] | None = None,
         timeout: float = 300.0,
         retry: bool = False,
+        csrf: bool = False,
     ) -> dict[str, Any]:
         """
         Make a request to the MediaWiki API with optional retry logic.
@@ -90,6 +91,10 @@ class MediaWikiClient:
             if attempt > 0 and backoff > 0:
                 time.sleep(backoff)
 
+            if csrf:
+                data = data or {}
+                data["token"] = self.get_csrf_token()
+
             try:
                 response = self._client.request(
                     method,
@@ -100,7 +105,16 @@ class MediaWikiClient:
                     timeout=timeout,
                 )
                 response.raise_for_status()
-                return response.json()
+                result = response.json()
+
+                if csrf and result.get("error", {}).get("code") == "badtoken":
+                    if attempt < len(backoffs) - 1:
+                        logger.warning(
+                            f"Invalid CSRF token (attempt {attempt + 1}), retrying with fresh token"
+                        )
+                        continue
+
+                return result
             except requests.exceptions.RequestException as e:
                 if attempt == len(backoffs) - 1:
                     logger.error(f"API request failed: {e}")
@@ -177,7 +191,7 @@ class MediaWikiClient:
 
         data = self._api_request(params)
         csrf_token = data["query"]["tokens"]["csrftoken"]
-        logger.debug(f"Got CSRF token: {csrf_token[:10]}...")
+        logger.info(f"Got CSRF token: {csrf_token[:10]}...")
         return csrf_token
 
     def check_title_blacklisted(self, filename: str) -> tuple[bool, str]:
@@ -238,9 +252,6 @@ class MediaWikiClient:
         """
         Upload a file to Commons using chunked upload.
         """
-        # Get CSRF token
-        csrf_token = self.get_csrf_token()
-
         file_size = os.path.getsize(file_path)
         total_chunks = (file_size + chunk_size - 1) // chunk_size
 
@@ -267,7 +278,6 @@ class MediaWikiClient:
                     "filename": filename,
                     "comment": edit_summary,
                     "text": wikitext,
-                    "token": csrf_token,
                     "offset": str(offset),
                     "filesize": str(file_size),
                     "stash": "1",  # Always stash chunks
@@ -291,6 +301,7 @@ class MediaWikiClient:
                             data=post_data,
                             files=files,
                             timeout=60.0,
+                            csrf=True,
                         )
                         break  # Success, exit retry loop
                     except requests.exceptions.RequestException as e:
@@ -369,12 +380,11 @@ class MediaWikiClient:
                 "filename": filename,
                 "comment": edit_summary,
                 "text": wikitext,
-                "token": csrf_token,
                 "filekey": file_key,
             }
 
             data = self._api_request(
-                query_params, method="POST", data=post_data, timeout=60.0
+                query_params, method="POST", data=post_data, timeout=60.0, csrf=True
             )
 
             if "error" in data:
@@ -447,13 +457,12 @@ class MediaWikiClient:
 
         edit_data = {
             "text": page["revisions"][0]["slots"]["main"]["content"],
-            "token": self.get_csrf_token(),
             "summary": "null edit",
             "bot": "0",
         }
 
         response_data = self._api_request(
-            edit_params, method="POST", data=edit_data, timeout=60.0
+            edit_params, method="POST", data=edit_data, timeout=60.0, csrf=True
         )
 
         # Check for API errors
@@ -479,9 +488,6 @@ class MediaWikiClient:
         if not sdc and not labels:
             return False
 
-        # Get CSRF token
-        csrf_token = self.get_csrf_token()
-
         # Build wbeditentity payload
         payload_data: dict[str, Any] = {}
         if sdc:
@@ -502,7 +508,6 @@ class MediaWikiClient:
 
         post_data: dict[str, str] = {
             "data": json.dumps(payload_data),
-            "token": csrf_token,
             "summary": edit_summary,
             "bot": "0",
         }
@@ -514,6 +519,7 @@ class MediaWikiClient:
             data=post_data,
             timeout=60.0,
             retry=True,
+            csrf=True,
         )
 
         # Check for API errors in response

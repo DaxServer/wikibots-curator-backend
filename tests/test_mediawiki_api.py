@@ -102,13 +102,9 @@ def test_get_csrf_token_handles_api_error(mocker):
 
 
 def _mock_api_request_for_success(
-    params, method="GET", data=None, files=None, timeout=300.0
+    params, method="GET", data=None, files=None, timeout=300.0, csrf=False, retry=False
 ):
     """Helper function that returns appropriate responses based on request parameters"""
-    # CSRF token request
-    if params.get("action") == "query":
-        return {"query": {"tokens": {"csrftoken": "test-token"}}}
-
     # Chunk upload with stash=1 returns stashed result (NO warnings)
     if data and data.get("stash") == "1":
         return {
@@ -159,13 +155,13 @@ def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
         )
 
     # Verify final commit was called by checking call count
-    # Should have 3 calls: csrf token, chunk stash, final commit
-    assert mock_client._api_request.call_count == 3
+    # Should have 2 calls: chunk stash, final commit (CSRF tokens auto-fetched inside)
+    assert mock_client._api_request.call_count == 2
 
-    # Verify the third call (final commit) had filekey but no stash
-    third_call_data = mock_client._api_request.call_args_list[2][1]["data"]
-    assert third_call_data.get("filekey") == "test-filekey-abc123"
-    assert third_call_data.get("stash") is None
+    # Verify the second call (final commit) had filekey but no stash
+    second_call_data = mock_client._api_request.call_args_list[1][1]["data"]
+    assert second_call_data.get("filekey") == "test-filekey-abc123"
+    assert second_call_data.get("stash") is None
 
     assert result.success is True
     assert result.title == "Test.jpg"
@@ -173,13 +169,9 @@ def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
 
 
 def _mock_api_request_for_duplicate(
-    params, method="GET", data=None, files=None, timeout=300.0
+    params, method="GET", data=None, files=None, timeout=300.0, csrf=False, retry=False
 ):
     """Helper function that returns duplicate warning on chunk upload"""
-    # CSRF token request
-    if params.get("action") == "query":
-        return {"query": {"tokens": {"csrftoken": "test-token"}}}
-
     # Chunk upload with stash=1 returns duplicate warnings
     if data and data.get("stash") == "1":
         return {
@@ -220,8 +212,8 @@ def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
                 edit_summary="Test upload",
             )
 
-    # Verify final commit was NOT called (only 2 calls: csrf + chunk)
-    assert mock_client._api_request.call_count == 2
+    # Verify final commit was NOT called (only 1 call: chunk, which raised duplicate)
+    assert mock_client._api_request.call_count == 1
 
     assert len(exc_info.value.duplicates) == 2
     assert exc_info.value.duplicates[0].title == "Existing_File_1.jpg"
@@ -229,13 +221,9 @@ def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
 
 
 def _mock_api_request_for_warnings(
-    params, method="GET", data=None, files=None, timeout=300.0
+    params, method="GET", data=None, files=None, timeout=300.0, csrf=False, retry=False
 ):
     """Helper function that returns non-duplicate warning on chunk upload"""
-    # CSRF token request
-    if params.get("action") == "query":
-        return {"query": {"tokens": {"csrftoken": "test-token"}}}
-
     # Chunk upload with stash=1 returns non-duplicate warnings
     if data and data.get("stash") == "1":
         return {
@@ -273,8 +261,8 @@ def test_upload_file_fails_when_other_warnings(mocker):
             edit_summary="Test upload",
         )
 
-    # Verify final commit was NOT called (only 2 calls: csrf + chunk)
-    assert mock_client._api_request.call_count == 2
+    # Verify final commit was NOT called (only 1 call: chunk with warnings)
+    assert mock_client._api_request.call_count == 1
 
     assert result.success is False
     assert result.error is not None and "warnings" in result.error
@@ -413,6 +401,79 @@ def test_retry_false_means_no_retry_on_failure(mocker):
     # Should only attempt once when retry=False
     assert mock_request.call_count == 1
     mock_sleep.assert_not_called()
+
+
+def test_csrf_badtoken_triggers_retry_with_fresh_token(mocker):
+    """Test that badtoken error with retry=True and csrf=True retries with a fresh CSRF token"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+
+    badtoken_response = MagicMock()
+    badtoken_response.json.return_value = {
+        "error": {"code": "badtoken", "info": "Invalid CSRF token."}
+    }
+    success_response = MagicMock()
+    success_response.json.return_value = {"edit": {"result": "Success"}}
+
+    mock_request = mocker.patch.object(
+        mock_client._client,
+        "request",
+        side_effect=[badtoken_response, success_response],
+    )
+    mock_get_csrf = mocker.patch.object(
+        mock_client, "get_csrf_token", side_effect=["token-first", "token-second"]
+    )
+    mocker.patch("time.sleep")
+
+    result = mock_client._api_request(
+        {"action": "edit"}, method="POST", retry=True, csrf=True
+    )
+
+    assert result == {"edit": {"result": "Success"}}
+    assert mock_request.call_count == 2
+    # Fresh token fetched on each attempt
+    assert mock_get_csrf.call_count == 2
+
+
+def test_csrf_badtoken_returns_error_if_all_retries_fail(mocker):
+    """Test that persistent badtoken error is returned after all retries exhausted"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+
+    badtoken_response = MagicMock()
+    badtoken_response.json.return_value = {
+        "error": {"code": "badtoken", "info": "Invalid CSRF token."}
+    }
+
+    mocker.patch.object(mock_client._client, "request", return_value=badtoken_response)
+    mocker.patch.object(mock_client, "get_csrf_token", return_value="token")
+    mocker.patch("time.sleep")
+
+    result = mock_client._api_request(
+        {"action": "edit"}, method="POST", retry=True, csrf=True
+    )
+
+    assert result["error"]["code"] == "badtoken"
+
+
+def test_csrf_badtoken_not_retried_without_retry_flag(mocker):
+    """Test that badtoken is returned immediately when retry=False (Celery handles the retry)"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+
+    badtoken_response = MagicMock()
+    badtoken_response.json.return_value = {
+        "error": {"code": "badtoken", "info": "Invalid CSRF token."}
+    }
+
+    mock_request = mocker.patch.object(
+        mock_client._client, "request", return_value=badtoken_response
+    )
+    mocker.patch.object(mock_client, "get_csrf_token", return_value="token")
+
+    result = mock_client._api_request(
+        {"action": "edit"}, method="POST", retry=False, csrf=True
+    )
+
+    assert result["error"]["code"] == "badtoken"
+    assert mock_request.call_count == 1
 
 
 _USERINFO_RATELIMITS_RESPONSE = {
