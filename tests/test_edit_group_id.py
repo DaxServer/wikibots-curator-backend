@@ -11,7 +11,7 @@ from curator.app.dal import create_batch
 from curator.app.models import Batch, RetrySelectedUploadsRequest
 from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceData
-from curator.workers.celery import QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 
 
 class TestBatchModelEditGroupId:
@@ -203,4 +203,4 @@ class TestRetryCreatesNewBatch:
             assert mock_task.call_count == 3
             for call in mock_task.call_args_list:
                 assert call[1]["args"][1] == "adminbatch789"
-                assert call[1]["queue"] == QUEUE_PRIVILEGED
+                assert call[1]["queue"] == QUEUE_NORMAL

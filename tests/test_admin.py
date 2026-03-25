@@ -19,7 +19,7 @@ from curator.app.models import (
     BulkFailRequest,
     RetrySelectedUploadsRequest,
 )
-from curator.workers.celery import QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -227,9 +227,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
             assert (
                 call[1]["args"][1] == "adminretry123"
             )  # Uses new batch's edit_group_id
-            assert (
-                call[1]["queue"] == QUEUE_PRIVILEGED
-            )  # Admin retries use privileged queue
+            assert call[1]["queue"] == QUEUE_NORMAL
         # Verify the correct upload_ids were called
         upload_ids = {call[1]["args"][0] for call in mock_task.call_args_list}
         assert upload_ids == {1, 2, 3}
@@ -269,9 +267,9 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
 
         # Only 2 tasks should be queued
         assert mock_task.call_count == 2
-        # Verify both use privileged queue and the new batch's edit_group_id
+        # Verify both use normal queue and the new batch's edit_group_id
         for call in mock_task.call_args_list:
-            assert call[1]["queue"] == QUEUE_PRIVILEGED
+            assert call[1]["queue"] == QUEUE_NORMAL
             assert call[1]["args"][1] == "adminretry456"
 
 

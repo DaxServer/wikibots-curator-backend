@@ -7,7 +7,7 @@ import pytest
 
 from curator.app.config import QueuePriority
 from curator.asyncapi import RetryUploads
-from curator.workers.celery import QUEUE_NORMAL, QUEUE_PRIVILEGED
+from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -52,7 +52,7 @@ async def test_retry_uploads_success(mocker, handler_instance):
         assert mock_process_upload.apply_async.call_count == 2
         # Check that calls were made with queue parameter and new batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
-            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["queue"] == QUEUE_NORMAL
             assert call[1]["args"][1] == "newbatch123"
 
 
@@ -135,4 +135,4 @@ async def test_retry_uploads_with_priority(mocker, handler_instance, priority):
             assert len(call[1]["args"]) == 2
             assert isinstance(call[1]["args"][1], str)
             assert call[1]["args"][1] == "newbatch456"
-            assert call[1]["queue"] in [QUEUE_PRIVILEGED, QUEUE_NORMAL]
+            assert call[1]["queue"] == QUEUE_NORMAL

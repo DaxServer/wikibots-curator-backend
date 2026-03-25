@@ -100,6 +100,7 @@ Retry functionality allows users and admins to retry failed uploads. The current
 - `dal.reset_failed_uploads_to_new_batch()` - User retry, creates copies of failed uploads in new batch
 - `dal.retry_selected_uploads_to_new_batch()` - Admin retry, same pattern
 - After enqueueing Celery tasks, `update_celery_task_id()` is called to enable cancellation
+- `admin_retry_uploads` in `admin.py` calls `process_upload.apply_async()` directly, bypassing `enqueue_uploads()` and rate limiting — admin retries are not rate limited
 
 ### Redis Role
 Redis serves as both the Celery **broker** (task queue) and **result backend**. A Redis restart destroys all in-flight task data — tasks sitting in the broker queue are gone, but the database retains `status="queued"` records. The startup recovery system (`recovery.py`) reconciles this.
@@ -110,7 +111,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - Users with the `noratelimit` right are exempt and receive `_NO_RATE_LIMIT`; MediaWiki returns `"ratelimits": {}` for exempt users (sysops, bots) — this is expected, not an error
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
 - Rate limit keys have no TTL — stale past-timestamp values are handled correctly by `max(0.0, next_available - current_time)`, and a TTL would incorrectly reset the slot for large batches
-- All uploads go to `QUEUE_NORMAL`; `QUEUE_PRIVILEGED` still exists in `celery.py` but is kept only to drain jobs enqueued before this change (pending phase-2 removal)
+- All uploads go to `QUEUE_NORMAL`
 - `get_user_groups()` in `recovery.py` is used only to validate OAuth tokens on startup recovery — the returned groups are not used
 
 ### MediaWiki Client
