@@ -87,19 +87,20 @@ def test_apply_sdc_with_empty_data(mocker):
 
 
 def test_apply_sdc_uses_csrf_token(mocker):
-    """Test that apply sdc obtains and uses CSRF token"""
+    """Test that apply_sdc calls _api_request with csrf=True to auto-fetch token"""
     mock_client = MediaWikiClient(AccessToken("test", "test"))
-    mock_client.get_csrf_token = mocker.MagicMock(return_value="test-csrf-token")
-    mock_client._api_request = mocker.MagicMock()
+    mock_client._api_request = mocker.MagicMock(
+        return_value={"edit": {"entity": {"id": "Q123"}}}
+    )
     mock_client.null_edit = mocker.MagicMock(return_value=True)
 
     sdc_data = [{"mainsnak": {"property": "P180"}, "type": "statement"}]
 
     mock_client.apply_sdc("Test.jpg", sdc=sdc_data, labels=None, edit_summary="test")
 
-    mock_client.get_csrf_token.assert_called_once_with()
+    # Verify _api_request was called with csrf=True to enable auto token fetching
     call_kwargs = mock_client._api_request.call_args[1]
-    assert call_kwargs["data"]["token"] == "test-csrf-token"
+    assert call_kwargs.get("csrf") is True
 
 
 def test_null_edit_performs_edit_with_newline(mocker):

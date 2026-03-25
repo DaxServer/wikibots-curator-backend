@@ -110,15 +110,19 @@ def api_request_chunk_fails_once(mocker):
     global _use_default_mock
     _use_default_mock = False
 
-    call_count = {"count": 0}
+    chunk_upload_count = {"count": 0}
 
     def _mock_api_request(*args, **kwargs):
-        call_count["count"] += 1
-        # First call is get_csrf_token
-        if call_count["count"] == 1:
+        params = args[0] if args else kwargs.get("params", {})
+
+        # Handle CSRF token requests
+        if params.get("action") == "query" and params.get("meta") == "tokens":
             return {"query": {"tokens": {"csrftoken": "test_token"}}}
-        # Simulate 502 error on first chunk upload attempt (3rd call after get_csrf_token)
-        if call_count["count"] == 3:
+
+        # Handle chunk upload requests
+        chunk_upload_count["count"] += 1
+        # Simulate 502 error on first chunk upload attempt
+        if chunk_upload_count["count"] == 2:
             raise requests.exceptions.HTTPError("502 Server Error")
 
         # Normal successful response
@@ -142,16 +146,19 @@ def api_request_chunk_always_fails(mocker):
     global _use_default_mock
     _use_default_mock = False
 
-    call_count = {"count": 0}
+    chunk_upload_count = {"count": 0}
 
     def _mock_api_request(*args, **kwargs):
-        call_count["count"] += 1
-        # First call is get_csrf_token (succeeds)
-        if call_count["count"] == 1:
+        params = args[0] if args else kwargs.get("params", {})
+
+        # Handle CSRF token requests
+        if params.get("action") == "query" and params.get("meta") == "tokens":
             return {"query": {"tokens": {"csrftoken": "test_token"}}}
 
+        # Handle chunk upload requests
+        chunk_upload_count["count"] += 1
         # Chunk 1 succeeds
-        if call_count["count"] == 2:
+        if chunk_upload_count["count"] == 1:
             return {
                 "upload": {
                     "result": "Success",
@@ -177,15 +184,19 @@ def api_request_chunk_times_out(mocker):
     global _use_default_mock
     _use_default_mock = False
 
-    call_count = {"count": 0}
+    chunk_upload_count = {"count": 0}
 
     def _mock_api_request(*args, **kwargs):
-        call_count["count"] += 1
-        # First call is get_csrf_token
-        if call_count["count"] == 1:
+        params = args[0] if args else kwargs.get("params", {})
+
+        # Handle CSRF token requests
+        if params.get("action") == "query" and params.get("meta") == "tokens":
             return {"query": {"tokens": {"csrftoken": "test_token"}}}
+
+        # Handle chunk upload requests
+        chunk_upload_count["count"] += 1
         # Timeout on first chunk upload attempt
-        if call_count["count"] == 2:
+        if chunk_upload_count["count"] == 1:
             raise requests.exceptions.Timeout("Connection timed out")
 
         # Normal successful response
@@ -211,16 +222,19 @@ def api_request_duplicate_warning(mocker):
     global _use_default_mock
     _use_default_mock = False
 
-    call_count = {"count": 0}
+    chunk_upload_count = {"count": 0}
 
     def _mock_api_request(*args, **kwargs):
-        call_count["count"] += 1
-        # First call is get_csrf_token (succeeds)
-        if call_count["count"] == 1:
+        params = args[0] if args else kwargs.get("params", {})
+
+        # Handle CSRF token requests
+        if params.get("action") == "query" and params.get("meta") == "tokens":
             return {"query": {"tokens": {"csrftoken": "test_token"}}}
 
+        # Handle chunk upload requests
+        chunk_upload_count["count"] += 1
         # Chunks 1-2 succeed
-        if call_count["count"] < 4:
+        if chunk_upload_count["count"] < 3:
             return {
                 "upload": {
                     "result": "Success",
@@ -257,13 +271,14 @@ def upload_file(mediawiki_client, test_file_path, mocker):
 
     # Apply default mock if no scenario-specific mock was set
     if _use_default_mock:
-        call_count = {"count": 0}
 
         def _mock_api_request(*args, **kwargs):
-            call_count["count"] += 1
-            # First call is get_csrf_token
-            if call_count["count"] == 1:
+            params = args[0] if args else kwargs.get("params", {})
+
+            # Handle CSRF token requests
+            if params.get("action") == "query" and params.get("meta") == "tokens":
                 return {"query": {"tokens": {"csrftoken": "test_token"}}}
+
             # Upload requests
             return {
                 "upload": {
@@ -310,23 +325,26 @@ def upload_succeeds(upload_result):
 
 @then(parsers.parse("all {count:d} chunks should be uploaded"))
 def all_chunks_uploaded(upload_result, count):
-    # The _api_request should be called: 1 (csrf) + count (chunks) + 1 (commit)
+    # The _api_request should be called: count (chunks) + 1 (commit)
+    # CSRF tokens are auto-fetched inside each call
     client = upload_result["client"]
-    assert client._api_request.call_count == 1 + count + 1
+    assert client._api_request.call_count == count + 1
 
 
 @then("no retries should occur")
 def no_retries(upload_result):
-    # With 1MB chunk size and 3MB file, we expect 3 chunks + csrf + commit = 5 calls
+    # With 1MB chunk size and 3MB file, we expect 3 chunks + 1 commit = 4 calls
+    # CSRF tokens are auto-fetched inside each call
     client = upload_result["client"]
-    assert client._api_request.call_count == 5
+    assert client._api_request.call_count == 4
 
 
 @then("chunk 2 should be retried once")
 def chunk_2_retried(upload_result):
-    # csrf + chunk1 + chunk2 (fail) + chunk2 (retry) + chunk3 + commit = 6 calls
+    # chunk1 + chunk2(fail) + chunk2(retry) + chunk3 + commit = 5 calls
+    # CSRF tokens are auto-fetched inside each call
     client = upload_result["client"]
-    assert client._api_request.call_count == 6
+    assert client._api_request.call_count == 5
 
 
 @then("a warning should be logged for the retry")
@@ -352,9 +370,10 @@ def error_includes_attempts(upload_result):
 
 @then("chunk 1 should be retried once")
 def chunk_1_retried(upload_result):
-    # csrf + chunk1 (fail) + chunk1 (retry) + chunk2 + chunk3 + commit = 6 calls
+    # chunk1(fail) + chunk1(retry) + chunk2 + chunk3 + commit = 5 calls
+    # CSRF tokens are auto-fetched inside each call
     client = upload_result["client"]
-    assert client._api_request.call_count == 6
+    assert client._api_request.call_count == 5
 
 
 @then("a DuplicateUploadError should be raised")
@@ -368,9 +387,9 @@ def no_retry_for_duplicate(upload_result):
     # The duplicate check happens AFTER successful API response,
     # so the retry logic should not apply
     client = upload_result["client"]
-    # We should see: csrf + chunk1 + chunk2 + chunk3 (with duplicate warning)
-    # No retry attempts for duplicate errors
-    # With 3 chunks: csrf (1) + chunk1 (2) + chunk2 (3) + chunk3 (4) = 4 calls
+    # We should see: chunk1 + chunk2 + chunk3 (with duplicate warning)
+    # No retry attempts for duplicate errors, and no commit because duplicate is raised
+    # With 3 chunks: 3 chunk calls = 3 calls
     # The duplicate is detected after the successful API response for chunk 3
-    assert client._api_request.call_count == 4
+    assert client._api_request.call_count == 3
     assert upload_result["exception"] is not None

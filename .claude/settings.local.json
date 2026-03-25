@@ -26,7 +26,8 @@
       "WebFetch(domain:phabricator.wikimedia.org)",
       "WebFetch(domain:doc.wikimedia.org)",
       "WebFetch(domain:markdown.new)",
-      "WebFetch(domain:gerrit.wikimedia.org)"
+      "WebFetch(domain:gerrit.wikimedia.org)",
+      "WebFetch(domain:www.mediawiki.org)"
     ]
   }
 }
