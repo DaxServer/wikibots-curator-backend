@@ -104,14 +104,14 @@ Retry functionality allows users and admins to retry failed uploads. The current
 ### Redis Role
 Redis serves as both the Celery **broker** (task queue) and **result backend**. A Redis restart destroys all in-flight task data — tasks sitting in the broker queue are gone, but the database retains `status="queued"` records. The startup recovery system (`recovery.py`) reconciles this.
 
-### Rate Limiting with Privileged Users
-- Rate limiting checks user groups (`patroller`, `sysop`) using `MediaWikiClient.get_user_groups()` - privileged users get effectively no limit
-- Uses separate queues: `uploads-privileged` for privileged users, `uploads-normal` for regular users
+### Rate Limiting
+- Rate limits are fetched from `action=query&meta=userinfo&uiprop=ratelimits|rights` via `MediaWikiClient.get_user_rate_limits()` which returns `(ratelimits, rights)`
+- Each upload costs 2 edit API calls (SDC apply + null edit), so the edit limit is halved before comparing against the upload limit — the more restrictive of the two is used
+- Users with the `noratelimit` right are exempt and receive `_NO_RATE_LIMIT`; MediaWiki returns `"ratelimits": {}` for exempt users (sysops, bots) — this is expected, not an error
 - Uses Redis to track next available upload slot per user with key `ratelimit:{userid}:next_available`
-- Rate limit keys have no TTL — stale past-timestamp values are handled correctly by `max(0.0, next_available - current_time)`, and a TTL would incorrectly reset the slot for large batches (>240 uploads at 4/min)
-- Celery tasks are spaced out to match allowed rate, preventing API throttling
-- Tasks are dispatched using `process_upload.apply_async(args=[upload_id, edit_group_id], queue=QUEUE_...)` based on `rate_limit.is_privileged`
-- Queue constants are defined in `src/curator/workers/celery.py`: `QUEUE_PRIVILEGED`, `QUEUE_NORMAL`
+- Rate limit keys have no TTL — stale past-timestamp values are handled correctly by `max(0.0, next_available - current_time)`, and a TTL would incorrectly reset the slot for large batches
+- All uploads go to `QUEUE_NORMAL`; `QUEUE_PRIVILEGED` still exists in `celery.py` but is kept only to drain jobs enqueued before this change (pending phase-2 removal)
+- `get_user_groups()` in `recovery.py` is used only to validate OAuth tokens on startup recovery — the returned groups are not used
 
 ### MediaWiki Client
 - `MediaWikiClient` class handles all Wikimedia Commons operations

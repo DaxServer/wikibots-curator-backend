@@ -128,7 +128,7 @@ class TestUploadSliceUsesBatchEditGroupId:
         ):
             mock_create.return_value = [mock_req]
             mock_get_rate.return_value = RateLimitInfo(
-                uploads_per_period=999, period_seconds=1, is_privileged=True
+                uploads_per_period=999, period_seconds=1
             )
             mock_process.apply_async = mocker.MagicMock()
 
@@ -166,7 +166,7 @@ class TestRetryCreatesNewBatch:
         ):
             mock_reset.return_value = ([1, 2], "newbatch123456", 456)
             mock_get_rate.return_value = RateLimitInfo(
-                uploads_per_period=999, period_seconds=1, is_privileged=False
+                uploads_per_period=999, period_seconds=1
             )
             mock_get_delay.return_value = 0.0
             mock_process.apply_async = mocker.MagicMock()

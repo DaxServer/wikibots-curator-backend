@@ -413,3 +413,59 @@ def test_retry_false_means_no_retry_on_failure(mocker):
     # Should only attempt once when retry=False
     assert mock_request.call_count == 1
     mock_sleep.assert_not_called()
+
+
+_USERINFO_RATELIMITS_RESPONSE = {
+    "batchcomplete": "",
+    "query": {
+        "userinfo": {
+            "id": 4238209,
+            "name": "DaxServer",
+            "rights": ["edit", "upload", "patrol"],
+            "ratelimits": {
+                "move": {
+                    "user": {"hits": 8, "seconds": 60},
+                    "patroller": {"hits": 32, "seconds": 60},
+                },
+                "edit": {
+                    "user": {"hits": 900, "seconds": 180},
+                    "patroller": {"hits": 1500, "seconds": 180},
+                },
+                "upload": {
+                    "user": {"hits": 380, "seconds": 4320},
+                    "patroller": {"hits": 999, "seconds": 1},
+                },
+                "linkpurge": {
+                    "user": {"hits": 30, "seconds": 60},
+                    "patroller": {"hits": 3000, "seconds": 180},
+                },
+                "badcaptcha": {"user": {"hits": 30, "seconds": 60}},
+                "renderfile": {"user": {"hits": 700, "seconds": 30}},
+            },
+        }
+    },
+}
+
+
+def test_get_user_rate_limits_returns_ratelimits_and_rights(mocker):
+    """get_user_rate_limits returns (ratelimits, rights) tuple from userinfo API"""
+    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client._api_request = mocker.MagicMock(
+        return_value=_USERINFO_RATELIMITS_RESPONSE
+    )
+
+    ratelimits, rights = mock_client.get_user_rate_limits()
+
+    assert "upload" in ratelimits
+    assert "edit" in ratelimits
+    assert ratelimits["upload"]["user"]["hits"] == 380
+    assert ratelimits["upload"]["patroller"]["hits"] == 999
+    assert ratelimits["edit"]["user"]["seconds"] == 180
+    assert "patrol" in rights
+    mock_client._api_request.assert_called_once_with(
+        {
+            "action": "query",
+            "meta": "userinfo",
+            "uiprop": "ratelimits|rights",
+        }
+    )

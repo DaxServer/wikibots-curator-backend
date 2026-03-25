@@ -22,7 +22,11 @@
       "Bash(git remote get-url *)",
       "Bash(poetry show *)",
       "Bash(poetry run alembic revision *)",
-      "Bash(poetry run alembic upgrade head)"
+      "Bash(poetry run alembic upgrade head)",
+      "WebFetch(domain:phabricator.wikimedia.org)",
+      "WebFetch(domain:doc.wikimedia.org)",
+      "WebFetch(domain:markdown.new)",
+      "WebFetch(domain:gerrit.wikimedia.org)"
     ]
   }
 }

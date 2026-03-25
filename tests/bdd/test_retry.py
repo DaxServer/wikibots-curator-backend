@@ -77,7 +77,7 @@ def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
     )
     mocker.patch(
         "curator.app.task_enqueuer.get_rate_limit_for_batch",
-        return_value=mocker.MagicMock(is_privileged=False),
+        return_value=mocker.MagicMock(),
     )
     mocker.patch(
         "curator.app.task_enqueuer.get_next_upload_delay",
