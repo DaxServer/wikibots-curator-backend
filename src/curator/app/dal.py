@@ -1052,51 +1052,32 @@ def get_queued_uploads_for_recovery(
     return session.exec(statement).all()
 
 
+_DUPLICATE_ERROR_TYPES = {
+    "duplicate",
+    "duplicated_sdc_not_updated",
+    "duplicated_sdc_updated",
+}
+
+_ERROR_CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "rate_limit": ["429", "rate limit", "too many requests"],
+    "timeout": ["timeout", "timed out", "connection timeout"],
+    "auth": ["401", "403", "unauthorized", "forbidden"],
+    "network": ["connection error", "network unreachable", "dns"],
+}
+
+
 def _error_type_case() -> Any:
     """SQL CASE expression categorizing UploadRequest.error into an error type string."""
     error = UploadRequest.error
-    return case(
-        (
-            error["type"]
-            .as_string()
-            .in_(["duplicate", "duplicated_sdc_not_updated", "duplicated_sdc_updated"]),
-            "duplicate",
-        ),
-        (
-            or_(
-                error["message"].as_string().ilike("%429%"),
-                error["message"].as_string().ilike("%rate limit%"),
-                error["message"].as_string().ilike("%too many requests%"),
-            ),
-            "rate_limit",
-        ),
-        (
-            or_(
-                error["message"].as_string().ilike("%timeout%"),
-                error["message"].as_string().ilike("%timed out%"),
-                error["message"].as_string().ilike("%connection timeout%"),
-            ),
-            "timeout",
-        ),
-        (
-            or_(
-                error["message"].as_string().ilike("%401%"),
-                error["message"].as_string().ilike("%403%"),
-                error["message"].as_string().ilike("%unauthorized%"),
-                error["message"].as_string().ilike("%forbidden%"),
-            ),
-            "auth",
-        ),
-        (
-            or_(
-                error["message"].as_string().ilike("%connection error%"),
-                error["message"].as_string().ilike("%network unreachable%"),
-                error["message"].as_string().ilike("%dns%"),
-            ),
-            "network",
-        ),
-        else_="other",
-    )
+    conditions: list[Any] = [
+        (error["type"].as_string().in_(_DUPLICATE_ERROR_TYPES), "duplicate")
+    ]
+    for category, keywords in _ERROR_CATEGORY_KEYWORDS.items():
+        condition = or_(
+            *(error["message"].as_string().ilike(f"%{kw}%") for kw in keywords)
+        )
+        conditions.append((condition, category))
+    return case(*conditions, else_="other")
 
 
 def categorize_error(error: Optional[StructuredError]) -> str:
@@ -1105,25 +1086,16 @@ def categorize_error(error: Optional[StructuredError]) -> str:
         return "other"
 
     error_type = getattr(error, "type", None)
-    if error_type in {
-        "duplicate",
-        "duplicated_sdc_not_updated",
-        "duplicated_sdc_updated",
-    }:
+    if error_type in _DUPLICATE_ERROR_TYPES:
         return "duplicate"
 
     error_str = (
         error.message.lower() if hasattr(error, "message") else str(error).lower()
     )
 
-    if any(x in error_str for x in ["429", "rate limit", "too many requests"]):
-        return "rate_limit"
-    if any(x in error_str for x in ["timeout", "timed out", "connection timeout"]):
-        return "timeout"
-    if any(x in error_str for x in ["401", "403", "unauthorized", "forbidden"]):
-        return "auth"
-    if any(x in error_str for x in ["connection error", "network unreachable", "dns"]):
-        return "network"
+    for category, keywords in _ERROR_CATEGORY_KEYWORDS.items():
+        if any(x in error_str for x in keywords):
+            return category
 
     return "other"
 
@@ -1165,11 +1137,15 @@ def get_failed_uploads_grouped(
 
     if search_text:
         search_pattern = f"%{search_text}%"
-        batch_q = batch_q.where(
+        # Use HAVING for filename so the aggregate failedCount reflects all uploads in the
+        # batch, not just those matching the search. Username and batch_id are GROUP BY
+        # fields so they're safe here too.
+        batch_q = batch_q.having(
             or_(
                 col(User.username).ilike(search_pattern),
                 sqlalchemy_cast(col(Batch.id), String).ilike(search_pattern),
-                col(UploadRequest.filename).ilike(search_pattern),
+                func.count(case((col(UploadRequest.filename).ilike(search_pattern), 1)))
+                > 0,
             )
         )
     if handler:
