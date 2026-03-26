@@ -14,6 +14,7 @@ from curator.app.dal import (
     get_all_presets,
     get_all_upload_requests,
     get_batches,
+    get_failed_uploads_grouped,
     get_users,
     retry_selected_uploads_to_new_batch,
     update_celery_task_id,
@@ -128,6 +129,29 @@ async def admin_get_presets(
         total = count_all_presets(session, filter_text=filter_text)
         serialized = [p.model_dump() for p in items]
     return {"items": serialized, "total": total}
+
+
+@router.get("/failed_uploads")
+async def admin_get_failed_uploads(
+    page: int = 1,
+    limit: int = 50,
+    sort_by: str = "recent",
+    error_type: str | None = None,
+    handler: str | None = None,
+    search_text: str | None = None,
+):
+    offset = (page - 1) * limit
+    with get_session() as session:
+        items, total = get_failed_uploads_grouped(
+            session,
+            offset=offset,
+            limit=limit,
+            sort_by=sort_by,
+            error_type=error_type,
+            handler=handler,
+            search_text=search_text,
+        )
+    return {"items": items, "total": total}
 
 
 @router.put("/upload_requests/{upload_request_id}")
