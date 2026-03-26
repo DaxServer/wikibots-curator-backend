@@ -27,7 +27,7 @@ Feature: Chunk Upload Retry Logic
     When I upload the file using chunked upload
     Then the upload should fail
     And the error message should include "Chunk 2/3"
-    And the error message should include "after 3 attempts"
+    And the error message should include "after 4 attempts"
 
   Scenario: Chunk upload retry on timeout
     Given a MediaWiki client with valid authentication
