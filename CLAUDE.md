@@ -137,6 +137,9 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - DAL's `_fix_sdc_keys()` function recursively maps snake_case to kebab-case for database storage
 - Mapping is defined in `dal.py` and is updated when AsyncAPI schema changes
 
+### Database Query Performance
+**Only search indexed columns** - When implementing text search/filter functionality, only include columns that have database indexes. Searching unindexed columns (especially JSONB fields) will be very slow on large datasets. Check model definitions for `index=True` before adding search.
+
 ### Type Conversion Patterns
 - `ImageHandler` enum - use `str(handler)` when passing to functions expecting `str` type
 - Pydantic objects (e.g., `Label`) - use `model_dump(mode="json")` to convert to dict for database storage
@@ -273,6 +276,6 @@ When adding imports between core modules (`commons.py`, `mediawiki_client.py`, e
 
 ### SQLModel vs SQLAlchemy Behavior
 - `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)
-- Raw SQLAlchemy's `session.execute()` returns `list[Row]` and needs `.scalars()` to extract values
-- SQLModel's `session.exec()` is a simplified wrapper that automatically unwraps scalar values
-- When using `session.execute()` (not `exec`), you need `.scalars().all()` to get plain values
+- Raw SQLAlchemy's `session.execute()` returns `list[Row]`; SQLModel's `session.exec()` auto-unwraps scalar values
+- Single-column `session.execute()`: use `.scalars().all()` to get plain values
+- Multi-column `session.execute()` (e.g. GROUP BY): use `.all()` and unpack rows as tuples — `row[0], row[1]`
