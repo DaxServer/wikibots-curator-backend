@@ -191,7 +191,7 @@ poetry run alembic upgrade head
 - NO nested function definitions in tests - avoid `def func(): def inner():` pattern
 - For complex mock behavior, use module-level helper functions (prefix with `_`) passed to `side_effect`
 - BDD tests in `tests/bdd/`, async tests with pytest-asyncio
-- pytest timeout is configured to `0` (disabled) in `pytest.ini`
+- pytest timeout is configured to `0.25` seconds in `pytest.ini`
 - Mock objects match actual return type structure (e.g., `UploadRequest` needs `id`, `key`, `status` attributes)
 - When mocking `process_upload.apply_async()`, the queue is checked via `call[1]["queue"]` and args via `call[1]["args"]`
 - AsyncMock assertions use `assert_called_once_with()` for keyword arguments
@@ -224,6 +224,7 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - Check if the test needs to be isolated from the autouse fixture
 - The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
 - Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
+- Tests for `mediawiki_client.py` must be in files named `test_mediawiki_*.py` — the fixture skips for modules with "mediawiki" in the name, avoiding a slow `flickr_url_parser` import that causes timeouts
 
 ### BDD Testing Patterns (pytest-bdd)
 

@@ -350,7 +350,7 @@ def chunk_2_retried(upload_result):
 @then("a warning should be logged for the retry")
 def warning_logged(upload_result, caplog):
     assert "Chunk 2/3 upload failed" in caplog.text
-    assert "retrying in 2 seconds" in caplog.text
+    assert "retrying in 3 seconds" in caplog.text
 
 
 @then("the upload should fail")
@@ -363,9 +363,9 @@ def error_includes_chunk_num(upload_result):
     assert "Chunk 2/3" in upload_result["result"].error
 
 
-@then('the error message should include "after 3 attempts"')
+@then('the error message should include "after 4 attempts"')
 def error_includes_attempts(upload_result):
-    assert "after 3 attempts" in upload_result["result"].error
+    assert "after 4 attempts" in upload_result["result"].error
 
 
 @then("chunk 1 should be retried once")

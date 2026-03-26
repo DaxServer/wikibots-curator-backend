@@ -22,9 +22,8 @@ from curator.asyncapi import ErrorLink
 
 logger = logging.getLogger(__name__)
 
-# Retry configuration
-MAX_CHUNK_RETRIES = 2  # Maximum retries for failed chunk uploads
-CHUNK_RETRY_DELAY_SECONDS = 2  # Delay between chunk upload retry attempts
+# Retry configuration for chunk uploads (delays in seconds between attempts)
+CHUNK_RETRY_DELAYS = [3, 5, 10]
 
 # Wikimedia Commons API endpoints
 # Note: Must use non-nice URL format for OAuth requests
@@ -293,7 +292,13 @@ class MediaWikiClient:
                 }
 
                 # Retry loop for chunk upload
-                for chunk_attempt in range(MAX_CHUNK_RETRIES + 1):
+                max_attempts = len(CHUNK_RETRY_DELAYS) + 1
+                for chunk_attempt in range(max_attempts):
+                    is_last_attempt = chunk_attempt == max_attempts - 1
+                    delay = (
+                        CHUNK_RETRY_DELAYS[chunk_attempt] if not is_last_attempt else 0
+                    )
+
                     try:
                         data = self._api_request(
                             query_params,
@@ -303,32 +308,41 @@ class MediaWikiClient:
                             timeout=60.0,
                             csrf=True,
                         )
-                        break  # Success, exit retry loop
                     except requests.exceptions.RequestException as e:
-                        is_last_attempt = chunk_attempt == MAX_CHUNK_RETRIES
                         if is_last_attempt:
                             logger.error(
                                 f"Failed to upload chunk {chunk_num + 1}/{total_chunks} "
-                                f"after {MAX_CHUNK_RETRIES + 1} attempts: {e}"
+                                f"after {max_attempts} attempts: {e}"
                             )
                             return UploadResult(
                                 success=False,
-                                error=f"Chunk {chunk_num + 1}/{total_chunks} failed after {MAX_CHUNK_RETRIES + 1} attempts: {e}",
+                                error=f"Chunk {chunk_num + 1}/{total_chunks} failed after {max_attempts} attempts: {e}",
                             )
-
                         logger.warning(
                             f"Chunk {chunk_num + 1}/{total_chunks} upload failed "
-                            f"(attempt {chunk_attempt + 1}/{MAX_CHUNK_RETRIES + 1}), "
-                            f"retrying in {CHUNK_RETRY_DELAY_SECONDS} seconds: {e}"
+                            f"(attempt {chunk_attempt + 1}/{max_attempts}), "
+                            f"retrying in {delay} seconds: {e}"
                         )
-                        time.sleep(CHUNK_RETRY_DELAY_SECONDS)
+                        time.sleep(delay)
+                        continue
 
-                if "error" in data:
-                    logger.error(data)
-                    return UploadResult(
-                        success=False,
-                        error=data["error"].get("info", "Upload failed"),
-                    )
+                    if "error" in data:
+                        error_info = data["error"].get("info", "Upload failed")
+                        if (
+                            not is_last_attempt
+                            and "UploadStashFileException" in error_info
+                        ):
+                            logger.warning(
+                                f"Chunk {chunk_num + 1}/{total_chunks} stash error "
+                                f"(attempt {chunk_attempt + 1}/{max_attempts}), "
+                                f"retrying in {delay} seconds: {error_info}"
+                            )
+                            time.sleep(delay)
+                            continue
+                        logger.error(data)
+                        return UploadResult(success=False, error=error_info)
+
+                    break  # chunk uploaded successfully
 
                 # For stashed chunks, we get a file key
                 if "upload" in data:

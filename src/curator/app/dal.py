@@ -1143,7 +1143,9 @@ def get_failed_uploads_grouped(
         batch_q = batch_q.having(
             or_(
                 col(User.username).ilike(search_pattern),
-                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(search_pattern),
+                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
+                    search_pattern
+                ),
                 func.count(case((col(UploadRequest.filename).ilike(search_pattern), 1)))
                 > 0,
             )
