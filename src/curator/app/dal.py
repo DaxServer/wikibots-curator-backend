@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timedelta
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 from sqlalchemy import String, case
 from sqlalchemy import cast as sqlalchemy_cast
@@ -1052,24 +1052,66 @@ def get_queued_uploads_for_recovery(
     return session.exec(statement).all()
 
 
-def categorize_error(error: Optional[StructuredError]) -> str:
-    """
-    Categorize error message into type for filtering.
+def _error_type_case() -> Any:
+    """SQL CASE expression categorizing UploadRequest.error into an error type string."""
+    error = UploadRequest.error
+    return case(
+        (
+            error["type"]
+            .as_string()
+            .in_(["duplicate", "duplicated_sdc_not_updated", "duplicated_sdc_updated"]),
+            "duplicate",
+        ),
+        (
+            or_(
+                error["message"].as_string().ilike("%429%"),
+                error["message"].as_string().ilike("%rate limit%"),
+                error["message"].as_string().ilike("%too many requests%"),
+            ),
+            "rate_limit",
+        ),
+        (
+            or_(
+                error["message"].as_string().ilike("%timeout%"),
+                error["message"].as_string().ilike("%timed out%"),
+                error["message"].as_string().ilike("%connection timeout%"),
+            ),
+            "timeout",
+        ),
+        (
+            or_(
+                error["message"].as_string().ilike("%401%"),
+                error["message"].as_string().ilike("%403%"),
+                error["message"].as_string().ilike("%unauthorized%"),
+                error["message"].as_string().ilike("%forbidden%"),
+            ),
+            "auth",
+        ),
+        (
+            or_(
+                error["message"].as_string().ilike("%connection error%"),
+                error["message"].as_string().ilike("%network unreachable%"),
+                error["message"].as_string().ilike("%dns%"),
+            ),
+            "network",
+        ),
+        else_="other",
+    )
 
-    Returns: 'rate_limit' | 'duplicate' | 'timeout' | 'auth' | 'network' | 'other'
-    """
+
+def categorize_error(error: Optional[StructuredError]) -> str:
+    """Categorize error into type string for response labeling."""
     if not error:
         return "other"
 
-    # Use structured error type if available
     error_type = getattr(error, "type", None)
-    if error_type == "duplicate" or error_type in [
+    if error_type in {
+        "duplicate",
         "duplicated_sdc_not_updated",
         "duplicated_sdc_updated",
-    ]:
+    }:
         return "duplicate"
 
-    # For generic errors, fall back to message content analysis
     error_str = (
         error.message.lower() if hasattr(error, "message") else str(error).lower()
     )
@@ -1096,52 +1138,91 @@ def get_failed_uploads_grouped(
     search_text: Optional[str] = None,
 ) -> tuple[list[dict], int]:
     """Query failed uploads grouped by batch with user context."""
-    query = (
-        select(UploadRequest, Batch, User)
+    error_category_expr = _error_type_case()
+
+    # One row per batch with aggregate stats — all filtering and sorting done in DB
+    batch_q = (
+        select(
+            col(UploadRequest.batchid),
+            col(Batch.created_at),
+            col(Batch.edit_group_id),
+            col(User.username),
+            col(User.userid),
+            func.max(col(UploadRequest.handler)),
+            func.count(col(UploadRequest.id)),
+        )
         .join(Batch, col(UploadRequest.batchid) == col(Batch.id))
         .join(User, col(UploadRequest.userid) == col(User.userid))
         .where(col(UploadRequest.status) == "failed")
+        .group_by(
+            col(UploadRequest.batchid),
+            col(Batch.created_at),
+            col(Batch.edit_group_id),
+            col(User.username),
+            col(User.userid),
+        )
     )
 
     if search_text:
         search_pattern = f"%{search_text}%"
-        query = query.where(
+        batch_q = batch_q.where(
             or_(
                 col(User.username).ilike(search_pattern),
                 sqlalchemy_cast(col(Batch.id), String).ilike(search_pattern),
                 col(UploadRequest.filename).ilike(search_pattern),
             )
         )
-
     if handler:
-        query = query.where(col(UploadRequest.handler) == handler)
+        batch_q = batch_q.where(col(UploadRequest.handler) == handler)
+    if error_type:
+        batch_q = batch_q.where(error_category_expr == error_type)
 
-    # Group by batch in Python so error_type filter and all sorts work correctly
-    batches_map: dict[int, dict] = {}
-    for upload, batch, user in session.exec(query).all():
-        error_category = categorize_error(upload.error)
-        if error_type and error_category != error_type:
-            continue
+    total = session.execute(
+        select(func.count()).select_from(batch_q.subquery())
+    ).scalar_one()
 
-        batch_id = batch.id
-        if batch_id not in batches_map:
-            batches_map[batch_id] = {
-                "batch": {
-                    "id": batch.id,
-                    "editGroupId": batch.edit_group_id,
-                    "totalUploads": 0,
-                    "failedCount": 0,
-                    "createdAt": batch.created_at.isoformat(),
-                    "handler": upload.handler,
-                },
-                "user": {
-                    "username": user.username,
-                    "userid": user.userid,
-                },
-                "failedUploads": [],
-            }
+    if sort_by == "recent":
+        batch_q = batch_q.order_by(col(Batch.created_at).desc())
+    elif sort_by == "batchSize":
+        batch_q = batch_q.order_by(func.count(col(UploadRequest.id)).desc())
+    elif sort_by == "errorType":
+        batch_q = batch_q.order_by(func.min(error_category_expr))
+    elif sort_by == "user":
+        batch_q = batch_q.order_by(col(User.username))
 
-        batches_map[batch_id]["failedUploads"].append(
+    batch_rows = session.execute(batch_q.offset(offset).limit(limit)).all()
+    if not batch_rows:
+        return [], total
+
+    # row columns: 0=batchid, 1=created_at, 2=edit_group_id, 3=username, 4=userid, 5=handler, 6=failed_count
+    batch_ids = [row[0] for row in batch_rows]
+    batches: dict[int, dict] = {
+        row[0]: {
+            "batch": {
+                "id": row[0],
+                "createdAt": row[1].isoformat(),
+                "editGroupId": row[2],
+                "handler": row[5],
+                "failedCount": row[6],
+                "totalUploads": 0,
+            },
+            "user": {"username": row[3], "userid": row[4]},
+            "failedUploads": [],
+        }
+        for row in batch_rows
+    }
+
+    # Fetch failed upload details for this page's batches only
+    detail_q = (
+        select(UploadRequest)
+        .where(col(UploadRequest.status) == "failed")
+        .where(col(UploadRequest.batchid).in_(batch_ids))
+    )
+    if error_type:
+        detail_q = detail_q.where(error_category_expr == error_type)
+
+    for upload in session.exec(detail_q).all():
+        batches[upload.batchid]["failedUploads"].append(
             {
                 "id": upload.id,
                 "filename": upload.filename,
@@ -1149,35 +1230,16 @@ def get_failed_uploads_grouped(
                 "status": upload.status,
                 "error": upload.error.model_dump() if upload.error else None,
                 "createdAt": upload.created_at.isoformat(),
-                "errorType": error_category,
+                "errorType": categorize_error(upload.error),
             }
         )
-        batches_map[batch_id]["batch"]["failedCount"] += 1
 
-    items = list(batches_map.values())
+    # Fetch total upload count per batch in a single GROUP BY query
+    for batchid, count in session.execute(
+        select(col(UploadRequest.batchid), func.count(col(UploadRequest.id)))
+        .where(col(UploadRequest.batchid).in_(batch_ids))
+        .group_by(col(UploadRequest.batchid))
+    ).all():
+        batches[batchid]["batch"]["totalUploads"] = count
 
-    if sort_by == "recent":
-        items.sort(key=lambda x: x["batch"]["createdAt"], reverse=True)
-    elif sort_by == "batchSize":
-        items.sort(key=lambda x: x["batch"]["failedCount"], reverse=True)
-    elif sort_by == "errorType":
-        items.sort(key=lambda x: x["failedUploads"][0]["errorType"])
-    elif sort_by == "user":
-        items.sort(key=lambda x: x["user"]["username"])
-
-    total = len(items)
-    items = items[offset : offset + limit]
-
-    # Fetch totalUploads for page batches in a single GROUP BY query
-    batch_ids = [item["batch"]["id"] for item in items]
-    if batch_ids:
-        counts = session.execute(
-            select(col(UploadRequest.batchid), func.count(col(UploadRequest.id)))
-            .where(col(UploadRequest.batchid).in_(batch_ids))
-            .group_by(col(UploadRequest.batchid))
-        ).all()
-        count_map = {batchid: count for batchid, count in counts}
-        for item in items:
-            item["batch"]["totalUploads"] = count_map.get(item["batch"]["id"], 0)
-
-    return items, total
+    return [batches[bid] for bid in batch_ids], total
