@@ -233,7 +233,7 @@ class MediaWikiClient:
             return False, ""
 
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Error checking title blacklist: {e}")
             return False, ""
 
     def find_duplicates(self, sha1: str) -> list[ErrorLink]:
@@ -353,7 +353,7 @@ class MediaWikiClient:
                             logger.warning(
                                 f"Chunk {chunk_num + 1}/{total_chunks} stash error "
                                 f"(attempt {chunk_attempt + 1}/{max_attempts}), "
-                                f"retrying in {delay} seconds: {error_info}"
+                                f"retrying in {delay} seconds: {data}"
                             )
                             time.sleep(delay)
                             continue
