@@ -74,19 +74,20 @@ class MediaWikiClient:
         files: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         timeout: float = 300.0,
-        retry: bool = False,
         csrf: bool = False,
     ) -> dict[str, Any]:
         """
-        Make a request to the MediaWiki API with optional retry logic.
+        Make a request to the MediaWiki API with retry logic.
         """
         # Format is added to params for GET requests
         if "format" not in params:
             params["format"] = "json"
 
-        backoffs = [0, 1, 3] if retry else [0]
+        backoffs = [0, 1, 3]
 
-        for attempt, backoff in enumerate(backoffs):
+        attempt = 0
+        while attempt < len(backoffs):
+            backoff = backoffs[attempt]
             if attempt > 0 and backoff > 0:
                 time.sleep(backoff)
 
@@ -111,7 +112,20 @@ class MediaWikiClient:
                         logger.warning(
                             f"Invalid CSRF token (attempt {attempt + 1}), retrying with fresh token"
                         )
+                        attempt += 1
                         continue
+
+                if (
+                    result.get("error", {}).get("code")
+                    == "mwoauth-invalid-authorization"
+                    and "Nonce already used" in result["error"].get("info", "")
+                    and attempt < len(backoffs) - 1
+                ):
+                    logger.warning(
+                        f"Nonce already used (attempt {attempt + 1}), retrying"
+                    )
+                    attempt += 1
+                    continue
 
                 return result
             except requests.exceptions.RequestException as e:
@@ -121,6 +135,9 @@ class MediaWikiClient:
                 logger.warning(
                     f"API request failed (attempt {attempt + 1}), retrying in {backoffs[attempt + 1]}s"
                 )
+
+            attempt += 1
+
         raise AssertionError("Unreachable")
 
     def get_user_groups(self) -> set[str]:
@@ -532,7 +549,6 @@ class MediaWikiClient:
             method="POST",
             data=post_data,
             timeout=60.0,
-            retry=True,
             csrf=True,
         )
 
