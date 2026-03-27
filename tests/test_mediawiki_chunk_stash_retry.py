@@ -1,4 +1,4 @@
-"""Tests for chunk upload retry on UploadStashFileException API errors"""
+"""Tests for chunk upload retry on UploadStashFileException and UploadChunkFileException API errors"""
 
 import pytest
 from mwoauth import AccessToken
@@ -17,6 +17,13 @@ _STASH_ERROR_CODE_ONLY = {
     "error": {
         "code": "internal_api_error-UploadStashFileException",
         "info": 'An unknown error occurred in storage backend "local-swift-codfw".',
+    }
+}
+
+_CHUNK_FILE_ERROR = {
+    "error": {
+        "code": "internal_api_error-UploadChunkFileException",
+        "info": "[c35f530a-fb33-492a-98c8-8b6c4f816a7c] Caught exception of type MediaWiki\\Upload\\Exception\\UploadChunkFileException",
     }
 }
 
@@ -110,6 +117,17 @@ def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
     client = _client_with(
         mocker, _STASH_ERROR_CODE_ONLY, _CHUNK_SUCCESS, _COMMIT_SUCCESS
     )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_chunk_file_error_triggers_retry(mocker, tiny_file):
+    """UploadChunkFileException retries instead of returning failure immediately"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(mocker, _CHUNK_FILE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
 
     assert result.success is True
