@@ -12,6 +12,14 @@ _STASH_ERROR = {
     }
 }
 
+# Variant seen in prod: info field doesn't mention UploadStashFileException, only the code does
+_STASH_ERROR_CODE_ONLY = {
+    "error": {
+        "code": "internal_api_error-UploadStashFileException",
+        "info": 'An unknown error occurred in storage backend "local-swift-codfw".',
+    }
+}
+
 _CSRF_RESPONSE = {"query": {"tokens": {"csrftoken": "test_token"}}}
 
 _CHUNK_SUCCESS = {"upload": {"result": "Success", "filekey": "key123"}}
@@ -93,6 +101,19 @@ def test_stash_error_fails_after_all_retries_exhausted(mocker, tiny_file):
 
     assert result.success is False
     assert "UploadStashFileException" in result.error
+
+
+def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
+    """Stash error where only the error code (not info) contains UploadStashFileException retries"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker, _STASH_ERROR_CODE_ONLY, _CHUNK_SUCCESS, _COMMIT_SUCCESS
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
 
 
 def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):

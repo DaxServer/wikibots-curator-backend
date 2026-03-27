@@ -344,10 +344,11 @@ class MediaWikiClient:
                         continue
 
                     if "error" in data:
+                        error_code = data["error"].get("code", "")
                         error_info = data["error"].get("info", "Upload failed")
                         if (
                             not is_last_attempt
-                            and "UploadStashFileException" in error_info
+                            and "UploadStashFileException" in error_code
                         ):
                             logger.warning(
                                 f"Chunk {chunk_num + 1}/{total_chunks} stash error "
