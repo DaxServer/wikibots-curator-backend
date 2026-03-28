@@ -1,4 +1,4 @@
-"""Tests for chunk upload retry on UploadStashFileException and UploadChunkFileException API errors"""
+"""Tests for chunk upload retry on UploadStashFileException, UploadChunkFileException, and JobQueueError API errors"""
 
 import pytest
 from mwoauth import AccessToken
@@ -24,6 +24,13 @@ _CHUNK_FILE_ERROR = {
     "error": {
         "code": "internal_api_error-UploadChunkFileException",
         "info": "[c35f530a-fb33-492a-98c8-8b6c4f816a7c] Caught exception of type MediaWiki\\Upload\\Exception\\UploadChunkFileException",
+    }
+}
+
+_JOB_QUEUE_ERROR = {
+    "error": {
+        "code": "internal_api_error-JobQueueError",
+        "info": "[0955ae00-41e9-4fc6-b968-f8a71184154e] Caught exception of type MediaWiki\\JobQueue\\Exceptions\\JobQueueError",
     }
 }
 
@@ -146,3 +153,14 @@ def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):
     assert mock_sleep.call_count == 3
     calls = [c.args[0] for c in mock_sleep.call_args_list]
     assert calls == [3, 5, 10]
+
+
+def test_job_queue_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
+    """JobQueueError in chunk response retries instead of returning failure immediately"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(mocker, _JOB_QUEUE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)

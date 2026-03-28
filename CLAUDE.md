@@ -126,6 +126,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - `upload_file()` accepts `file_path: str` (not `file_content: bytes`) for memory efficiency
 - `commons.py:upload_file_chunked()` provides the complete upload workflow (download, hash, duplicate check, upload, SDC). `MediaWikiClient.upload_file()` is a low-level method that only performs chunked upload.
 - **Chunked upload flow**: Chunks are uploaded with `stash=1`, then a final commit publishes the file
+- **Per-chunk retryable errors** (substring match on `error.code`): `UploadStashFileException`, `UploadChunkFileException`, `JobQueueError` — transient infrastructure errors that retry up to 4 attempts with 3/5/10s delays
 - **Duplicate detection**: Duplicate warnings appear on the final chunk response during stash phase (with `stash=1`), NOT during final commit. The code checks for `warnings.duplicate` in chunk upload response and raises `DuplicateUploadError` before final commit.
 - When fetching SDC by title, the code uses `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid an extra API call to fetch page ID
 - When using `sites`/`titles` in wbgetentities, the entity is keyed by entity ID, not title - extracted with `next(iter(entities))`
