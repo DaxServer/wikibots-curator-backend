@@ -1,10 +1,11 @@
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any, Optional, Sequence
+from typing import Any, Literal, Optional, Sequence, cast
 
 from sqlalchemy import String, case
 from sqlalchemy import cast as sqlalchemy_cast
 from sqlalchemy import or_
+from sqlalchemy import select as sa_select
 from sqlalchemy.orm import class_mapper, selectinload
 from sqlmodel import Session, col, func, select, update
 
@@ -60,6 +61,69 @@ def count_users(session: Session, filter_text: Optional[str] = None) -> int:
     return session.exec(query).one()
 
 
+def _to_batch_upload_item(u: UploadRequest) -> BatchUploadItem:
+    """Convert an UploadRequest to a BatchUploadItem."""
+    return BatchUploadItem(
+        id=u.id,
+        status=u.status,
+        filename=u.filename,
+        wikitext=u.wikitext,
+        batchid=u.batchid,
+        userid=u.userid,
+        key=u.key,
+        handler=u.handler,
+        labels=u.labels,
+        result=u.result,
+        error=u.error,
+        success=u.success,
+        created_at=u.created_at.isoformat() if u.created_at else None,
+        updated_at=u.updated_at.isoformat() if u.updated_at else None,
+        image_id=u.key,
+        last_edited_by=u.last_editor.username if u.last_editor else None,
+    )
+
+
+def _to_batch_item(batch_obj: Batch, username: str | None) -> BatchItem:
+    """Convert a Batch row to a BatchItem with empty stats."""
+    return BatchItem(
+        id=batch_obj.id,
+        created_at=batch_obj.created_at.isoformat(),
+        updated_at=batch_obj.updated_at.isoformat(),
+        edit_group_id=batch_obj.edit_group_id,
+        username=username or "Unknown",
+        userid=batch_obj.userid,
+        stats=BatchStats(
+            total=0, queued=0, in_progress=0, completed=0, failed=0, duplicate=0
+        ),
+    )
+
+
+def _copy_upload_to_batch(
+    upload: UploadRequest,
+    new_batch_id: int,
+    userid: str,
+    encrypted_access_token: str,
+) -> UploadRequest:
+    """Create a copy of an UploadRequest in a new batch."""
+    return UploadRequest(
+        batchid=new_batch_id,
+        userid=userid,
+        status="queued",
+        key=upload.key,
+        handler=upload.handler,
+        collection=upload.collection,
+        access_token=encrypted_access_token,
+        filename=upload.filename,
+        wikitext=upload.wikitext,
+        copyright_override=upload.copyright_override,
+        labels=upload.labels,
+        result=None,
+        error=None,
+        success=None,
+        celery_task_id=None,
+    )
+
+
 def get_all_upload_requests(
     session: Session,
     offset: int = 0,
@@ -93,27 +157,7 @@ def get_all_upload_requests(
         query = query.where(col(UploadRequest.created_at) < date_to + timedelta(days=1))
     result = session.exec(query.offset(offset).limit(limit)).all()
 
-    return [
-        BatchUploadItem(
-            id=u.id,
-            status=u.status,
-            filename=u.filename,
-            wikitext=u.wikitext,
-            batchid=u.batchid,
-            userid=u.userid,
-            key=u.key,
-            handler=u.handler,
-            labels=u.labels,
-            result=u.result,
-            error=u.error,
-            success=u.success,
-            created_at=u.created_at.isoformat() if u.created_at else None,
-            updated_at=u.updated_at.isoformat() if u.updated_at else None,
-            image_id=u.key,
-            last_edited_by=u.last_editor.username if u.last_editor else None,
-        )
-        for u in result
-    ]
+    return [_to_batch_upload_item(u) for u in result]
 
 
 def count_all_upload_requests(
@@ -256,46 +300,6 @@ def create_upload_requests_for_batch(
     return reqs
 
 
-def get_batches_stats(session: Session, batch_ids: list[int]) -> dict[int, BatchStats]:
-    if not batch_ids:
-        return {}
-
-    query = (
-        select(
-            UploadRequest.batchid, UploadRequest.status, func.count(UploadRequest.id)
-        )
-        .where(col(UploadRequest.batchid).in_(batch_ids))
-        .group_by(UploadRequest.batchid, UploadRequest.status)
-    )
-
-    results = session.exec(query).all()
-
-    # Initialize with empty BatchStats objects
-    stats = {bid: BatchStats() for bid in batch_ids}
-
-    for batch_id, status, count in results:
-        if batch_id in stats:
-            stats[batch_id].total += count
-            if status == "queued":
-                stats[batch_id].queued = count
-            elif status == "in_progress":
-                stats[batch_id].in_progress = count
-            elif status == "completed":
-                stats[batch_id].completed = count
-            elif status == "failed":
-                stats[batch_id].failed = count
-            elif status == "cancelled":
-                stats[batch_id].cancelled = count
-            elif status in (
-                DuplicateError.model_fields["type"].default,
-                DuplicatedSdcUpdatedError.model_fields["type"].default,
-                DuplicatedSdcNotUpdatedError.model_fields["type"].default,
-            ):
-                stats[batch_id].duplicate = count
-
-    return stats
-
-
 def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
     """Fetch a single batch by ID."""
     user_attr = class_mapper(Batch).relationships["user"].class_attribute
@@ -307,17 +311,12 @@ def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
     if not batch:
         return None
 
-    stats = get_batches_stats(session, [batch.id])
+    username = batch.user.username if batch.user else None
+    batch_item = _to_batch_item(batch, username)
+    batch_items_map = {batch.id: batch_item}
+    _populate_batch_stats(session, batch_items_map, [batch.id])
 
-    return BatchItem(
-        id=batch.id,
-        created_at=batch.created_at.isoformat(),
-        updated_at=batch.updated_at.isoformat(),
-        edit_group_id=batch.edit_group_id,
-        username=batch.user.username if batch.user else "Unknown",
-        userid=batch.userid,
-        stats=stats.get(batch.id, BatchStats()),
-    )
+    return batch_item
 
 
 def count_uploads_in_batch(session: Session, batchid: int) -> int:
@@ -338,27 +337,7 @@ def get_upload_request(
 
     result = session.exec(query)
 
-    return [
-        BatchUploadItem(
-            id=u.id,
-            status=u.status,
-            filename=u.filename,
-            wikitext=u.wikitext,
-            batchid=u.batchid,
-            userid=u.userid,
-            key=u.key,
-            handler=u.handler,
-            labels=u.labels,
-            result=u.result,
-            error=u.error,
-            success=u.success,
-            created_at=u.created_at.isoformat() if u.created_at else None,
-            updated_at=u.updated_at.isoformat() if u.updated_at else None,
-            image_id=u.key,
-            last_edited_by=u.last_editor.username if u.last_editor else None,
-        )
-        for u in result.all()
-    ]
+    return [_to_batch_upload_item(u) for u in result.all()]
 
 
 def get_upload_request_by_id(
@@ -514,26 +493,12 @@ def retry_selected_uploads_to_new_batch(
         session=session, userid=admin_userid, username=admin_username
     )
 
-    new_uploads = []
-    for upload in uploads:
-        new_upload = UploadRequest(
-            batchid=new_batch.id,
-            userid=admin_userid,
-            status="queued",
-            key=upload.key,
-            handler=upload.handler,
-            collection=upload.collection,
-            access_token=encrypted_access_token,
-            filename=upload.filename,
-            wikitext=upload.wikitext,
-            copyright_override=upload.copyright_override,
-            labels=upload.labels,
-            result=None,
-            error=None,
-            success=None,
-            celery_task_id=None,
+    new_uploads = [
+        _copy_upload_to_batch(
+            upload, new_batch.id, admin_userid, encrypted_access_token
         )
-        new_uploads.append(new_upload)
+        for upload in uploads
+    ]
 
     session.add_all(new_uploads)
     session.flush()
@@ -572,26 +537,10 @@ def reset_failed_uploads_to_new_batch(
 
     new_batch = create_batch(session=session, userid=userid, username=username)
 
-    new_uploads = []
-    for upload in failed_uploads:
-        new_upload = UploadRequest(
-            batchid=new_batch.id,
-            userid=userid,
-            status="queued",
-            key=upload.key,
-            handler=upload.handler,
-            collection=upload.collection,
-            access_token=encrypted_access_token,
-            filename=upload.filename,
-            wikitext=upload.wikitext,
-            copyright_override=upload.copyright_override,
-            labels=upload.labels,
-            result=None,
-            error=None,
-            success=None,
-            celery_task_id=None,
-        )
-        new_uploads.append(new_upload)
+    new_uploads = [
+        _copy_upload_to_batch(upload, new_batch.id, userid, encrypted_access_token)
+        for upload in failed_uploads
+    ]
 
     session.add_all(new_uploads)
     session.flush()
@@ -614,7 +563,7 @@ def _populate_batch_stats(
     ]
 
     stats_query = (
-        select(
+        sa_select(
             col(UploadRequest.batchid),
             func.count(col(UploadRequest.id)),
             func.sum(case((col(UploadRequest.status) == "queued", 1), else_=0)),
@@ -633,7 +582,7 @@ def _populate_batch_stats(
         .group_by(col(UploadRequest.batchid))
     )
 
-    stats_results = session.execute(stats_query).all()
+    stats_results = session.exec(stats_query).all()  # type: ignore
 
     for row in stats_results:
         (
@@ -691,20 +640,8 @@ def get_batches(
     batch_items_map: dict[int, BatchItem] = {}
     ordered_items: list[BatchItem] = []
 
-    for row in batch_results:
-        batch_obj, username = row
-        stats = BatchStats(
-            total=0, queued=0, in_progress=0, completed=0, failed=0, duplicate=0
-        )
-        item = BatchItem(
-            id=batch_obj.id,
-            created_at=batch_obj.created_at.isoformat(),
-            updated_at=batch_obj.updated_at.isoformat(),
-            edit_group_id=batch_obj.edit_group_id,
-            username=username or "Unknown",
-            userid=batch_obj.userid,
-            stats=stats,
-        )
+    for batch_obj, username in batch_results:
+        item = _to_batch_item(batch_obj, username)
         batch_items_map[batch_obj.id] = item
         ordered_items.append(item)
 
@@ -793,28 +730,20 @@ def get_batches_minimal(
         return []
 
     base_query = (
-        select(Batch, User.username).join(User).where(col(Batch.id).in_(batch_ids))
+        select(Batch, User.username)
+        .join(User)
+        .where(col(Batch.id).in_(batch_ids))
+        .order_by(col(Batch.id).desc())
     )
     batch_results = session.exec(base_query).all()
 
     if not batch_results:
         return []
 
-    batch_items_map: dict[int, BatchItem] = {}
-    for batch_obj, username in batch_results:
-        stats = BatchStats(
-            total=0, queued=0, in_progress=0, completed=0, failed=0, duplicate=0
-        )
-        item = BatchItem(
-            id=batch_obj.id,
-            created_at=batch_obj.created_at.isoformat(),
-            updated_at=batch_obj.updated_at.isoformat(),
-            edit_group_id=batch_obj.edit_group_id,
-            username=username or "Unknown",
-            userid=batch_obj.userid,
-            stats=stats,
-        )
-        batch_items_map[batch_obj.id] = item
+    batch_items_map: dict[int, BatchItem] = {
+        batch_obj.id: _to_batch_item(batch_obj, username)
+        for batch_obj, username in batch_results
+    }
 
     _populate_batch_stats(session, batch_items_map, batch_ids)
 
@@ -1049,7 +978,7 @@ def get_queued_uploads_for_recovery(
         .where(col(UploadRequest.access_token).isnot(None))
         .where(col(Batch.edit_group_id).isnot(None))
     )
-    return session.exec(statement).all()
+    return cast(Sequence[tuple[int, str, str, str]], session.exec(statement).all())
 
 
 _DUPLICATE_ERROR_TYPES = {
@@ -1068,7 +997,7 @@ _ERROR_CATEGORY_KEYWORDS: dict[str, list[str]] = {
 
 def _error_type_case() -> Any:
     """SQL CASE expression categorizing UploadRequest.error into an error type string."""
-    error = UploadRequest.error
+    error = getattr(UploadRequest, "__table__").c["error"]
     conditions: list[Any] = [
         (error["type"].as_string().in_(_DUPLICATE_ERROR_TYPES), "duplicate")
     ]
@@ -1104,7 +1033,7 @@ def get_failed_uploads_grouped(
     session: Session,
     offset: int = 0,
     limit: int = 50,
-    sort_by: str = "recent",
+    sort_by: Literal["recent", "batchSize", "errorType", "user"] = "recent",
     error_type: Optional[str] = None,
     handler: Optional[str] = None,
     search_text: Optional[str] = None,
@@ -1114,7 +1043,7 @@ def get_failed_uploads_grouped(
 
     # One row per batch with aggregate stats — all filtering and sorting done in DB
     batch_q = (
-        select(
+        sa_select(
             col(UploadRequest.batchid),
             col(Batch.created_at),
             col(Batch.edit_group_id),
@@ -1155,9 +1084,7 @@ def get_failed_uploads_grouped(
     if error_type:
         batch_q = batch_q.where(error_category_expr == error_type)
 
-    total = session.execute(
-        select(func.count()).select_from(batch_q.subquery())
-    ).scalar_one()
+    total = session.exec(select(func.count()).select_from(batch_q.subquery())).one()
 
     if sort_by == "recent":
         batch_q = batch_q.order_by(col(Batch.created_at).desc())
@@ -1168,7 +1095,7 @@ def get_failed_uploads_grouped(
     elif sort_by == "user":
         batch_q = batch_q.order_by(col(User.username))
 
-    batch_rows = session.execute(batch_q.offset(offset).limit(limit)).all()
+    batch_rows = session.exec(batch_q.offset(offset).limit(limit)).all()  # type: ignore
     if not batch_rows:
         return [], total
 
@@ -1213,7 +1140,7 @@ def get_failed_uploads_grouped(
         )
 
     # Fetch total upload count per batch in a single GROUP BY query
-    for batchid, count in session.execute(
+    for batchid, count in session.exec(
         select(col(UploadRequest.batchid), func.count(col(UploadRequest.id)))
         .where(col(UploadRequest.batchid).in_(batch_ids))
         .group_by(col(UploadRequest.batchid))

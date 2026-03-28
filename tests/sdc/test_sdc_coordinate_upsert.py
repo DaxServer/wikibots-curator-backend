@@ -72,6 +72,7 @@ def test_coordinates_upsert_adds_when_not_exists():
     assert len(merged_sdc) == 2
     p625_stmt = next((s for s in merged_sdc if s.mainsnak.property == "P625"), None)
     assert p625_stmt is not None
+    assert isinstance(p625_stmt.mainsnak, GlobeCoordinateValueSnak)
     assert p625_stmt.mainsnak.datavalue.value.latitude == 40.7128
     assert p625_stmt.mainsnak.datavalue.value.longitude == -74.0060
 
@@ -154,6 +155,7 @@ def test_coordinates_upsert_skips_when_exists():
     assert p625_stmt is not None
 
     # The existing coordinates should be preserved (NYC, not San Francisco)
+    assert isinstance(p625_stmt.mainsnak, GlobeCoordinateValueSnak)
     assert p625_stmt.mainsnak.datavalue.value.latitude == 40.7128
     assert p625_stmt.mainsnak.datavalue.value.longitude == -74.0060
     assert p625_stmt.id == "M12345$COORD"

@@ -15,7 +15,7 @@ from curator.app.dal import (
 )
 from curator.app.db import get_session
 from curator.app.errors import DuplicateUploadError, HashLockError
-from curator.app.mediawiki_client import MediaWikiClient, create_mediawiki_client
+from curator.app.mediawiki_client import MediaWikiClient
 from curator.app.models import (
     StructuredError,
 )
@@ -350,8 +350,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
 
     # 2. Long running operations (NO DB SESSION)
     try:
-        # Create MediaWiki API client for this job
-        mediawiki_client = create_mediawiki_client(access_token)
+        mediawiki_client = MediaWikiClient(access_token=access_token)
 
         # Check if title is blacklisted
         logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")

@@ -79,7 +79,6 @@ class MediaWikiClient:
         """
         Make a request to the MediaWiki API with retry logic.
         """
-        # Format is added to params for GET requests
         if "format" not in params:
             params["format"] = "json"
 
@@ -149,7 +148,6 @@ class MediaWikiClient:
 
         nonce = secrets.token_hex(16)
 
-        # Make signed request to identify endpoint
         try:
             response = self._client.get(
                 COMMONS_OAUTH_IDENTIFY,
@@ -162,7 +160,6 @@ class MediaWikiClient:
             logger.error(e)
             raise
 
-        # Decode JWT (MediaWiki returns base64url-encoded JWT)
         jwt_body = response.text
 
         try:
@@ -257,6 +254,96 @@ class MediaWikiClient:
         logger.info(f"Found {len(duplicates)} duplicates for SHA1 {sha1}")
         return duplicates
 
+    def _upload_chunk(
+        self,
+        chunk_num: int,
+        total_chunks: int,
+        query_params: dict[str, str],
+        post_data: dict[str, str],
+        files: dict[str, Any],
+    ) -> str | None | UploadResult:
+        """Upload a single chunk with retry logic, return file_key or UploadResult on error."""
+        max_attempts = len(CHUNK_RETRY_DELAYS) + 1
+        for chunk_attempt in range(max_attempts):
+            is_last_attempt = chunk_attempt == max_attempts - 1
+            delay = CHUNK_RETRY_DELAYS[chunk_attempt] if not is_last_attempt else 0
+
+            try:
+                data = self._api_request(
+                    query_params,
+                    method="POST",
+                    data=post_data,
+                    files=files,
+                    timeout=60.0,
+                    csrf=True,
+                )
+            except requests.exceptions.RequestException as e:
+                if is_last_attempt:
+                    logger.error(
+                        f"Failed to upload chunk {chunk_num + 1}/{total_chunks} "
+                        f"after {max_attempts} attempts: {e}"
+                    )
+                    return UploadResult(
+                        success=False,
+                        error=f"Chunk {chunk_num + 1}/{total_chunks} failed after {max_attempts} attempts: {e}",
+                    )
+                logger.warning(
+                    f"Chunk {chunk_num + 1}/{total_chunks} upload failed "
+                    f"(attempt {chunk_attempt + 1}/{max_attempts}), "
+                    f"retrying in {delay} seconds: {e}"
+                )
+                time.sleep(delay)
+                continue
+
+            if "error" in data:
+                error_code = data["error"].get("code", "")
+                error_info = data["error"].get("info", "Upload failed")
+                if not is_last_attempt and (
+                    "UploadStashFileException" in error_code
+                    or "UploadChunkFileException" in error_code
+                    or "JobQueueError" in error_code
+                ):
+                    logger.warning(
+                        f"Chunk {chunk_num + 1}/{total_chunks} stash error "
+                        f"(attempt {chunk_attempt + 1}/{max_attempts}), "
+                        f"retrying in {delay} seconds: {data}"
+                    )
+                    time.sleep(delay)
+                    continue
+                logger.error(data)
+                return UploadResult(success=False, error=error_info)
+
+            if "upload" in data:
+                result = data["upload"]
+                # IMPORTANT: Duplicate warnings appear here on final chunk (with stash=1)
+                # We must raise BEFORE final commit to avoid publishing duplicates
+                warnings = result.get("warnings", {})
+                if "duplicate" in warnings:
+                    dup_titles = warnings["duplicate"]
+                    duplicates = [
+                        ErrorLink(
+                            title=d,
+                            url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
+                        )
+                        for d in dup_titles
+                    ]
+                    raise DuplicateUploadError(
+                        duplicates, f"File already exists as {dup_titles}"
+                    )
+
+                if warnings:
+                    logger.warning(warnings)
+                    return UploadResult(
+                        success=False,
+                        error=f"Upload warnings: {warnings}",
+                    )
+
+                # result: "Success" with stash=1 means chunks stashed successfully;
+                # the file is NOT published yet - final commit is still required
+                return result.get("filekey")
+
+        raise AssertionError("Unreachable")
+
     def upload_file(
         self,
         filename: str,
@@ -265,9 +352,7 @@ class MediaWikiClient:
         edit_summary: str,
         chunk_size: int = 1024 * 1024 * 1,  # 1MB chunks
     ) -> UploadResult:
-        """
-        Upload a file to Commons using chunked upload.
-        """
+        """Upload a file to Commons using chunked upload."""
         file_size = os.path.getsize(file_path)
         total_chunks = (file_size + chunk_size - 1) // chunk_size
 
@@ -275,7 +360,6 @@ class MediaWikiClient:
             f"Uploading {filename} ({file_size} bytes) in {total_chunks} chunks"
         )
 
-        # Chunked upload
         file_key = None
         with open(file_path, "rb") as f:
             for chunk_num in range(total_chunks):
@@ -283,8 +367,6 @@ class MediaWikiClient:
                 f.seek(offset)
                 chunk = f.read(chunk_size)
 
-                # Separate query params from POST data
-                # MediaWiki API requires token to be POST body, not query string
                 query_params: dict[str, str] = {
                     "action": "upload",
                     "format": "json",
@@ -296,113 +378,27 @@ class MediaWikiClient:
                     "text": wikitext,
                     "offset": str(offset),
                     "filesize": str(file_size),
-                    "stash": "1",  # Always stash chunks
+                    "stash": "1",
                 }
 
-                # Add filekey if we have one (for chunks 2+)
                 if file_key:
                     post_data["filekey"] = file_key
 
-                # Use "chunk" parameter for chunked uploads, not "file"
                 files = {
                     "chunk": (f"{chunk_num}.jpg", chunk, "application/octet-stream")
                 }
 
-                # Retry loop for chunk upload
-                max_attempts = len(CHUNK_RETRY_DELAYS) + 1
-                for chunk_attempt in range(max_attempts):
-                    is_last_attempt = chunk_attempt == max_attempts - 1
-                    delay = (
-                        CHUNK_RETRY_DELAYS[chunk_attempt] if not is_last_attempt else 0
-                    )
-
-                    try:
-                        data = self._api_request(
-                            query_params,
-                            method="POST",
-                            data=post_data,
-                            files=files,
-                            timeout=60.0,
-                            csrf=True,
-                        )
-                    except requests.exceptions.RequestException as e:
-                        if is_last_attempt:
-                            logger.error(
-                                f"Failed to upload chunk {chunk_num + 1}/{total_chunks} "
-                                f"after {max_attempts} attempts: {e}"
-                            )
-                            return UploadResult(
-                                success=False,
-                                error=f"Chunk {chunk_num + 1}/{total_chunks} failed after {max_attempts} attempts: {e}",
-                            )
-                        logger.warning(
-                            f"Chunk {chunk_num + 1}/{total_chunks} upload failed "
-                            f"(attempt {chunk_attempt + 1}/{max_attempts}), "
-                            f"retrying in {delay} seconds: {e}"
-                        )
-                        time.sleep(delay)
-                        continue
-
-                    if "error" in data:
-                        error_code = data["error"].get("code", "")
-                        error_info = data["error"].get("info", "Upload failed")
-                        if not is_last_attempt and (
-                            "UploadStashFileException" in error_code
-                            or "UploadChunkFileException" in error_code
-                            or "JobQueueError" in error_code
-                        ):
-                            logger.warning(
-                                f"Chunk {chunk_num + 1}/{total_chunks} stash error "
-                                f"(attempt {chunk_attempt + 1}/{max_attempts}), "
-                                f"retrying in {delay} seconds: {data}"
-                            )
-                            time.sleep(delay)
-                            continue
-                        logger.error(data)
-                        return UploadResult(success=False, error=error_info)
-
-                    break  # chunk uploaded successfully
-
-                # For stashed chunks, we get a file key
-                if "upload" in data:
-                    result = data["upload"]
-
-                    # Check for warnings in chunk upload response
-                    # IMPORTANT: Duplicate warnings appear here on final chunk (with stash=1)
-                    # We must raise BEFORE final commit to avoid publishing duplicates
-                    warnings = result.get("warnings", {})
-                    if "duplicate" in warnings:
-                        dup_titles = warnings["duplicate"]
-                        duplicates = [
-                            ErrorLink(
-                                title=d,
-                                url=f"https://commons.wikimedia.org/wiki/File:{d.replace(' ', '_')}",
-                            )
-                            for d in dup_titles
-                        ]
-                        raise DuplicateUploadError(
-                            duplicates, f"File already exists as {dup_titles}"
-                        )
-
-                    if warnings:
-                        logger.warning(warnings)
-                        # For non-duplicate warnings, still return failure
-                        # but don't raise - caller can decide whether to retry
-                        return UploadResult(
-                            success=False,
-                            error=f"Upload warnings: {warnings}",
-                        )
-
-                    # Extract filekey for stashed chunks
-                    # Note: result: "Success" with stash=1 means "chunks stashed successfully"
-                    # The file is NOT published yet - final commit is still required
-                    file_key = result.get("filekey")
+                chunk_result = self._upload_chunk(
+                    chunk_num, total_chunks, query_params, post_data, files
+                )
+                if isinstance(chunk_result, UploadResult):
+                    return chunk_result
+                file_key = chunk_result
 
                 logger.info(
                     f"Uploaded chunk {chunk_num + 1}/{total_chunks} filekey: {file_key}"
                 )
 
-        # Final commit: use filekey to publish from stash (no file data)
         if file_key:
             query_params = {
                 "action": "upload",
@@ -431,22 +427,22 @@ class MediaWikiClient:
 
             logger.info(f"Final commit for {filename} with filekey {file_key}")
 
-        # Get the final result
-        if "upload" in data:
-            result = data["upload"]
-            if result.get("result") == "Success":
-                title = result.get("filename", result.get("title"))
-                # Extract URL from imageinfo.descriptionurl (file page URL)
-                imageinfo = result.get("imageinfo", {})
-                image_url = imageinfo.get("descriptionurl")
-                return UploadResult(
-                    success=True,
-                    title=title,
-                    url=image_url,
-                )
+            if "upload" in data:
+                result = data["upload"]
+                if result.get("result") == "Success":
+                    title = result.get("filename", result.get("title"))
+                    imageinfo = result.get("imageinfo", {})
+                    image_url = imageinfo.get("descriptionurl")
+                    return UploadResult(
+                        success=True,
+                        title=title,
+                        url=image_url,
+                    )
 
-        logger.error(data)
-        return UploadResult(success=False, error="Upload failed: unknown reason")
+            logger.error(data)
+            return UploadResult(success=False, error="Upload failed: unknown reason")
+
+        raise AssertionError("Unreachable")
 
     def _fetch_page(self, filename: str) -> dict:
         """
@@ -475,13 +471,11 @@ class MediaWikiClient:
         """
         Perform a null edit on a file page to trigger template re-parsing.
         """
-        # Fetch page data once (single API call)
         page = self._fetch_page(filename)
         if "missing" in page:
             logger.warning(f"File {filename} does not exist, skipping null edit")
             return False
 
-        # Perform edit with newline to trigger re-parsing
         edit_params = {
             "action": "edit",
             "title": f"File:{filename}",
@@ -498,7 +492,6 @@ class MediaWikiClient:
             edit_params, method="POST", data=edit_data, timeout=60.0, csrf=True
         )
 
-        # Check for API errors
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
@@ -521,17 +514,12 @@ class MediaWikiClient:
         if not sdc and not labels:
             return False
 
-        # Build wbeditentity payload
         payload_data: dict[str, Any] = {}
         if sdc:
             payload_data["claims"] = sdc
         if labels:
-            # labels is already in correct format: {"language_code": "label text"}
             payload_data["labels"] = labels
 
-        # Separate query params from POST data
-        # MediaWiki API requires action, site, title in query params
-        # and data, token, summary, bot in POST body
         query_params: dict[str, str] = {
             "action": "wbeditentity",
             "site": "commonswiki",
@@ -545,7 +533,6 @@ class MediaWikiClient:
             "bot": "0",
         }
 
-        # Make POST request with data in body
         response_data = self._api_request(
             query_params,
             method="POST",
@@ -554,7 +541,6 @@ class MediaWikiClient:
             csrf=True,
         )
 
-        # Check for API errors in response
         if "error" in response_data:
             error_code = response_data["error"].get("code", "unknown")
             error_info = response_data["error"].get("info", "Unknown error")
@@ -563,7 +549,6 @@ class MediaWikiClient:
 
         logger.info(f"SDC applied to {filename}")
 
-        # Perform null edit to trigger template re-parsing
         self.null_edit(filename)
 
         return True
@@ -572,7 +557,6 @@ class MediaWikiClient:
         """
         Fetch SDC and labels from Commons by file title.
         """
-        # Ensure title has "File:" prefix for API request
         api_title = title if title.startswith("File:") else f"File:{title}"
 
         params: dict[str, str] = {
@@ -584,42 +568,30 @@ class MediaWikiClient:
 
         data = self._api_request(params)
 
-        # Check for error response (file does not exist)
         if "error" in data:
             error_info = data["error"].get("info", "Unknown error")
             logger.error(data)
             raise ValueError(f"Could not find an entity: {error_info}")
 
-        # When using sites/titles, the response contains entities keyed by entity ID
-        # We need to extract the first entity from the response
         entities = data.get("entities", {})
         if not entities:
             logger.warning(f"Title {title} not found on Commons")
             return None, None
 
-        # Get the first entity (there should only be one)
         entity_id = next(iter(entities))
         entity = entities[entity_id]
 
-        # Non-existent file returns entity ID "-1" with site and title keys
+        # entity ID "-1" means non-existent file when using sites/titles lookup
         if entity_id == "-1":
             logger.warning(f"File {title} does not exist on Commons")
             raise ValueError(f"File {title} does not exist on Commons")
 
-        # File exists but SDC not created yet (positive entity ID with "missing" key)
+        # positive entity ID with "missing" key means file exists but has no SDC
         if "missing" in entity:
             logger.info(f"File {title} exists but SDC not created yet")
             return None, None
 
-        # Extract statements (API returns 'statements' key)
         sdc = entity.get("statements")
         labels = entity.get("labels")
 
         return sdc, labels
-
-
-def create_mediawiki_client(access_token: AccessToken) -> MediaWikiClient:
-    """
-    Create a MediaWiki API client with OAuth1 authentication.
-    """
-    return MediaWikiClient(access_token=access_token)

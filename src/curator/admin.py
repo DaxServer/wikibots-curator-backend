@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
@@ -135,7 +136,7 @@ async def admin_get_presets(
 async def admin_get_failed_uploads(
     page: int = 1,
     limit: int = 50,
-    sort_by: str = "recent",
+    sort_by: Literal["recent", "batchSize", "errorType", "user"] = "recent",
     error_type: str | None = None,
     handler: str | None = None,
     search_text: str | None = None,

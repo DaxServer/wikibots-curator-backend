@@ -21,6 +21,7 @@ def test_upload_request_model_validation():
 
     req = UploadRequest(
         userid="testuser",
+        batchid=0,
         status="failed",
         key="image1",
         handler="mapillary",
@@ -45,6 +46,7 @@ def test_upload_request_model_validation_generic_error():
 
     req = UploadRequest(
         userid="testuser",
+        batchid=0,
         status="failed",
         key="image1",
         handler="mapillary",
@@ -65,6 +67,7 @@ def test_upload_request_model_validation_title_blacklisted_error():
 
     req = UploadRequest(
         userid="testuser",
+        batchid=0,
         status="failed",
         key="image1",
         handler="mapillary",

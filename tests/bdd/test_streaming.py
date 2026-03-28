@@ -3,6 +3,7 @@
 import asyncio
 from unittest.mock import MagicMock
 
+from mwoauth import AccessToken
 from pytest_bdd import parsers, scenario, then, when
 
 from curator.app.auth import UserSession
@@ -39,7 +40,9 @@ def when_streaming(mock_sender, event_loop, mocker):
 
     data = FetchBatchesData(userid="12345", filter=None, page=1, limit=100)
     h = Handler(
-        UserSession(username="testuser", userid="12345", access_token="v"),
+        UserSession(
+            username="testuser", userid="12345", access_token=AccessToken("v", "v")
+        ),
         mock_sender,
         MagicMock(),
     )

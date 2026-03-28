@@ -60,9 +60,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.add_middleware(SessionAutoloadMiddleware)  # ty: ignore
+app.add_middleware(SessionAutoloadMiddleware)
 app.add_middleware(
-    SessionMiddleware,  # ty: ignore
+    SessionMiddleware,
     store=CookieStore(TOKEN_ENCRYPTION_KEY),
 )
 

@@ -61,9 +61,12 @@ def test_get_batch(mocker, mock_session):
     mock_user.username = "testuser"
     mock_batch.user = mock_user
 
-    # Configure the mock session to return our mock batch
-    mock_session.exec.return_value.first.return_value = mock_batch
-    mock_session.exec.return_value.all.return_value = []
+    # Configure the mock session: first exec returns the batch, second exec (stats) returns []
+    batch_result = mocker.MagicMock()
+    batch_result.first.return_value = mock_batch
+    stats_result = mocker.MagicMock()
+    stats_result.all.return_value = []
+    mock_session.exec.side_effect = [batch_result, stats_result]
 
     # Execute
     result = get_batch(mock_session, 789)
@@ -73,7 +76,6 @@ def test_get_batch(mocker, mock_session):
     assert result.id == 789
     assert result.userid == "user123"
     assert result.username == "testuser"
-    # get_batch calls exec twice - once for batch query, once for stats
     assert mock_session.exec.call_count == 2
 
 

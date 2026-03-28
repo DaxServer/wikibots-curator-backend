@@ -1,13 +1,15 @@
 """Tests for database configuration."""
 
+from sqlalchemy.pool import QueuePool
+
 from curator.app.db import engine
 
 
 def test_engine_pool_configuration():
     """Test that database engine pool is configured with correct settings."""
-    # Check if pool_pre_ping is enabled
-    assert engine.pool._pre_ping is True
-    # Check if pool_recycle is set to 280 seconds
-    assert engine.pool._recycle == 280
-    assert engine.pool.size() == 5
-    assert engine.pool._max_overflow == 10
+    pool = engine.pool
+    assert pool._pre_ping is True
+    assert pool._recycle == 280
+    assert isinstance(pool, QueuePool)
+    assert pool.size() == 5
+    assert pool._max_overflow == 10

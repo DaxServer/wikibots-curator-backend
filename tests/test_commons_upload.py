@@ -4,7 +4,7 @@ import pytest
 
 from curator.app.commons import (
     DuplicateUploadError,
-    ensure_uploaded,
+    HashLockError,
     upload_file_chunked,
 )
 from curator.app.mediawiki_client import MediaWikiClient, UploadResult
@@ -16,39 +16,6 @@ def mock_mediawiki_client(mocker):
     """Mock MediaWikiClient for tests"""
     mock = mocker.MagicMock(spec=MediaWikiClient)
     return mock
-
-
-def test_ensure_uploaded_raises_on_exists_without_upload(mocker, mock_mediawiki_client):
-    """Test that ensure_uploaded raises ValueError when file already exists (no upload)"""
-    mock_mediawiki_client.file_exists.return_value = True
-
-    with pytest.raises(ValueError, match="already exists"):
-        ensure_uploaded(mock_mediawiki_client, False, "x.jpg")
-
-    # Verify file_exists called only ONCE (not twice)
-    mock_mediawiki_client.file_exists.assert_called_once_with("x.jpg")
-
-
-def test_ensure_uploaded_raises_on_missing_after_upload(mocker, mock_mediawiki_client):
-    """Test that ensure_uploaded raises ValueError when file missing after upload"""
-    mock_mediawiki_client.file_exists.return_value = False
-
-    with pytest.raises(ValueError, match="upload failed"):
-        ensure_uploaded(mock_mediawiki_client, True, "x.jpg")
-
-    # Verify file_exists called only ONCE (not twice)
-    mock_mediawiki_client.file_exists.assert_called_once_with("x.jpg")
-
-
-def test_ensure_uploaded_passes_when_successful(mocker, mock_mediawiki_client):
-    """Test that ensure_uploaded passes when file exists after upload"""
-    mock_mediawiki_client.file_exists.return_value = True
-
-    # Should not raise any exception
-    ensure_uploaded(mock_mediawiki_client, True, "x.jpg")
-
-    # Verify file_exists called only ONCE (not twice)
-    mock_mediawiki_client.file_exists.assert_called_once_with("x.jpg")
 
 
 def test_upload_file_chunked_success(mocker, mock_mediawiki_client):
@@ -195,8 +162,6 @@ def test_upload_file_chunked_raises_hash_lock_error_when_lock_exists(
     mocker, mock_mediawiki_client
 ):
     """Test that upload_file_chunked raises HashLockError when another worker holds the lock"""
-    from curator.app.commons import HashLockError
-
     mock_mediawiki_client.find_duplicates.return_value = []
 
     file_hash = "abc123"
@@ -217,3 +182,58 @@ def test_upload_file_chunked_raises_hash_lock_error_when_lock_exists(
         )
 
     assert "abc123" in str(exc_info.value)
+
+
+def test_upload_file_chunked_releases_lock_after_success(mocker, mock_mediawiki_client):
+    """Test that hash lock is deleted after a successful upload"""
+    mock_mediawiki_client.upload_file.return_value = UploadResult(
+        success=True,
+        title="File:Test.jpg",
+        url="https://commons.wikimedia.org/wiki/File:Test.jpg",
+    )
+    mock_mediawiki_client.find_duplicates.return_value = []
+
+    file_hash = "abc123"
+    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = True
+
+    upload_file_chunked(
+        file_name="Test.jpg",
+        file_url="http://example.com/test.jpg",
+        wikitext="== Summary ==",
+        edit_summary="Test upload",
+        upload_id=1,
+        batch_id=123,
+        mediawiki_client=mock_mediawiki_client,
+    )
+
+    mock_redis.delete.assert_called_once_with(f"hashlock:{file_hash}")
+
+
+def test_upload_file_chunked_releases_lock_after_failure(mocker, mock_mediawiki_client):
+    """Test that hash lock is deleted even when upload fails"""
+    mock_mediawiki_client.upload_file.return_value = UploadResult(
+        success=False, error="Upload failed: network error"
+    )
+    mock_mediawiki_client.find_duplicates.return_value = []
+
+    file_hash = "abc123"
+    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+
+    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis.set.return_value = True
+
+    with pytest.raises(ValueError):
+        upload_file_chunked(
+            file_name="Test.jpg",
+            file_url="http://example.com/test.jpg",
+            wikitext="== Summary ==",
+            edit_summary="Test upload",
+            upload_id=1,
+            batch_id=123,
+            mediawiki_client=mock_mediawiki_client,
+        )
+
+    mock_redis.delete.assert_called_once_with(f"hashlock:{file_hash}")

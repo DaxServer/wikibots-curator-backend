@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+from mwoauth import AccessToken
 from pytest_bdd import scenario, then, when
 
 from curator.app.handler import Handler
@@ -30,7 +31,11 @@ def test_unsubscribe_batch():
 @when("I subscribe to batch 1")
 def when_subscribe_batch(mock_sender, event_loop):
     h = Handler(
-        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        {
+            "username": "testuser",
+            "userid": "12345",
+            "access_token": AccessToken("v", "v"),
+        },
         mock_sender,
         MagicMock(),
     )
@@ -40,7 +45,11 @@ def when_subscribe_batch(mock_sender, event_loop):
 @when("I unsubscribe from batch updates")
 def when_unsubscribe_batch(mock_sender, event_loop):
     h = Handler(
-        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        {
+            "username": "testuser",
+            "userid": "12345",
+            "access_token": AccessToken("v", "v"),
+        },
         mock_sender,
         MagicMock(),
     )

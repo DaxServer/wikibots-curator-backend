@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from mwoauth import AccessToken
 
 from curator.app.crypto import encrypt_access_token
 from curator.workers.ingest import process_one
@@ -32,7 +33,7 @@ async def test_worker_process_one_uploadstash_retry_success(
         copyright_override=False,
         sdc=None,
         collection="seq",
-        access_token=encrypt_access_token(("t", "s")),
+        access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
         last_edited_by=None,
         last_editor=None,
@@ -66,7 +67,7 @@ async def test_worker_process_one_uploadstash_retry_success(
     with (
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,
@@ -123,7 +124,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         copyright_override=False,
         sdc=None,
         collection="seq",
-        access_token=encrypt_access_token(("t", "s")),
+        access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
         last_edited_by=None,
         last_editor=None,
@@ -151,7 +152,7 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         patch(
             "curator.workers.ingest.update_upload_status", side_effect=capture_status
         ),
-        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=mock_upload_file_chunked,

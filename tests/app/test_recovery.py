@@ -170,9 +170,11 @@ async def test_continues_recovering_valid_groups_after_invalid_token(mocker):
     )
     mocker.patch(
         "curator.app.recovery.decrypt_access_token",
-        side_effect=lambda cipher: (_ for _ in ()).throw(Exception("invalid"))
-        if cipher == "bad_cipher"
-        else mock_token2,
+        side_effect=lambda cipher: (
+            (_ for _ in ()).throw(Exception("invalid"))
+            if cipher == "bad_cipher"
+            else mock_token2
+        ),
     )
     mocker.patch("curator.app.recovery.MediaWikiClient", return_value=mock_client)
     mock_fail = mocker.patch("curator.app.recovery.mark_uploads_expired")

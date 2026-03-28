@@ -77,17 +77,17 @@ def test_get_batches_basic(mock_session, mocker):
     batch2.edit_group_id = None
     batch2.userid = "user123"
 
-    mock_session.exec.return_value.all.return_value = [
-        (batch1, "user1"),
-        (batch2, "user2"),
-    ]
+    batches_result = mocker.MagicMock()
+    batches_result.all.return_value = [(batch1, "user1"), (batch2, "user2")]
 
     # 2. Mock the second call: stats_query for these batches
-    # row format: (bid, total, queued, in_progress, completed, failed, duplicate, cancelled)
-    mock_session.execute.return_value.all.return_value = [
-        (1, 10, 2, 1, 5, 1, 0, 1),
-        (2, 15, 3, 2, 7, 2, 0, 1),
+    # row format: (bid, total, queued, in_progress, completed, failed, cancelled, duplicate)
+    stats_result = mocker.MagicMock()
+    stats_result.all.return_value = [
+        (1, 10, 2, 1, 5, 1, 1, 0),
+        (2, 15, 3, 2, 7, 2, 1, 0),
     ]
+    mock_session.exec.side_effect = [batches_result, stats_result]
 
     # Execute
     result = get_batches(mock_session, userid="user123", filter_text=None)
@@ -100,8 +100,7 @@ def test_get_batches_basic(mock_session, mocker):
     assert result[1].id == 2
     assert result[1].username == "user2"
     assert result[1].stats.total == 15
-    assert mock_session.exec.called
-    assert mock_session.execute.called
+    assert mock_session.exec.call_count == 2
 
 
 def test_get_batches_minimal(mock_session, mocker):
@@ -116,15 +115,14 @@ def test_get_batches_minimal(mock_session, mocker):
     batch1.edit_group_id = None
     batch1.userid = "user123"
 
-    mock_session.exec.return_value.all.return_value = [
-        (batch1, "user1"),
-    ]
+    batches_result = mocker.MagicMock()
+    batches_result.all.return_value = [(batch1, "user1")]
 
     # 2. Mock the second call: stats_query
-    # row format: (bid, total, queued, in_progress, completed, failed, duplicate, cancelled)
-    mock_session.execute.return_value.all.return_value = [
-        (1, 10, 2, 1, 5, 1, 0, 1),
-    ]
+    # row format: (bid, total, queued, in_progress, completed, failed, cancelled, duplicate)
+    stats_result = mocker.MagicMock()
+    stats_result.all.return_value = [(1, 10, 2, 1, 5, 1, 1, 0)]
+    mock_session.exec.side_effect = [batches_result, stats_result]
 
     # Execute
     result = get_batches_minimal(mock_session, batch_ids=[1])
@@ -133,8 +131,7 @@ def test_get_batches_minimal(mock_session, mocker):
     assert len(result) == 1
     assert result[0].id == 1
     assert result[0].stats.total == 10
-    assert mock_session.exec.called
-    assert mock_session.execute.called
+    assert mock_session.exec.call_count == 2
 
 
 def test_get_latest_update_time(mock_session, mocker):
