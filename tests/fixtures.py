@@ -327,7 +327,7 @@ def patch_check_title_blacklisted(mocker):
     mock_client = mocker.MagicMock()
     mock_client.check_title_blacklisted.return_value = (False, "")
     return mocker.patch(
-        "curator.workers.ingest.create_mediawiki_client", return_value=mock_client
+        "curator.workers.ingest.MediaWikiClient", return_value=mock_client
     )
 
 
@@ -390,9 +390,7 @@ def mock_external_calls(mocker, request):
 
     mock_client = mocker.MagicMock()
     mock_client.check_title_blacklisted.return_value = (False, "")
-    mocker.patch(
-        "curator.workers.ingest.create_mediawiki_client", return_value=mock_client
-    )
+    mocker.patch("curator.workers.ingest.MediaWikiClient", return_value=mock_client)
     mocker.patch(
         "curator.workers.ingest.upload_file_chunked",
         return_value={"url": "http://s", "title": "S.jpg"},

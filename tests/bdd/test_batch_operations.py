@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+from mwoauth import AccessToken
 from pytest_bdd import parsers, scenario, then, when
 from sqlmodel import Session, select
 
@@ -37,7 +38,11 @@ def test_admin_update_upload_request():
 @when("I fetch uploads for batch 1")
 def when_fetch_batch_uploads(mock_sender, event_loop):
     h = Handler(
-        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        {
+            "username": "testuser",
+            "userid": "12345",
+            "access_token": AccessToken("v", "v"),
+        },
         mock_sender,
         MagicMock(),
     )

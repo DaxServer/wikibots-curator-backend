@@ -82,6 +82,7 @@ def test_coordinates_upsert_multiple_properties():
     assert p625_stmt is not None
 
     # Should preserve London coordinates
+    assert isinstance(p625_stmt.mainsnak, GlobeCoordinateValueSnak)
     assert p625_stmt.mainsnak.datavalue.value.latitude == 51.5074
     assert p625_stmt.mainsnak.datavalue.value.longitude == -0.1278
     assert p625_stmt.id == "M999$LONDON"

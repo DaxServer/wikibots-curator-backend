@@ -16,7 +16,7 @@ Curator Backend is a FastAPI service that manages CuratorBot jobs for uploading 
 poetry run web       # FastAPI server (port 8000) - DO NOT RUN
 poetry run worker    # Celery worker - DO NOT RUN
 poetry run pytest -q # Run tests
-poetry run ty check --exclude src/curator/app/dal.py --exclude alembic  # Type check (excludes asyncapi/)
+poetry run ty check --exclude alembic  # Type check
 poetry run isort .   # Sort imports
 poetry run ruff format  # Format code
 poetry run ruff check  # Run linter
@@ -26,10 +26,9 @@ poetry run alembic upgrade head  # Apply migrations
 **Project-Specific Development Workflow:**
 After completing backend tasks, always run in order:
 ```bash
-poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude src/curator/app/dal.py --exclude alembic
+poetry run isort . && poetry run ruff format && poetry run ruff check && poetry run pytest -q && poetry run ty check --exclude alembic
 ```
-Note: Type errors in `dal.py` and `alembic/` are known and should be ignored. The command above intentionally excludes them to prevent false positives.
-All other files must pass type check. Even pre-existing errors in modified files should be fixed before committing.
+Note: Type errors in `alembic/` are known and should be ignored. All other files must pass type check.
 To type-check specific files only: `poetry run ty check path/to/file.py`
 
 ## Architecture
@@ -59,13 +58,15 @@ src/curator/
 │   ├── config.py        # Configuration from environment
 │   ├── db.py           # Database engine
 │   ├── models.py        # SQLModel models
-│   ├── dal.py          # Data Access Layer (type errors known, ignore)
+│   ├── dal.py          # Data Access Layer
 │   ├── handler.py      # Business logic
-│   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, commons.py
+│   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, sdc_merge.py, commons.py
 │   ├── mediawiki_client.py # MediaWiki API client
+│   ├── errors.py       # DuplicateUploadError, HashLockError
+│   ├── geocoding.py    # Reverse geocoding for location enrichment
+│   ├── task_enqueuer.py # Upload task enqueueing with rate limiting
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
-│   ├── recovery.py      # Startup recovery for uploads stuck in queued state
-│   └── image_models.py # Image-related models
+│   └── recovery.py      # Startup recovery for uploads stuck in queued state
 ├── handlers/            # Image source handlers
 │   ├── interfaces.py   # Abstract Handler class
 │   ├── mapillary_handler.py
@@ -116,7 +117,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 
 ### MediaWiki Client
 - `MediaWikiClient` class handles all Wikimedia Commons operations
-- `create_mediawiki_client()` in `mediawiki_client.py` creates authenticated clients
+- Instantiate directly: `MediaWikiClient(access_token=access_token)`
 - `_api_request()` always retries with exponential backoff (3 attempts: 0s, 1s, 3s delays)
 - `requests.exceptions.RequestException`, `badtoken` CSRF errors, and OAuth "Nonce already used" errors trigger retries; other exceptions propagate immediately
 - Client instances are passed where needed (no global state)
@@ -131,6 +132,8 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - When fetching SDC by title, the code uses `sites=commonswiki&titles=File:Example.jpg` instead of `ids=M12345` to avoid an extra API call to fetch page ID
 - When using `sites`/`titles` in wbgetentities, the entity is keyed by entity ID, not title - extracted with `next(iter(entities))`
 - Entity ID "-1" with site/title keys means non-existent file (raises error); positive entity ID with "missing" key means file exists but has no SDC (returns None)
+- `commons.py:upload_file_chunked` acquires a Redis hash lock (keyed by file hash) after duplicate check; always released in `try/finally` — the TTL is a safety net, not the primary release mechanism
+- `upload_file` in `mediawiki_client.py`: all result processing (`if "upload" in data`, error logging) lives inside the `if file_key:` block — `data` is only assigned there
 
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
@@ -253,8 +256,7 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 
 ### Important Notes
 
-- Type errors in `dal.py` are known and ignored
-- Type errors in `alembic/` are known and ignored
+- Type errors in `alembic/` are known and ignored; all other files must pass type check
 - Functions that always return or raise an exception use `raise AssertionError("Unreachable")` to satisfy the type checker
 - AsyncAPI models are auto-generated from `frontend/asyncapi.json`
 - Large file uploads use `NamedTemporaryFile()` with streaming downloads (see `commons.py`)
@@ -277,6 +279,10 @@ When adding imports between core modules (`commons.py`, `mediawiki_client.py`, e
 
 ### SQLModel vs SQLAlchemy Behavior
 - `session.exec(select(col(Table.column))).all()` returns `list[value]`, not `list[Row]` (SQLModel-specific)
-- Raw SQLAlchemy's `session.execute()` returns `list[Row]`; SQLModel's `session.exec()` auto-unwraps scalar values
-- Single-column `session.execute()`: use `.scalars().all()` to get plain values
-- Multi-column `session.execute()` (e.g. GROUP BY): use `.all()` and unpack rows as tuples — `row[0], row[1]`
+- Use `session.exec()` for all queries; `session.execute()` is deprecated in SQLModel
+- Multi-column queries (e.g. GROUP BY with `sa_select`): `session.exec()` returns rows that unpack as tuples — `bid, count = row`
+- `sa_select(...)` (raw SQLAlchemy multi-column select) doesn't match SQLModel's `session.exec()` overloads — use `# type: ignore` on those lines (known SQLModel limitation: fastapi/sqlmodel#909)
+
+### ty Type Checker Quirks
+- `# type: ignore[error-code]` does NOT suppress errors — ty only honors bare `# type: ignore`
+- When a DAL function calls `session.exec()` multiple times, tests must use `mock_session.exec.side_effect = [result1, result2]` — a single `return_value` only handles one call

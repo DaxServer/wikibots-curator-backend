@@ -23,10 +23,12 @@
       "Bash(poetry show *)",
       "Bash(poetry run alembic revision *)",
       "Bash(poetry run alembic upgrade head)",
-      "WebFetch(domain:phabricator.wikimedia.org)",
       "WebFetch(domain:doc.wikimedia.org)",
-      "WebFetch(domain:markdown.new)",
+      "WebFetch(domain:docs.sqlalchemy.org)",
       "WebFetch(domain:gerrit.wikimedia.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:markdown.new)",
+      "WebFetch(domain:phabricator.wikimedia.org)",
       "WebFetch(domain:www.mediawiki.org)"
     ]
   }

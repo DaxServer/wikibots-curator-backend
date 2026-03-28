@@ -4,8 +4,8 @@ import os
 import redis
 from cryptography.fernet import Fernet
 
-OAUTH_KEY = str(os.environ.get("CURATOR_OAUTH1_KEY"))
-OAUTH_SECRET = str(os.environ.get("CURATOR_OAUTH1_SECRET"))
+OAUTH_KEY = os.environ.get("CURATOR_OAUTH1_KEY", "")
+OAUTH_SECRET = os.environ.get("CURATOR_OAUTH1_SECRET", "")
 
 
 USER_AGENT = (
@@ -69,5 +69,7 @@ class WikidataProperty:
 
 
 # Geocoding configuration
-GEOCODING_API_URL: str = "https://geocoding.daxserver.com/reverse"
+GEOCODING_API_URL: str = os.getenv(
+    "GEOCODING_API_URL", "https://geocoding.daxserver.com/reverse"
+)
 GEOCODING_CONCURRENCY_LIMIT: int = int(os.getenv("GEOCODING_CONCURRENCY_LIMIT", "10"))

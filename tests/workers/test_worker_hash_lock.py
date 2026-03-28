@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from mwoauth import AccessToken
 
 from curator.app.commons import HashLockError
 from curator.app.crypto import encrypt_access_token
@@ -33,7 +34,7 @@ async def test_worker_process_one_propagates_hash_lock_error(
         copyright_override=False,
         sdc=None,
         collection="seq",
-        access_token=encrypt_access_token(("t", "s")),
+        access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
         last_edited_by=None,
         last_editor=None,
@@ -42,7 +43,7 @@ async def test_worker_process_one_propagates_hash_lock_error(
     with (
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             side_effect=HashLockError("Hash abc123 is locked by another worker"),

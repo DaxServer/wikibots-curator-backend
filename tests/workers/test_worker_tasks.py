@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from mwoauth import AccessToken
 
 from curator.app.crypto import encrypt_access_token
 from curator.app.models import UploadRequest
@@ -32,7 +33,7 @@ async def test_worker_process_one_decrypts_token(
         copyright_override=False,
         sdc=None,
         collection="seq",
-        access_token=encrypt_access_token(("t", "s")),
+        access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
         last_edited_by=None,
         last_editor=None,
@@ -41,7 +42,7 @@ async def test_worker_process_one_decrypts_token(
     with (
         patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
         patch("curator.workers.ingest.update_upload_status"),
-        patch("curator.workers.ingest.create_mediawiki_client") as mock_client_patch,
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
         patch(
             "curator.workers.ingest.upload_file_chunked",
             return_value={
@@ -90,7 +91,7 @@ def test_upload_request_access_token_excluded_from_model_dump():
         key="img1",
         handler="mapillary",
         collection="seq",
-        access_token=("secret", "token"),
+        access_token="encrypted_token",
         filename="File.jpg",
         wikitext="wikitext",
     )

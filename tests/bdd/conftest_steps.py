@@ -302,7 +302,11 @@ def step_given_upload_requests_count(engine, count):
 @given("I am subscribed to batch 1")
 def step_given_subscribed(mock_sender, event_loop):
     h = Handler(
-        {"username": "testuser", "userid": "12345", "access_token": "v"},
+        {
+            "username": "testuser",
+            "userid": "12345",
+            "access_token": AccessToken("v", "v"),
+        },
         mock_sender,
         MagicMock(),
     )

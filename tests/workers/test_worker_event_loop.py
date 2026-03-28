@@ -49,7 +49,7 @@ async def test_process_one_runs_without_event_loop_closed(
         patch.object(ingest, "upload_file_chunked") as mock_upload,
         patch.object(ingest.MapillaryHandler, "fetch_image_metadata") as mock_fetch,
         patch.object(ingest, "decrypt_access_token") as mock_decrypt,
-        patch.object(ingest, "create_mediawiki_client") as mock_create_client,
+        patch.object(ingest, "MediaWikiClient") as mock_create_client,
     ):
         mock_decrypt.return_value = "token"
         mock_fetch.return_value = make_image()

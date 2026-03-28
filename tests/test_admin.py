@@ -14,6 +14,7 @@ from curator.admin import (
     admin_get_users,
     admin_retry_uploads,
 )
+from curator.app.auth import UserSession
 from curator.app.models import (
     BulkCancelRequest,
     BulkFailRequest,
@@ -192,7 +193,7 @@ async def test_admin_bulk_cancel_empty(mock_session, patch_get_session):
 @pytest.mark.asyncio
 async def test_admin_retry_uploads_success(mock_session, patch_get_session):
     patch_get_session("curator.admin.get_session")
-    user = {
+    user: UserSession = {
         "username": "DaxServer",
         "userid": "u1",
         "access_token": AccessToken("token", "secret"),
@@ -237,7 +238,7 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
 async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
     """Test admin retry when some uploads are in_progress and skipped"""
     patch_get_session("curator.admin.get_session")
-    user = {
+    user: UserSession = {
         "username": "DaxServer",
         "userid": "u1",
         "access_token": AccessToken("token", "secret"),
@@ -277,7 +278,7 @@ async def test_admin_retry_uploads_partial(mock_session, patch_get_session):
 async def test_admin_retry_uploads_empty_list(mock_session, patch_get_session):
     """Test admin retry with empty upload_ids list"""
     patch_get_session("curator.admin.get_session")
-    user = {
+    user: UserSession = {
         "username": "DaxServer",
         "userid": "u1",
         "access_token": AccessToken("token", "secret"),

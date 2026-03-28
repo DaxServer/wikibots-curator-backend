@@ -6,6 +6,7 @@ import pytest
 from mwoauth.tokens import AccessToken
 
 from curator.admin import admin_retry_uploads
+from curator.app.auth import UserSession
 from curator.app.crypto import generate_edit_group_id
 from curator.app.dal import create_batch
 from curator.app.models import Batch, RetrySelectedUploadsRequest
@@ -184,7 +185,7 @@ class TestRetryCreatesNewBatch:
         self, mocker, mock_session
     ):
         """Verify admin retry creates new batches for uploads with their own edit_group_id"""
-        user = {
+        user: UserSession = {
             "username": "DaxServer",
             "userid": "admin1",
             "access_token": AccessToken("token", "secret"),

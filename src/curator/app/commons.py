@@ -2,7 +2,7 @@ import hashlib
 import logging
 import time
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional
+from typing import IO, Any, Optional
 
 import httpx
 
@@ -59,30 +59,33 @@ def upload_file_chunked(
         if not redis_client.set(lock_key, "1", nx=True, ex=HASH_LOCK_TTL):
             raise HashLockError(f"Hash {file_hash} is locked by another worker")
 
-        # Upload using temp file path
-        upload_result = mediawiki_client.upload_file(
-            filename=file_name,
-            file_path=temp_file.name,
-            wikitext=wikitext,
-            edit_summary=edit_summary,
-        )
+        try:
+            # Upload using temp file path
+            upload_result = mediawiki_client.upload_file(
+                filename=file_name,
+                file_path=temp_file.name,
+                wikitext=wikitext,
+                edit_summary=edit_summary,
+            )
 
-        # Check for upload errors
-        if not upload_result.success:
-            raise ValueError(upload_result.error or "Upload failed")
+            # Check for upload errors
+            if not upload_result.success:
+                raise ValueError(upload_result.error or "Upload failed")
 
-        # Apply SDC after successful upload
-        apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
+            # Apply SDC after successful upload
+            apply_sdc(file_name, mediawiki_client, sdc, edit_summary, labels)
 
-        return {
-            "result": "success",
-            "title": upload_result.title,
-            "url": upload_result.url,
-        }
+            return {
+                "result": "success",
+                "title": upload_result.title,
+                "url": upload_result.url,
+            }
+        finally:
+            redis_client.delete(lock_key)
 
 
 def download_file(
-    file_url: str, temp_file, upload_id: int = 0, batch_id: int = 0
+    file_url: str, temp_file: IO[bytes], upload_id: int = 0, batch_id: int = 0
 ) -> str:
     """
     Download file directly to temp file using streaming.
@@ -115,25 +118,19 @@ def download_file(
                     sha1.update(chunk)
 
                 return sha1.hexdigest()
-        except httpx.HTTPError:
+        except httpx.HTTPError as e:
             if attempt < MAX_DOWNLOAD_RETRIES - 1:
+                logger.warning(
+                    f"[{upload_id}/{batch_id}] Image download attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES} "
+                    f"failed with HTTP error, retrying: {e}"
+                )
                 continue
+            logger.error(
+                f"[{upload_id}/{batch_id}] Image download failed after {MAX_DOWNLOAD_RETRIES}/{MAX_DOWNLOAD_RETRIES} attempts: {e}"
+            )
             raise
 
     raise AssertionError("Unreachable")
-
-
-def ensure_uploaded(
-    mediawiki_client: MediaWikiClient,
-    uploaded: bool,
-    file_name: str,
-):
-    exists = mediawiki_client.file_exists(file_name)
-    if not uploaded and exists:
-        raise ValueError(f"File {file_name} already exists on Commons")
-
-    if not exists:
-        raise ValueError("File upload failed")
 
 
 def _build_sdc_payload(
