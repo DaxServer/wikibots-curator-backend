@@ -349,6 +349,7 @@ class MediaWikiClient:
                         if not is_last_attempt and (
                             "UploadStashFileException" in error_code
                             or "UploadChunkFileException" in error_code
+                            or "JobQueueError" in error_code
                         ):
                             logger.warning(
                                 f"Chunk {chunk_num + 1}/{total_chunks} stash error "
