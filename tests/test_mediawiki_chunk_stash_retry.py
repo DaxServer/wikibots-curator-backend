@@ -3,6 +3,7 @@
 import pytest
 from mwoauth import AccessToken
 
+from curator.app.errors import DuplicateUploadError
 from curator.app.mediawiki_client import MediaWikiClient
 
 _STASH_ERROR = {
@@ -164,3 +165,42 @@ def test_job_queue_error_triggers_retry_not_immediate_failure(mocker, tiny_file)
 
     assert result.success is True
     mock_sleep.assert_called_once_with(3)
+
+
+def test_exists_warning_raises_duplicate_upload_error_when_hashes_match(
+    mocker, tiny_file
+):
+    """exists warning raises DuplicateUploadError when existing file has the same hash"""
+    existing_title = "Mapillary_(rking)_2020-07-23.jpg"
+    file_sha1 = "abc123hash"
+    exists_warning_response = {
+        "upload": {"result": "Warning", "warnings": {"exists": existing_title}}
+    }
+
+    client = _client_with(mocker, exists_warning_response)
+    mocker.patch.object(client, "get_file_sha1", return_value=file_sha1)
+
+    with pytest.raises(DuplicateUploadError) as exc_info:
+        client.upload_file(
+            "test.jpg", tiny_file, "wikitext", "summary", file_sha1=file_sha1
+        )
+
+    assert len(exc_info.value.duplicates) == 1
+    assert exc_info.value.duplicates[0].title == existing_title
+
+
+def test_exists_warning_returns_failure_when_hashes_differ(mocker, tiny_file):
+    """exists warning returns generic failure when existing file has a different hash (name conflict)"""
+    existing_title = "Mapillary_(rking)_2020-07-23.jpg"
+    exists_warning_response = {
+        "upload": {"result": "Warning", "warnings": {"exists": existing_title}}
+    }
+
+    client = _client_with(mocker, exists_warning_response)
+    mocker.patch.object(client, "get_file_sha1", return_value="different_hash")
+
+    result = client.upload_file(
+        "test.jpg", tiny_file, "wikitext", "summary", file_sha1="our_hash"
+    )
+
+    assert result.success is False

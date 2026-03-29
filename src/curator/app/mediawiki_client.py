@@ -254,6 +254,24 @@ class MediaWikiClient:
         logger.info(f"Found {len(duplicates)} duplicates for SHA1 {sha1}")
         return duplicates
 
+    def get_file_sha1(self, title: str) -> str | None:
+        """Return the SHA1 hash of an existing file on Commons, or None if not found."""
+        params: dict[str, str] = {
+            "action": "query",
+            "formatversion": "2",
+            "titles": title if title.startswith("File:") else f"File:{title}",
+            "prop": "imageinfo",
+            "iiprop": "sha1",
+        }
+        data = self._api_request(params)
+        pages = data.get("query", {}).get("pages", [])
+        if pages and pages[0].get("imageinfo"):
+            sha1 = pages[0]["imageinfo"][0].get("sha1")
+            logger.info(f"SHA1 for {title}: {sha1}")
+            return sha1
+        logger.info(f"No imageinfo found for {title}")
+        return None
+
     def _upload_chunk(
         self,
         chunk_num: int,
@@ -261,6 +279,7 @@ class MediaWikiClient:
         query_params: dict[str, str],
         post_data: dict[str, str],
         files: dict[str, Any],
+        file_sha1: str | None = None,
     ) -> str | None | UploadResult:
         """Upload a single chunk with retry logic, return file_key or UploadResult on error."""
         max_attempts = len(CHUNK_RETRY_DELAYS) + 1
@@ -330,6 +349,21 @@ class MediaWikiClient:
                     raise DuplicateUploadError(
                         duplicates, f"File already exists as {dup_titles}"
                     )
+                if "exists" in warnings and file_sha1:
+                    existing_title = warnings["exists"]
+                    logger.info(f"File exists warning for {existing_title}, checking SHA1")
+                    remote_sha1 = self.get_file_sha1(existing_title)
+                    if remote_sha1 == file_sha1:
+                        logger.info(f"SHA1 match confirmed, treating as duplicate: {existing_title}")
+                        raise DuplicateUploadError(
+                            [
+                                ErrorLink(
+                                    title=existing_title,
+                                    url=f"https://commons.wikimedia.org/wiki/File:{existing_title.replace(' ', '_')}",
+                                )
+                            ],
+                            f"File already exists as {existing_title}",
+                        )
 
                 if warnings:
                     logger.warning(warnings)
@@ -351,6 +385,7 @@ class MediaWikiClient:
         wikitext: str,
         edit_summary: str,
         chunk_size: int = 1024 * 1024 * 1,  # 1MB chunks
+        file_sha1: str | None = None,
     ) -> UploadResult:
         """Upload a file to Commons using chunked upload."""
         file_size = os.path.getsize(file_path)
@@ -389,7 +424,7 @@ class MediaWikiClient:
                 }
 
                 chunk_result = self._upload_chunk(
-                    chunk_num, total_chunks, query_params, post_data, files
+                    chunk_num, total_chunks, query_params, post_data, files, file_sha1
                 )
                 if isinstance(chunk_result, UploadResult):
                     return chunk_result
