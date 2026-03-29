@@ -1,6 +1,7 @@
-"""Tests for chunk upload retry on UploadStashFileException, UploadChunkFileException, and JobQueueError API errors"""
+"""Tests for chunk upload retry on UploadStashFileException, UploadChunkFileException, JobQueueError, and backend-fail-internal API errors"""
 
 import pytest
+import requests
 from mwoauth import AccessToken
 
 from curator.app.errors import DuplicateUploadError
@@ -32,6 +33,13 @@ _JOB_QUEUE_ERROR = {
     "error": {
         "code": "internal_api_error-JobQueueError",
         "info": "[0955ae00-41e9-4fc6-b968-f8a71184154e] Caught exception of type MediaWiki\\JobQueue\\Exceptions\\JobQueueError",
+    }
+}
+
+_BACKEND_FAIL_INTERNAL = {
+    "error": {
+        "code": "backend-fail-internal",
+        "info": 'An unknown error occurred in storage backend "local-swift-codfw".',
     }
 }
 
@@ -204,3 +212,72 @@ def test_exists_warning_returns_failure_when_hashes_differ(mocker, tiny_file):
     )
 
     assert result.success is False
+
+
+def test_backend_fail_internal_on_commit_retries_and_succeeds(mocker, tiny_file):
+    """backend-fail-internal on final commit retries instead of returning failure immediately"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker, _CHUNK_SUCCESS, _BACKEND_FAIL_INTERNAL, _COMMIT_SUCCESS
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
+    mocker, tiny_file
+):
+    """backend-fail-internal on final commit fails after all retry attempts"""
+    mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker,
+        _CHUNK_SUCCESS,
+        _BACKEND_FAIL_INTERNAL,
+        _BACKEND_FAIL_INTERNAL,
+        _BACKEND_FAIL_INTERNAL,
+        _BACKEND_FAIL_INTERNAL,
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is False
+    assert "backend-fail-internal" in (result.error or "")
+
+
+def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
+    """network error on final commit retries instead of propagating immediately"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker,
+        _CHUNK_SUCCESS,
+        requests.exceptions.ConnectionError("connection reset"),
+        _COMMIT_SUCCESS,
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_request_exception_on_commit_fails_after_all_retries_exhausted(
+    mocker, tiny_file
+):
+    """network error on final commit fails after all retry attempts"""
+    mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker,
+        _CHUNK_SUCCESS,
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is False
+    assert result.error is not None

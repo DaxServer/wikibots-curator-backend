@@ -351,10 +351,14 @@ class MediaWikiClient:
                     )
                 if "exists" in warnings and file_sha1:
                     existing_title = warnings["exists"]
-                    logger.info(f"File exists warning for {existing_title}, checking SHA1")
+                    logger.info(
+                        f"File exists warning for {existing_title}, checking SHA1"
+                    )
                     remote_sha1 = self.get_file_sha1(existing_title)
                     if remote_sha1 == file_sha1:
-                        logger.info(f"SHA1 match confirmed, treating as duplicate: {existing_title}")
+                        logger.info(
+                            f"SHA1 match confirmed, treating as duplicate: {existing_title}"
+                        )
                         raise DuplicateUploadError(
                             [
                                 ErrorLink(
@@ -447,35 +451,70 @@ class MediaWikiClient:
                 "filekey": file_key,
             }
 
-            data = self._api_request(
-                query_params, method="POST", data=post_data, timeout=60.0, csrf=True
-            )
+            max_attempts = len(CHUNK_RETRY_DELAYS) + 1
+            for commit_attempt in range(max_attempts):
+                is_last_attempt = commit_attempt == max_attempts - 1
+                delay = CHUNK_RETRY_DELAYS[commit_attempt] if not is_last_attempt else 0
 
-            if "error" in data:
-                logger.error(data)
-                return UploadResult(
-                    success=False,
-                    error=data["error"].get(
+                try:
+                    data = self._api_request(
+                        query_params,
+                        method="POST",
+                        data=post_data,
+                        timeout=60.0,
+                        csrf=True,
+                    )
+                except requests.exceptions.RequestException as e:
+                    if is_last_attempt:
+                        logger.error(
+                            f"Final commit failed after {max_attempts} attempts: {e}"
+                        )
+                        return UploadResult(
+                            success=False, error=f"Final commit failed: {e}"
+                        )
+                    logger.warning(
+                        f"Final commit network error (attempt {commit_attempt + 1}/{max_attempts}), "
+                        f"retrying in {delay} seconds: {e}"
+                    )
+                    time.sleep(delay)
+                    continue
+
+                if "error" in data:
+                    error_code = data["error"].get("code", "")
+                    error_info = data["error"].get(
                         "info", "Upload failed while committing chunked uploads"
-                    ),
-                )
-
-            logger.info(f"Final commit for {filename} with filekey {file_key}")
-
-            if "upload" in data:
-                result = data["upload"]
-                if result.get("result") == "Success":
-                    title = result.get("filename", result.get("title"))
-                    imageinfo = result.get("imageinfo", {})
-                    image_url = imageinfo.get("descriptionurl")
+                    )
+                    if not is_last_attempt and "backend-fail-internal" in error_code:
+                        logger.warning(
+                            f"Final commit backend error (attempt {commit_attempt + 1}/{max_attempts}), "
+                            f"retrying in {delay} seconds: {data}"
+                        )
+                        time.sleep(delay)
+                        continue
+                    logger.error(data)
                     return UploadResult(
-                        success=True,
-                        title=title,
-                        url=image_url,
+                        success=False,
+                        error=f"{error_code}: {error_info}",
                     )
 
-            logger.error(data)
-            return UploadResult(success=False, error="Upload failed: unknown reason")
+                logger.info(f"Final commit for {filename} with filekey {file_key}")
+
+                if "upload" in data:
+                    result = data["upload"]
+                    if result.get("result") == "Success":
+                        title = result.get("filename", result.get("title"))
+                        imageinfo = result.get("imageinfo", {})
+                        image_url = imageinfo.get("descriptionurl")
+                        return UploadResult(
+                            success=True,
+                            title=title,
+                            url=image_url,
+                        )
+
+                logger.error(data)
+                return UploadResult(
+                    success=False, error="Upload failed: unknown reason"
+                )
 
         raise AssertionError("Unreachable")
 
