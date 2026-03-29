@@ -249,6 +249,9 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - pytest-timeout may enforce 0.25s default even with `timeout = 0` in pytest.ini
 - Tests with `time.sleep()` must mock `time` module to avoid timeouts: `mocker.patch("time.sleep")`
 
+## Pull Request Conventions
+- Phabricator tasks must be linked by full URL in PR descriptions: `https://phabricator.wikimedia.org/T123456`
+
 ## Pull Request Review Workflow
 - Use `gh api repos/{owner}/{repo}/pulls/{number}/comments` to get line-by-line review comments with file paths and line numbers
 - `gh pr view --json reviews` only shows high-level review summaries, not specific line comments

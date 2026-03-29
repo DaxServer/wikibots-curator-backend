@@ -1,6 +1,7 @@
 """Tests for chunk upload retry on UploadStashFileException, UploadChunkFileException, JobQueueError, and backend-fail-internal API errors"""
 
 import pytest
+import requests
 from mwoauth import AccessToken
 
 from curator.app.errors import DuplicateUploadError
@@ -244,3 +245,39 @@ def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
 
     assert result.success is False
     assert "backend-fail-internal" in (result.error or "")
+
+
+def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
+    """network error on final commit retries instead of propagating immediately"""
+    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker,
+        _CHUNK_SUCCESS,
+        requests.exceptions.ConnectionError("connection reset"),
+        _COMMIT_SUCCESS,
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_request_exception_on_commit_fails_after_all_retries_exhausted(
+    mocker, tiny_file
+):
+    """network error on final commit fails after all retry attempts"""
+    mocker.patch("curator.app.mediawiki_client.time.sleep")
+
+    client = _client_with(
+        mocker,
+        _CHUNK_SUCCESS,
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+        requests.exceptions.ConnectionError("connection reset"),
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is False
+    assert result.error is not None

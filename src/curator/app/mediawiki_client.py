@@ -456,9 +456,28 @@ class MediaWikiClient:
                 is_last_attempt = commit_attempt == max_attempts - 1
                 delay = CHUNK_RETRY_DELAYS[commit_attempt] if not is_last_attempt else 0
 
-                data = self._api_request(
-                    query_params, method="POST", data=post_data, timeout=60.0, csrf=True
-                )
+                try:
+                    data = self._api_request(
+                        query_params,
+                        method="POST",
+                        data=post_data,
+                        timeout=60.0,
+                        csrf=True,
+                    )
+                except requests.exceptions.RequestException as e:
+                    if is_last_attempt:
+                        logger.error(
+                            f"Final commit failed after {max_attempts} attempts: {e}"
+                        )
+                        return UploadResult(
+                            success=False, error=f"Final commit failed: {e}"
+                        )
+                    logger.warning(
+                        f"Final commit network error (attempt {commit_attempt + 1}/{max_attempts}), "
+                        f"retrying in {delay} seconds: {e}"
+                    )
+                    time.sleep(delay)
+                    continue
 
                 if "error" in data:
                     error_code = data["error"].get("code", "")
