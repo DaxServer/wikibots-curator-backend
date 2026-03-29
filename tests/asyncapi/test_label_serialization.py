@@ -3,18 +3,18 @@
 from typing import cast
 from unittest.mock import patch
 
-from curator.app.dal import create_upload_requests_for_batch
-from curator.app.models import UploadItem as ModelUploadItem
-from curator.app.models import UploadRequest
 from curator.asyncapi import Label
 from curator.asyncapi import UploadItem as AsyncUploadItem
+from curator.db.dal_uploads import create_upload_requests_for_batch
+from curator.db.models import UploadItem as ModelUploadItem
+from curator.db.models import UploadRequest
 
 
 def test_create_upload_request_label_serialization(mocker, mock_session):
     """Test that Label objects are serialized to dicts during upload request creation."""
     with (
-        patch("curator.app.dal.ensure_user"),
-        patch("curator.app.dal.create_batch") as mock_create_batch,
+        patch("curator.db.dal_users.ensure_user"),
+        patch("curator.db.dal_batches.create_batch") as mock_create_batch,
     ):
         mock_batch = mocker.MagicMock()
         mock_batch.id = 123

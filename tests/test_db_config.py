@@ -2,7 +2,7 @@
 
 from sqlalchemy.pool import QueuePool
 
-from curator.app.db import engine
+from curator.db.engine import engine
 
 
 def test_engine_pool_configuration():

@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app.models import UploadRequest, User
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -14,6 +13,7 @@ from curator.asyncapi import (
     ImageUrls,
     MediaImage,
 )
+from curator.db.models import UploadRequest, User
 from curator.workers import ingest
 
 

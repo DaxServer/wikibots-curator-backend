@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app.handler import revoke_celery_tasks_by_id
 from curator.asyncapi import CancelBatch
+from curator.core.handler import revoke_celery_tasks_by_id
 
 
 @pytest.mark.asyncio
@@ -14,8 +14,8 @@ async def test_handle_cancel_batch_success(handler_instance, mock_sender):
     batch_id = 123
 
     with (
-        patch("curator.app.handler.cancel_batch") as mock_cancel_batch,
-        patch("curator.app.handler.revoke_celery_tasks_by_id") as mock_revoke,
+        patch("curator.core.handler.cancel_batch") as mock_cancel_batch,
+        patch("curator.core.handler.revoke_celery_tasks_by_id") as mock_revoke,
     ):
         # Mock cancelled uploads with task IDs
         mock_cancel_batch.return_value = {
@@ -49,7 +49,7 @@ async def test_handle_cancel_batch_no_queued_items(handler_instance, mock_sender
     batch_id = 123
 
     with (
-        patch("curator.app.handler.cancel_batch") as mock_cancel_batch,
+        patch("curator.core.handler.cancel_batch") as mock_cancel_batch,
     ):
         # No items to cancel
         mock_cancel_batch.return_value = {}
@@ -67,7 +67,7 @@ async def test_handle_cancel_batch_not_found(handler_instance, mock_sender):
     batch_id = 999
 
     with (
-        patch("curator.app.handler.cancel_batch") as mock_cancel_batch,
+        patch("curator.core.handler.cancel_batch") as mock_cancel_batch,
     ):
         # Batch not found
         mock_cancel_batch.side_effect = ValueError("Batch not found")
@@ -85,7 +85,7 @@ async def test_handle_cancel_batch_permission_denied(handler_instance, mock_send
     batch_id = 123
 
     with (
-        patch("curator.app.handler.cancel_batch") as mock_cancel_batch,
+        patch("curator.core.handler.cancel_batch") as mock_cancel_batch,
     ):
         # Permission denied
         mock_cancel_batch.side_effect = PermissionError("Permission denied")
@@ -106,7 +106,7 @@ async def test_revoke_celery_tasks_by_id_all_success():
         3: "task-3",
     }
 
-    with patch("curator.app.handler.celery_app.control") as mock_control:
+    with patch("curator.core.handler.celery_app.control") as mock_control:
         results = revoke_celery_tasks_by_id(upload_task_ids)
 
         # Verify revoke was called for each task ID
@@ -129,7 +129,7 @@ async def test_revoke_celery_tasks_by_id_with_missing_task_id():
         3: "task-3",
     }
 
-    with patch("curator.app.handler.celery_app.control") as mock_control:
+    with patch("curator.core.handler.celery_app.control") as mock_control:
         results = revoke_celery_tasks_by_id(upload_task_ids)
 
         # Verify revoke was called only for tasks with IDs
@@ -152,7 +152,7 @@ async def test_revoke_celery_tasks_by_id_with_exception():
         3: "task-3",
     }
 
-    with patch("curator.app.handler.celery_app.control") as mock_control:
+    with patch("curator.core.handler.celery_app.control") as mock_control:
         # Simulate task2 raising an exception
         mock_control.revoke.side_effect = [None, Exception("Task not found"), None]
 

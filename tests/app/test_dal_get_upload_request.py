@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from curator.app.dal import get_upload_request
+from curator.db.dal_uploads import get_upload_request
 
 
 def test_get_upload_request_with_last_editor(mock_session):

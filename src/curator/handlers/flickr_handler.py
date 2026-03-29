@@ -7,7 +7,6 @@ from fastapi import Request, WebSocket
 from flickr_url_parser import parse_flickr_url
 from flickr_url_parser.exceptions import NotAFlickrUrl
 
-from curator.app.config import FLICKR_API_KEY
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -18,6 +17,7 @@ from curator.asyncapi import (
     ImageUrls,
     MediaImage,
 )
+from curator.core.config import FLICKR_API_KEY
 from curator.handlers.interfaces import Handler
 
 logger = logging.getLogger(__name__)

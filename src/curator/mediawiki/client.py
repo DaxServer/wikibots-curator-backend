@@ -16,9 +16,9 @@ from authlib.integrations.requests_client import OAuth1Auth
 from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
-from curator.app.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
-from curator.app.errors import DuplicateUploadError
 from curator.asyncapi import ErrorLink
+from curator.core.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
+from curator.core.errors import DuplicateUploadError
 
 logger = logging.getLogger(__name__)
 

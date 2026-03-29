@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.commons import DuplicateUploadError
-from curator.app.crypto import encrypt_access_token
 from curator.asyncapi import ErrorLink
+from curator.core.crypto import encrypt_access_token
+from curator.mediawiki.commons import DuplicateUploadError
 from curator.workers.ingest import process_one
 
 

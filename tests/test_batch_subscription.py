@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.handler import Handler
 from curator.asyncapi import (
     SubscribeBatchesListData,
 )
+from curator.core.handler import Handler
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ async def test_handler_subscribe_batches_list_deprecated(
     """Test that the deprecated subscribe_batches_list still works and starts streaming."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+    with patch("curator.core.handler.OptimizedBatchStreamer") as MockStreamer:
         mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         data = SubscribeBatchesListData(userid="user123", filter="test")
         await handler.subscribe_batches_list(data)

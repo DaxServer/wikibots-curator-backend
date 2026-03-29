@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from mwoauth import AccessToken
 
-from curator.app.auth import check_login
+from curator.core.auth import check_login
 from curator.main import app
 from curator.protocol import WS_CHANNEL_ADDRESS
 
@@ -36,16 +36,16 @@ def setup_auth_override():
 @pytest.fixture
 def mock_dal():
     with (
-        patch("curator.app.dal.create_upload_requests_for_batch") as mock_create,
-        patch("curator.app.handler.get_upload_request") as mock_get,
-        patch("curator.app.handler.count_uploads_in_batch") as mock_count,
+        patch("curator.db.dal_uploads.create_upload_requests_for_batch") as mock_create,
+        patch("curator.core.handler.get_upload_request") as mock_get,
+        patch("curator.core.handler.count_uploads_in_batch") as mock_count,
     ):
         yield mock_create, mock_get, mock_count
 
 
 @pytest.fixture
 def mock_get_session_patch(patch_get_session):
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     return True
 
 
@@ -96,10 +96,10 @@ async def test_stream_uploads_completion(mocker, mock_dal, mock_get_session_patc
 def test_ws_subscribe_batches_list(mock_get_session_patch):
     """Test that SUBSCRIBE_BATCHES_LIST message starts streaming batches."""
     with (
-        patch("curator.app.handler.get_batches") as mock_get_batches,
-        patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch("curator.core.handler.get_batches") as mock_get_batches,
+        patch("curator.core.handler.count_batches") as mock_count_batches,
         patch(
-            "curator.app.handler.get_latest_update_time",
+            "curator.core.handler.get_latest_update_time",
             return_value=datetime.now(),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
@@ -123,10 +123,10 @@ def test_ws_subscribe_batches_list(mock_get_session_patch):
 def test_ws_fetch_batches_auto_subscribe(mock_get_session_patch):
     """Test that FETCH_BATCHES automatically subscribes to batch updates."""
     with (
-        patch("curator.app.handler.get_batches") as mock_get_batches,
-        patch("curator.app.handler.count_batches") as mock_count_batches,
+        patch("curator.core.handler.get_batches") as mock_get_batches,
+        patch("curator.core.handler.count_batches") as mock_count_batches,
         patch(
-            "curator.app.handler.get_latest_update_time",
+            "curator.core.handler.get_latest_update_time",
             return_value=datetime.now(),
         ),
         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,

@@ -1,6 +1,5 @@
 """Tests for qualifier hash preservation."""
 
-from curator.app.sdc_merge import safe_merge_statement
 from curator.asyncapi import (
     DataValueEntityId,
     DataValueQuantity,
@@ -19,6 +18,7 @@ from curator.asyncapi import (
     UrlValueSnak,
     WikibaseEntityType,
 )
+from curator.mediawiki.sdc_merge import safe_merge_statement
 
 # Test helpers
 

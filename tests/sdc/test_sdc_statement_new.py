@@ -1,6 +1,5 @@
 """Tests for statement merging with new properties."""
 
-from curator.app.sdc_merge import safe_merge_statement
 from curator.asyncapi import (
     DataValueEntityId,
     EntityIdDataValue,
@@ -9,6 +8,7 @@ from curator.asyncapi import (
     Statement,
     WikibaseEntityType,
 )
+from curator.mediawiki.sdc_merge import safe_merge_statement
 
 # Test helpers
 

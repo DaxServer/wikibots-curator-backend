@@ -11,12 +11,12 @@ import logging
 import time
 from dataclasses import dataclass
 
-from curator.app.config import (
+from curator.core.config import (
     RATE_LIMIT_DEFAULT_NORMAL,
     RATE_LIMIT_DEFAULT_PERIOD,
     redis_client,
 )
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.mediawiki.client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
 

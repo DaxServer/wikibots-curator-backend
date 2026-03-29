@@ -5,7 +5,7 @@ import string
 from cryptography.fernet import Fernet
 from mwoauth import AccessToken
 
-from curator.app.config import TOKEN_ENCRYPTION_KEY
+from curator.core.config import TOKEN_ENCRYPTION_KEY
 
 
 def _get_fernet() -> Fernet:

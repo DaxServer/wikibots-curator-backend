@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 from mwoauth import AccessToken
 
-from curator.app.auth import check_login
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -16,6 +15,7 @@ from curator.asyncapi import (
     ImageUrls,
     MediaImage,
 )
+from curator.core.auth import check_login
 from curator.main import app
 from curator.protocol import WS_CHANNEL_ADDRESS
 
@@ -42,7 +42,7 @@ def setup_auth_override():
 
 @pytest.fixture
 def mock_mapillary_handler():
-    with patch("curator.app.handler.MapillaryHandler") as mock:
+    with patch("curator.core.handler.MapillaryHandler") as mock:
         yield mock
 
 

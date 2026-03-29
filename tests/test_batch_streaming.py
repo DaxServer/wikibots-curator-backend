@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.handler import Handler
 from curator.asyncapi import (
     BatchItem,
     BatchStats,
     FetchBatchesData,
 )
+from curator.core.handler import Handler
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ async def test_handler_fetch_batches_starts_streamer(
     """Test that fetch_batches initiates the OptimizedBatchStreamer."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+    with patch("curator.core.handler.OptimizedBatchStreamer") as MockStreamer:
         mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         data = FetchBatchesData(page=1, limit=50, userid="user123", filter="test")
         await handler.fetch_batches(data)
@@ -68,7 +68,7 @@ async def test_handler_fetch_batches_cancels_previous_task(
     """Test that multiple fetch_batches calls cancel the previous task."""
     handler = Handler(mock_user, mock_websocket_sender, mocker.MagicMock())
 
-    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+    with patch("curator.core.handler.OptimizedBatchStreamer") as MockStreamer:
         mock_start = MockStreamer.return_value.start_streaming = AsyncMock()
         # First call
         await handler.fetch_batches(
@@ -114,17 +114,17 @@ async def test_handler_fetch_batches_workflow(
 
     # Only mock sleep for the streamer loop to avoid real 2s wait
     mock_sleep = mocker.patch(
-        "curator.app.handler.asyncio.sleep", new_callable=AsyncMock
+        "curator.core.handler.asyncio.sleep", new_callable=AsyncMock
     )
     mock_sleep.side_effect = [None, asyncio.CancelledError()]
 
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     with (
-        patch("curator.app.handler.get_batches") as mock_full,
-        patch("curator.app.handler.get_batches_minimal") as mock_mini,
-        patch("curator.app.handler.get_batch_ids_with_recent_changes") as mock_changed,
-        patch("curator.app.handler.get_latest_update_time") as mock_latest,
-        patch("curator.app.handler.count_batches") as mock_count,
+        patch("curator.core.handler.get_batches") as mock_full,
+        patch("curator.core.handler.get_batches_minimal") as mock_mini,
+        patch("curator.core.handler.get_batch_ids_with_recent_changes") as mock_changed,
+        patch("curator.core.handler.get_latest_update_time") as mock_latest,
+        patch("curator.core.handler.count_batches") as mock_count,
     ):
         # 1. Initial sync (t1)
         mock_latest.side_effect = [t1, t2]  # t1 for init, t2 for loop check

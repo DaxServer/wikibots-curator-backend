@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from curator.app.dal import (
+from curator.asyncapi import Label
+from curator.db.dal_presets import (
     count_all_presets,
     create_preset,
     delete_preset,
@@ -14,8 +15,7 @@ from curator.app.dal import (
     get_presets_for_handler,
     update_preset,
 )
-from curator.app.models import Preset
-from curator.asyncapi import Label
+from curator.db.models import Preset
 
 
 @pytest.fixture

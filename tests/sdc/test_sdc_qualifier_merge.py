@@ -1,15 +1,15 @@
 """Tests for qualifier merging."""
 
-from curator.app.sdc_merge import (
-    Qualifiers,
-    Snak,
-    merge_qualifiers,
-)
 from curator.asyncapi import (
     StringDataValue,
     StringValueSnak,
     UrlDataValue,
     UrlValueSnak,
+)
+from curator.mediawiki.sdc_merge import (
+    Qualifiers,
+    Snak,
+    merge_qualifiers,
 )
 
 # Test helpers

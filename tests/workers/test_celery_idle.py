@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from curator.app.config import CELERY_MAXIMUM_WAIT_TIME
+from curator.core.config import CELERY_MAXIMUM_WAIT_TIME
 
 # Need to mock celery before importing the module because it tries to connect/configure
 with patch("celery.Celery"):

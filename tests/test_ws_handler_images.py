@@ -10,7 +10,7 @@ from curator.asyncapi import ImageHandler
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_image):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = MagicMock()
         mock_handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
         mock_handler.fetch_existing_pages.return_value = {"img1": []}
@@ -27,7 +27,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_i
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = MagicMock()
         mock_handler.fetch_collection = AsyncMock(return_value={})
         mock_handler.name = "mapillary"
@@ -40,7 +40,7 @@ async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
 
 @pytest.mark.asyncio
 async def test_handle_fetch_images_api_error(mocker, handler_instance, mock_sender):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = mocker.MagicMock()
         mock_handler.fetch_collection = AsyncMock(
             side_effect=httpx.HTTPStatusError(

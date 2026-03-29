@@ -5,7 +5,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from mwoauth import ConsumerToken, Handshaker, RequestToken
 
-from curator.app.config import OAUTH_KEY, OAUTH_SECRET, URLS, USER_AGENT
+from curator.core.config import OAUTH_KEY, OAUTH_SECRET, URLS, USER_AGENT
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
