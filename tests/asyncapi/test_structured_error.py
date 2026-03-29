@@ -2,14 +2,14 @@
 
 from unittest.mock import Mock, patch
 
-from curator.app.dal import update_upload_status
-from curator.app.models import UploadRequest
 from curator.asyncapi import (
     DuplicateError,
     ErrorLink,
     GenericError,
     TitleBlacklistedError,
 )
+from curator.db.dal_uploads import update_upload_status
+from curator.db.models import UploadRequest
 
 
 def test_upload_request_model_validation():
@@ -82,7 +82,7 @@ def test_upload_request_model_validation_title_blacklisted_error():
     assert req.error.message == "Title contains blacklisted pattern"
 
 
-@patch("curator.app.dal.update")
+@patch("curator.db.dal_uploads.update")
 def test_update_upload_status_with_error(mock_update, mock_session):
     """Test update_upload_status calls session.exec with correct update statement."""
     error_model = GenericError(message="Something went wrong")
@@ -124,7 +124,7 @@ def test_update_upload_status_with_error(mock_update, mock_session):
     mock_session.flush.assert_called_once()
 
 
-@patch("curator.app.dal.update")
+@patch("curator.db.dal_uploads.update")
 def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
     """Test update_upload_status with DuplicateError."""
     error_model = DuplicateError(
@@ -168,7 +168,7 @@ def test_update_upload_status_with_duplicate_error(mock_update, mock_session):
     mock_session.flush.assert_called_once()
 
 
-@patch("curator.app.dal.update")
+@patch("curator.db.dal_uploads.update")
 def test_update_upload_status_with_title_blacklisted_error(mock_update, mock_session):
     """Test update_upload_status with TitleBlacklistedError."""
     error_model = TitleBlacklistedError(message="Title contains blacklisted pattern")

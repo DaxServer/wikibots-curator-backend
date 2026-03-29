@@ -21,7 +21,7 @@ def engine_fixture(session_mocker):
     SQLModel.metadata.create_all(engine)
 
     # Patch the global engine in the db module
-    session_mocker.patch("curator.app.db.engine", engine)
+    session_mocker.patch("curator.db.engine.engine", engine)
 
     yield engine
 

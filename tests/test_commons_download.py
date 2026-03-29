@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from curator.app.commons import download_file
+from curator.mediawiki.commons import download_file
 
 
 def _make_http_error(status_code: int = 504) -> httpx.HTTPStatusError:
@@ -107,7 +107,7 @@ def test_download_logs_warning_on_http_error_retry(mocker, caplog):
     mocker.patch("httpx.stream", side_effect=[error_ctx, success_ctx])
 
     with (
-        caplog.at_level(logging.WARNING, logger="curator.app.commons"),
+        caplog.at_level(logging.WARNING, logger="curator.mediawiki.commons"),
         NamedTemporaryFile() as temp_file,
     ):
         download_file(
@@ -130,7 +130,7 @@ def test_download_logs_error_when_all_retries_exhausted(mocker, caplog):
     )
 
     with (
-        caplog.at_level(logging.ERROR, logger="curator.app.commons"),
+        caplog.at_level(logging.ERROR, logger="curator.mediawiki.commons"),
         NamedTemporaryFile() as temp_file,
     ):
         with pytest.raises(httpx.HTTPStatusError):

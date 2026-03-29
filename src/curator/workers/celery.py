@@ -19,7 +19,7 @@ from celery.signals import (
     worker_shutdown,
 )
 
-from curator.app.config import (
+from curator.core.config import (
     CELERY_BACKEND_URL,
     CELERY_BROKER_URL,
     CELERY_CONCURRENCY,

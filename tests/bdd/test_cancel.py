@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlmodel import Session, col, select
 
-from curator.app.handler import Handler
-from curator.app.models import UploadRequest
 from curator.asyncapi import CancelBatch
+from curator.core.handler import Handler
+from curator.db.models import UploadRequest
 
 from .conftest import run_sync
 
@@ -104,7 +104,7 @@ def step_given_update_one_upload(engine, status):
 def step_when_cancel_batch(batch_id, active_user, mocker, u_res):
     """Send cancel batch message via WebSocket"""
     # Mock the Celery control
-    mock_control = mocker.patch("curator.app.handler.celery_app.control")
+    mock_control = mocker.patch("curator.core.handler.celery_app.control")
 
     u_res["cancel"] = mock_control
 

@@ -10,14 +10,14 @@ import logging
 from sqlalchemy import update
 from sqlmodel import col
 
-from curator.app.auth import AccessToken
-from curator.app.db import get_session
-from curator.app.mediawiki_client import MediaWikiClient
-from curator.app.models import UploadRequest
-from curator.app.rate_limiter import (
+from curator.core.auth import AccessToken
+from curator.core.rate_limiter import (
     get_next_upload_delay,
     get_rate_limit_for_batch,
 )
+from curator.db.engine import get_session
+from curator.db.models import UploadRequest
+from curator.mediawiki.client import MediaWikiClient
 from curator.workers.celery import QUEUE_NORMAL
 from curator.workers.tasks import process_upload
 

@@ -1,6 +1,5 @@
 """Tests for coordinate upsert behavior."""
 
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import (
     DataValueGlobeCoordinate,
     GlobeCoordinateDataValue,
@@ -11,6 +10,7 @@ from curator.asyncapi import (
     StringDataValue,
     StringValueSnak,
 )
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 
 def test_coordinates_upsert_adds_when_not_exists():

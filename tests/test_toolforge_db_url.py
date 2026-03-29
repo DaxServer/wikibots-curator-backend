@@ -10,11 +10,11 @@ def test_toolforge_db_url_builds_pymysql():
     os.environ["TOOL_TOOLSDB_USER"] = "tools.curator"
     os.environ["TOOL_TOOLSDB_PASSWORD"] = "x"
 
-    for m in ["curator.app.db"]:
+    for m in ["curator.db.engine"]:
         if m in sys.modules:
             del sys.modules[m]
 
-    db = importlib.import_module("curator.app.db")
+    db = importlib.import_module("curator.db.engine")
 
     assert db.DB_URL.startswith("mysql+pymysql://")
     assert db.DB_URL.endswith("tools.curator__curator")

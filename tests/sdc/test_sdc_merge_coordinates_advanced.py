@@ -1,6 +1,5 @@
 """Tests for advanced coordinate handling in SDC merge."""
 
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import (
     DataValueEntityId,
     DataValueGlobeCoordinate,
@@ -13,6 +12,7 @@ from curator.asyncapi import (
     Statement,
     WikibaseEntityType,
 )
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 
 def test_coordinates_upsert_multiple_properties():

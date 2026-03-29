@@ -8,33 +8,6 @@ import httpx
 from fastapi import WebSocketDisconnect
 from sqlmodel import Session
 
-from curator.app.auth import UserSession
-from curator.app.crypto import (
-    decrypt_access_token,
-    encrypt_access_token,
-)
-from curator.app.dal import (
-    cancel_batch,
-    count_batches,
-    count_uploads_in_batch,
-    create_batch,
-    create_preset,
-    create_upload_requests_for_batch,
-    delete_preset,
-    ensure_user,
-    get_batch,
-    get_batch_ids_with_recent_changes,
-    get_batches,
-    get_batches_minimal,
-    get_latest_update_time,
-    get_presets_for_handler,
-    get_upload_request,
-    reset_failed_uploads_to_new_batch,
-    update_preset,
-)
-from curator.app.db import get_session
-from curator.app.models import Batch, Preset, UploadItem
-from curator.app.task_enqueuer import enqueue_uploads
 from curator.asyncapi import (
     BatchesListData,
     BatchUploadsListData,
@@ -53,6 +26,37 @@ from curator.asyncapi import (
     UploadSliceData,
     UploadUpdateItem,
 )
+from curator.core.auth import UserSession
+from curator.core.crypto import (
+    decrypt_access_token,
+    encrypt_access_token,
+)
+from curator.core.task_enqueuer import enqueue_uploads
+from curator.db.dal_batches import (
+    count_batches,
+    count_uploads_in_batch,
+    create_batch,
+    get_batch,
+    get_batch_ids_with_recent_changes,
+    get_batches,
+    get_batches_minimal,
+    get_latest_update_time,
+)
+from curator.db.dal_presets import (
+    create_preset,
+    delete_preset,
+    get_presets_for_handler,
+    update_preset,
+)
+from curator.db.dal_uploads import (
+    cancel_batch,
+    create_upload_requests_for_batch,
+    get_upload_request,
+    reset_failed_uploads_to_new_batch,
+)
+from curator.db.dal_users import ensure_user
+from curator.db.engine import get_session
+from curator.db.models import Batch, Preset, UploadItem, UploadStatus
 from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
@@ -472,8 +476,8 @@ class Handler:
                         for r in items
                         if r.status
                         in (
-                            "completed",
-                            "failed",
+                            UploadStatus.COMPLETED,
+                            UploadStatus.FAILED,
                             DuplicateError.model_fields["type"].default,
                             DuplicatedSdcUpdatedError.model_fields["type"].default,
                             DuplicatedSdcNotUpdatedError.model_fields["type"].default,

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from curator.app import wcqs
-from curator.app.wcqs import WcqsSession
+from curator.core import wcqs
+from curator.core.wcqs import WcqsSession
 
 
 @pytest.fixture

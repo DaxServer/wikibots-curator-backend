@@ -6,10 +6,10 @@ from typing import IO, Any, Optional
 
 import httpx
 
-from curator.app.config import redis_client
-from curator.app.errors import DuplicateUploadError, HashLockError
-from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import Label, Statement
+from curator.core.config import redis_client
+from curator.core.errors import DuplicateUploadError, HashLockError
+from curator.mediawiki.client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
 

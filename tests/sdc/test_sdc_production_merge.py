@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import Statement
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 
 def test_production_merge_preserves_hash_fields():

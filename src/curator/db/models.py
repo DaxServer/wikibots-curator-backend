@@ -26,6 +26,17 @@ StructuredError = Union[
 _error_adapter: TypeAdapter[StructuredError] = TypeAdapter(StructuredError)
 
 
+class UploadStatus:
+    QUEUED = "queued"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    DUPLICATE = "duplicate"
+    DUPLICATED_SDC_UPDATED = "duplicated_sdc_updated"
+    DUPLICATED_SDC_NOT_UPDATED = "duplicated_sdc_not_updated"
+
+
 class LabelJSON(TypeDecorator[Optional[Label]]):
     """JSON column that serializes Label to dict and deserializes dict to Label."""
 

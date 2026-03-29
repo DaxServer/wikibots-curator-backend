@@ -5,8 +5,8 @@ import logging
 
 import httpx
 
-from curator.app.config import GEOCODING_API_URL, GEOCODING_CONCURRENCY_LIMIT
 from curator.asyncapi import MediaImage
+from curator.core.config import GEOCODING_API_URL, GEOCODING_CONCURRENCY_LIMIT
 
 logger = logging.getLogger(__name__)
 

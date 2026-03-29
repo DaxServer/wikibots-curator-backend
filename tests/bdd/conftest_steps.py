@@ -9,11 +9,29 @@ from mwoauth import AccessToken
 from pytest_bdd import given, parsers
 from sqlmodel import Session, col, select
 
-import curator.app.auth as auth_mod
 from curator.admin import check_admin
-from curator.app.auth import check_login
-from curator.app.handler import Handler
-from curator.app.models import Batch, UploadRequest, User
+from curator.core.auth import check_login
+from curator.core.handler import Handler
+from curator.db.models import Batch, UploadRequest, User
+
+
+def _setup_session(
+    app,
+    mocker,
+    u: dict,
+    extra_overrides: dict | None = None,
+    session_dict: dict | None = None,
+) -> dict:
+    """Configure FastAPI dependency overrides and session mock for a test user."""
+    app.dependency_overrides[check_login] = lambda: u
+    if extra_overrides:
+        app.dependency_overrides.update(extra_overrides)
+    mocker.patch(
+        "starlette.requests.Request.session",
+        new_callable=PropertyMock,
+        return_value=session_dict or {"user": u},
+    )
+    return u
 
 
 def run_sync(coro, loop):
@@ -39,13 +57,7 @@ def step_given_user(userid, mocker, username="testuser"):
         "sub": userid,
         "access_token": AccessToken("v", "s"),
     }
-    app.dependency_overrides[auth_mod.check_login] = lambda: u
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
+    return _setup_session(app, mocker, u)
 
 
 @given(
@@ -61,15 +73,7 @@ def step_given_admin(username, mocker):
         "sub": "admin123",
         "access_token": AccessToken("v", "s"),
     }
-
-    app.dependency_overrides[check_login] = lambda: u
-    app.dependency_overrides[check_admin] = lambda: None
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value={"user": u},
-    )
-    return u
+    return _setup_session(app, mocker, u, extra_overrides={check_admin: lambda: None})
 
 
 @given(
@@ -90,20 +94,14 @@ def step_given_std_user(username, mocker, session_context):
         "access_token": AccessToken("v", "s"),
     }
 
-    app.dependency_overrides[check_login] = lambda: u
-
     def _f():
         raise HTTPException(403, "Forbidden")
 
-    app.dependency_overrides[check_admin] = _f
     session_dict = {"user": u}
     session_context["dict"] = session_dict
-    mocker.patch(
-        "starlette.requests.Request.session",
-        new_callable=PropertyMock,
-        return_value=session_dict,
+    return _setup_session(
+        app, mocker, u, extra_overrides={check_admin: _f}, session_dict=session_dict
     )
-    return u
 
 
 @given(parsers.parse('a batch exists with id {batch_id:d} for user "{userid}"'))

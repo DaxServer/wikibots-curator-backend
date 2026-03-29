@@ -1,14 +1,14 @@
 """Tests for reference merging."""
 
-from curator.app.sdc_merge import (
-    merge_references,
-)
 from curator.asyncapi import (
     Reference,
     StringDataValue,
     StringValueSnak,
     UrlDataValue,
     UrlValueSnak,
+)
+from curator.mediawiki.sdc_merge import (
+    merge_references,
 )
 
 

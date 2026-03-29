@@ -3,9 +3,9 @@
 from pytest_bdd import given, parsers, scenario, then, when
 from sqlmodel import Session, col, select
 
-from curator.app.commons import DuplicateUploadError
-from curator.app.models import Batch, UploadRequest, User
 from curator.asyncapi import ErrorLink
+from curator.db.models import Batch, UploadRequest, User
+from curator.mediawiki.commons import DuplicateUploadError
 from curator.workers.ingest import process_one
 
 from .conftest import run_sync

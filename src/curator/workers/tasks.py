@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 
-from curator.app.errors import HashLockError
+from curator.core.errors import HashLockError
 from curator.workers.celery import app
 from curator.workers.ingest import process_one
 

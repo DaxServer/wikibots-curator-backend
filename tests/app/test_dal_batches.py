@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from curator.app.dal import (
+from curator.db.dal_batches import (
     count_batches,
     get_batch_ids_with_recent_changes,
     get_batches,

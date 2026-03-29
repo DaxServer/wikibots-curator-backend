@@ -1,6 +1,6 @@
 """Tests for MediaWiki API operations in commons."""
 
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.mediawiki.client import MediaWikiClient
 
 
 def test_fetch_page_returns_page_data(mocker):

@@ -6,8 +6,8 @@ from mwoauth import AccessToken
 from pytest_bdd import parsers, scenario, then, when
 from sqlmodel import Session, select
 
-from curator.app.handler import Handler
-from curator.app.models import UploadRequest
+from curator.core.handler import Handler
+from curator.db.models import UploadRequest
 
 from .conftest import run_sync
 

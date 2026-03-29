@@ -6,12 +6,12 @@ import pytest
 from mwoauth.tokens import AccessToken
 
 from curator.admin import admin_retry_uploads
-from curator.app.auth import UserSession
-from curator.app.crypto import generate_edit_group_id
-from curator.app.dal import create_batch
-from curator.app.models import Batch, RetrySelectedUploadsRequest
-from curator.app.rate_limiter import RateLimitInfo
 from curator.asyncapi import UploadItem, UploadSliceData
+from curator.core.auth import UserSession
+from curator.core.crypto import generate_edit_group_id
+from curator.core.rate_limiter import RateLimitInfo
+from curator.db.dal_batches import create_batch
+from curator.db.models import Batch, RetrySelectedUploadsRequest
 from curator.workers.celery import QUEUE_NORMAL
 
 
@@ -61,7 +61,7 @@ class TestEditGroupIdGeneration:
 class TestBatchCreationEditGroupId:
     """Test batch creation generates edit_group_id"""
 
-    @patch("curator.app.dal.generate_edit_group_id")
+    @patch("curator.db.dal_batches.generate_edit_group_id")
     def test_create_batch_generates_edit_group_id(self, mock_gen_id, mock_session):
         """Verify creating a batch generates a unique edit_group_id"""
         mock_gen_id.return_value = "abc123def456"
@@ -75,7 +75,7 @@ class TestBatchCreationEditGroupId:
         mock_gen_id.assert_called_once()
         assert batch.edit_group_id == "abc123def456"
 
-    @patch("curator.app.dal.generate_edit_group_id")
+    @patch("curator.db.dal_batches.generate_edit_group_id")
     def test_different_batches_have_different_edit_group_ids(
         self, mock_gen_id, mock_session
     ):
@@ -118,14 +118,16 @@ class TestUploadSliceUsesBatchEditGroupId:
 
         with (
             patch(
-                "curator.app.handler.create_upload_requests_for_batch"
+                "curator.core.handler.create_upload_requests_for_batch"
             ) as mock_create,
-            patch("curator.app.handler.encrypt_access_token", return_value="encrypted"),
             patch(
-                "curator.app.task_enqueuer.get_rate_limit_for_batch"
+                "curator.core.handler.encrypt_access_token", return_value="encrypted"
+            ),
+            patch(
+                "curator.core.task_enqueuer.get_rate_limit_for_batch"
             ) as mock_get_rate,
-            patch("curator.app.task_enqueuer.get_next_upload_delay", return_value=0.0),
-            patch("curator.app.task_enqueuer.process_upload") as mock_process,
+            patch("curator.core.task_enqueuer.get_next_upload_delay", return_value=0.0),
+            patch("curator.core.task_enqueuer.process_upload") as mock_process,
         ):
             mock_create.return_value = [mock_req]
             mock_get_rate.return_value = RateLimitInfo(
@@ -157,13 +159,13 @@ class TestRetryCreatesNewBatch:
         """Verify user retry creates a new batch with its own edit_group_id"""
         with (
             patch(
-                "curator.app.handler.reset_failed_uploads_to_new_batch"
+                "curator.core.handler.reset_failed_uploads_to_new_batch"
             ) as mock_reset,
-            patch("curator.app.task_enqueuer.process_upload") as mock_process,
+            patch("curator.core.task_enqueuer.process_upload") as mock_process,
             patch(
-                "curator.app.task_enqueuer.get_rate_limit_for_batch"
+                "curator.core.task_enqueuer.get_rate_limit_for_batch"
             ) as mock_get_rate,
-            patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+            patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
         ):
             mock_reset.return_value = ([1, 2], "newbatch123456", 456)
             mock_get_rate.return_value = RateLimitInfo(

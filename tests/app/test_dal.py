@@ -1,14 +1,14 @@
 """Tests for core data access layer functions."""
 
-from curator.app.dal import (
+from curator.db.dal_batches import get_batch
+from curator.db.dal_uploads import (
     create_upload_requests_for_batch,
     fail_upload_requests,
-    get_batch,
     get_upload_request_by_id,
     reset_failed_uploads_to_new_batch,
     retry_selected_uploads_to_new_batch,
 )
-from curator.app.models import UploadItem
+from curator.db.models import UploadItem
 
 
 def test_get_upload_request_by_id(mocker, mock_session):
@@ -188,7 +188,7 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
         new_batch.userid = userid
         return new_batch
 
-    mocker.patch("curator.app.dal.create_batch", side_effect=mock_create_batch)
+    mocker.patch("curator.db.dal_uploads.create_batch", side_effect=mock_create_batch)
     result = reset_failed_uploads_to_new_batch(
         mock_session, 123, "user1", "new_encrypted_token", "testuser"
     )
@@ -293,7 +293,7 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
         new_batch.userid = userid
         return new_batch
 
-    mocker.patch("curator.app.dal.create_batch", side_effect=mock_create_batch)
+    mocker.patch("curator.db.dal_uploads.create_batch", side_effect=mock_create_batch)
     result = retry_selected_uploads_to_new_batch(
         mock_session,
         [1, 2],

@@ -4,8 +4,8 @@ import pytest
 import requests
 from mwoauth import AccessToken
 
-from curator.app.errors import DuplicateUploadError
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.core.errors import DuplicateUploadError
+from curator.mediawiki.client import MediaWikiClient
 
 _STASH_ERROR = {
     "error": {
@@ -92,7 +92,7 @@ def tiny_file(tmp_path):
 
 def test_stash_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
     """Stash error in chunk response retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(mocker, _STASH_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
@@ -103,7 +103,7 @@ def test_stash_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
 
 def test_stash_error_succeeds_on_second_attempt(mocker, tiny_file):
     """Upload succeeds when stash error on first attempt, success on second"""
-    mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(mocker, _STASH_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
@@ -115,7 +115,7 @@ def test_stash_error_succeeds_on_second_attempt(mocker, tiny_file):
 
 def test_stash_error_fails_after_all_retries_exhausted(mocker, tiny_file):
     """Returns failure after all 4 attempts return stash errors"""
-    mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR
@@ -128,7 +128,7 @@ def test_stash_error_fails_after_all_retries_exhausted(mocker, tiny_file):
 
 def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
     """Stash error where only the error code (not info) contains UploadStashFileException retries"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker, _STASH_ERROR_CODE_ONLY, _CHUNK_SUCCESS, _COMMIT_SUCCESS
@@ -141,7 +141,7 @@ def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
 
 def test_chunk_file_error_triggers_retry(mocker, tiny_file):
     """UploadChunkFileException retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(mocker, _CHUNK_FILE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
@@ -152,7 +152,7 @@ def test_chunk_file_error_triggers_retry(mocker, tiny_file):
 
 def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):
     """Retries sleep for 3, 5, 10 seconds in order before giving up"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR
@@ -166,7 +166,7 @@ def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):
 
 def test_job_queue_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
     """JobQueueError in chunk response retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(mocker, _JOB_QUEUE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
@@ -216,7 +216,7 @@ def test_exists_warning_returns_failure_when_hashes_differ(mocker, tiny_file):
 
 def test_backend_fail_internal_on_commit_retries_and_succeeds(mocker, tiny_file):
     """backend-fail-internal on final commit retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker, _CHUNK_SUCCESS, _BACKEND_FAIL_INTERNAL, _COMMIT_SUCCESS
@@ -231,7 +231,7 @@ def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
     mocker, tiny_file
 ):
     """backend-fail-internal on final commit fails after all retry attempts"""
-    mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker,
@@ -249,7 +249,7 @@ def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
 
 def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
     """network error on final commit retries instead of propagating immediately"""
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker,
@@ -267,7 +267,7 @@ def test_request_exception_on_commit_fails_after_all_retries_exhausted(
     mocker, tiny_file
 ):
     """network error on final commit fails after all retry attempts"""
-    mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     client = _client_with(
         mocker,

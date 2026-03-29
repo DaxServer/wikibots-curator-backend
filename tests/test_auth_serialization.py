@@ -3,7 +3,7 @@
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.auth import check_login
+from curator.core.auth import check_login
 
 
 @pytest.mark.asyncio

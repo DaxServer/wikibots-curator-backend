@@ -35,12 +35,12 @@ async def test_handle_unsubscribe_batch(handler_instance):
 @pytest.mark.asyncio
 async def test_retry_uploads_success(mocker, handler_instance):
     with (
-        patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch("curator.core.handler.reset_failed_uploads_to_new_batch") as mock_reset,
+        patch("curator.core.task_enqueuer.process_upload") as mock_process_upload,
         patch(
-            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+            "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
-        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch123", 456)
         mock_get_rate_limit.return_value = mocker.MagicMock()
@@ -58,8 +58,8 @@ async def test_retry_uploads_success(mocker, handler_instance):
 @pytest.mark.asyncio
 async def test_retry_uploads_no_failures(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch("curator.core.handler.reset_failed_uploads_to_new_batch") as mock_reset,
+        patch("curator.core.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.return_value = ([], None, 0)
 
@@ -74,8 +74,8 @@ async def test_retry_uploads_no_failures(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_retry_uploads_forbidden(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch("curator.core.handler.reset_failed_uploads_to_new_batch") as mock_reset,
+        patch("curator.core.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = PermissionError("Permission denied")
 
@@ -90,8 +90,8 @@ async def test_retry_uploads_forbidden(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_retry_uploads_not_found(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch("curator.core.handler.reset_failed_uploads_to_new_batch") as mock_reset,
+        patch("curator.core.task_enqueuer.process_upload") as mock_process_upload,
     ):
         mock_reset.side_effect = ValueError("Batch not found")
 
@@ -107,12 +107,12 @@ async def test_retry_uploads_not_found(handler_instance, mock_sender):
 async def test_retry_uploads_enqueues_with_edit_group_id(mocker, handler_instance):
     """Test retry uploads enqueues with correct upload_ids and edit_group_id"""
     with (
-        patch("curator.app.handler.reset_failed_uploads_to_new_batch") as mock_reset,
-        patch("curator.app.task_enqueuer.process_upload") as mock_process_upload,
+        patch("curator.core.handler.reset_failed_uploads_to_new_batch") as mock_reset,
+        patch("curator.core.task_enqueuer.process_upload") as mock_process_upload,
         patch(
-            "curator.app.task_enqueuer.get_rate_limit_for_batch"
+            "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
-        patch("curator.app.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
     ):
         mock_reset.return_value = ([1, 2], "newbatch456", 789)
         mock_get_rate_limit.return_value = mocker.MagicMock()
