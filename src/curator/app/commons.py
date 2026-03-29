@@ -66,6 +66,7 @@ def upload_file_chunked(
                 file_path=temp_file.name,
                 wikitext=wikitext,
                 edit_summary=edit_summary,
+                file_sha1=file_hash,
             )
 
             # Check for upload errors
