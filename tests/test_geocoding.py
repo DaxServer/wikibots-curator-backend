@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from curator.app.geocoding import reverse_geocode, reverse_geocode_batch
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -15,6 +14,7 @@ from curator.asyncapi import (
     ImageUrls,
     MediaImage,
 )
+from curator.core.geocoding import reverse_geocode, reverse_geocode_batch
 
 
 @pytest.mark.asyncio

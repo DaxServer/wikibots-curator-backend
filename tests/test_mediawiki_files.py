@@ -2,8 +2,8 @@
 
 from mwoauth import AccessToken
 
-from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import ErrorLink
+from curator.mediawiki.client import MediaWikiClient
 
 
 def test_find_duplicates_returns_errorlink_list(mocker):

@@ -14,7 +14,7 @@ from curator.asyncapi import (
 
 @pytest.mark.asyncio
 async def test_handle_fetch_batches(handler_instance, mock_sender):
-    with patch("curator.app.handler.OptimizedBatchStreamer") as MockStreamer:
+    with patch("curator.core.handler.OptimizedBatchStreamer") as MockStreamer:
         mock_streamer_instance = MockStreamer.return_value
         mock_streamer_instance.start_streaming = AsyncMock()
 
@@ -34,9 +34,9 @@ async def test_handle_fetch_batches(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.get_batch") as mock_get_batch,
-        patch("curator.app.handler.get_upload_request") as mock_get_uploads,
-        patch("curator.app.handler.count_uploads_in_batch") as mock_count_uploads,
+        patch("curator.core.handler.get_batch") as mock_get_batch,
+        patch("curator.core.handler.get_upload_request") as mock_get_uploads,
+        patch("curator.core.handler.count_uploads_in_batch") as mock_count_uploads,
     ):
         batch = BatchItem(
             id=1,
@@ -77,8 +77,8 @@ async def test_handle_fetch_batch_uploads(handler_instance, mock_sender):
 @pytest.mark.asyncio
 async def test_handle_fetch_batch_uploads_exception(handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.get_batch") as mock_get_batch,
-        patch("curator.app.handler.logger") as mock_logger,
+        patch("curator.core.handler.get_batch") as mock_get_batch,
+        patch("curator.core.handler.logger") as mock_logger,
     ):
         mock_get_batch.side_effect = Exception("DB Error")
 
@@ -93,8 +93,8 @@ async def test_handle_fetch_batch_uploads_exception(handler_instance, mock_sende
 @pytest.mark.asyncio
 async def test_stream_uploads(mocker, handler_instance, mock_sender):
     with (
-        patch("curator.app.handler.get_upload_request") as mock_get,
-        patch("curator.app.handler.count_uploads_in_batch") as mock_count,
+        patch("curator.core.handler.get_upload_request") as mock_get,
+        patch("curator.core.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         mock_req = mocker.MagicMock()
@@ -120,8 +120,8 @@ async def test_stream_uploads_only_sends_on_change(
     mocker, handler_instance, mock_sender
 ):
     with (
-        patch("curator.app.handler.get_upload_request") as mock_get,
-        patch("curator.app.handler.count_uploads_in_batch") as mock_count,
+        patch("curator.core.handler.get_upload_request") as mock_get,
+        patch("curator.core.handler.count_uploads_in_batch") as mock_count,
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
         # Define items for different states

@@ -1,8 +1,5 @@
 """Tests for snak equality in SDC merge operations."""
 
-from curator.app.sdc_merge import (
-    are_snaks_equal,
-)
 from curator.asyncapi import (
     DataValueEntityId,
     DataValueQuantity,
@@ -19,6 +16,9 @@ from curator.asyncapi import (
     UrlDataValue,
     UrlValueSnak,
     WikibaseEntityType,
+)
+from curator.mediawiki.sdc_merge import (
+    are_snaks_equal,
 )
 
 # Test helpers

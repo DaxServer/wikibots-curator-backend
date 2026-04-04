@@ -1,6 +1,5 @@
 """Tests for SDC merge optimization."""
 
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import (
     DataValueEntityId,
     EntityIdDataValue,
@@ -12,6 +11,7 @@ from curator.asyncapi import (
     StringValueSnak,
     WikibaseEntityType,
 )
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 
 def test_identical_sdc_merge_skips_api_request():

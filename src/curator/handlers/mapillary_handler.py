@@ -12,12 +12,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from curator.app.config import (
-    MAPILLARY_API_TOKEN,
-    WikidataProperty,
-)
-from curator.app.geocoding import reverse_geocode_batch
-from curator.app.wcqs import WcqsSession
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -28,6 +22,12 @@ from curator.asyncapi import (
     ImageUrls,
     MediaImage,
 )
+from curator.core.config import (
+    MAPILLARY_API_TOKEN,
+    WikidataProperty,
+)
+from curator.core.geocoding import reverse_geocode_batch
+from curator.core.wcqs import WcqsSession
 from curator.handlers.interfaces import Handler
 
 logger = logging.getLogger(__name__)

@@ -7,8 +7,8 @@ import requests
 from mwoauth import AccessToken
 from pytest_bdd import given, parsers, scenario, then, when
 
-from curator.app.errors import DuplicateUploadError
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.core.errors import DuplicateUploadError
+from curator.mediawiki.client import MediaWikiClient
 
 # Flag to track if default mock should be applied
 _use_default_mock = True
@@ -134,7 +134,7 @@ def api_request_chunk_fails_once(mocker):
         }
 
     return mocker.patch(
-        "curator.app.mediawiki_client.MediaWikiClient._api_request",
+        "curator.mediawiki.client.MediaWikiClient._api_request",
         side_effect=_mock_api_request,
         autospec=False,
     )
@@ -170,7 +170,7 @@ def api_request_chunk_always_fails(mocker):
         raise requests.exceptions.HTTPError("502 Server Error")
 
     return mocker.patch(
-        "curator.app.mediawiki_client.MediaWikiClient._api_request",
+        "curator.mediawiki.client.MediaWikiClient._api_request",
         side_effect=_mock_api_request,
         autospec=False,
     )
@@ -208,7 +208,7 @@ def api_request_chunk_times_out(mocker):
         }
 
     return mocker.patch(
-        "curator.app.mediawiki_client.MediaWikiClient._api_request",
+        "curator.mediawiki.client.MediaWikiClient._api_request",
         side_effect=_mock_api_request,
         autospec=False,
     )
@@ -252,7 +252,7 @@ def api_request_duplicate_warning(mocker):
         }
 
     return mocker.patch(
-        "curator.app.mediawiki_client.MediaWikiClient._api_request",
+        "curator.mediawiki.client.MediaWikiClient._api_request",
         side_effect=_mock_api_request,
         autospec=False,
     )
@@ -288,7 +288,7 @@ def upload_file(mediawiki_client, test_file_path, mocker):
             }
 
         mocker.patch(
-            "curator.app.mediawiki_client.MediaWikiClient._api_request",
+            "curator.mediawiki.client.MediaWikiClient._api_request",
             side_effect=_mock_api_request,
             autospec=False,
         )

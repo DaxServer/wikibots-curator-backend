@@ -4,7 +4,7 @@ import json
 
 from mwoauth import AccessToken
 
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.mediawiki.client import MediaWikiClient
 
 
 def test_apply_sdc_with_sdc_only(mocker):

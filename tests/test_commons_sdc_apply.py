@@ -2,11 +2,11 @@
 
 import pytest
 
-from curator.app.commons import apply_sdc
-from curator.app.mediawiki_client import MediaWikiClient
 from curator.asyncapi import Label, Statement
 from curator.asyncapi.NoValueSnak import NoValueSnak
 from curator.asyncapi.Rank import Rank
+from curator.mediawiki.client import MediaWikiClient
+from curator.mediawiki.commons import apply_sdc
 
 
 @pytest.fixture

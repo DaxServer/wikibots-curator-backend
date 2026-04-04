@@ -1,6 +1,5 @@
 """Tests for SDC statement collection merging."""
 
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import (
     DataValueEntityId,
     EntityIdDataValue,
@@ -14,6 +13,7 @@ from curator.asyncapi import (
     UrlValueSnak,
     WikibaseEntityType,
 )
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 # Test helpers
 

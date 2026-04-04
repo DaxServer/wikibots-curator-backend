@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any, Literal, Optional, Sequence, cast
 
 from sqlalchemy import String, case
@@ -9,56 +9,37 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.orm import class_mapper, selectinload
 from sqlmodel import Session, col, func, select, update
 
-from curator.app.crypto import generate_edit_group_id
-from curator.app.models import (
+from curator.asyncapi import BatchUploadItem
+from curator.db.dal_batches import create_batch
+from curator.db.models import (
     Batch,
-    Preset,
     StructuredError,
     UploadItem,
     UploadRequest,
+    UploadStatus,
     User,
-)
-from curator.asyncapi import (
-    BatchItem,
-    BatchStats,
-    BatchUploadItem,
-    DuplicatedSdcNotUpdatedError,
-    DuplicatedSdcUpdatedError,
-    DuplicateError,
-    Label,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def get_users(
-    session: Session,
-    offset: int = 0,
-    limit: int = 100,
-    filter_text: Optional[str] = None,
-) -> list[User]:
-    """Fetch all users."""
-    query = select(User)
+def _apply_upload_filter(query, filter_text: Optional[str]):
+    """Apply text filter to an upload request query."""
     if filter_text:
-        query = query.where(
+        return query.where(
             or_(
-                col(User.userid).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
+                sqlalchemy_cast(col(UploadRequest.id), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
+                    f"%{filter_text}%"
+                ),
+                col(UploadRequest.userid).ilike(f"%{filter_text}%"),
+                col(UploadRequest.filename).ilike(f"%{filter_text}%"),
+                col(UploadRequest.status).ilike(f"%{filter_text}%"),
             )
         )
-    return list(session.exec(query.offset(offset).limit(limit)).all())
-
-
-def count_users(session: Session, filter_text: Optional[str] = None) -> int:
-    query = select(func.count(User.userid))
-    if filter_text:
-        query = query.where(
-            or_(
-                col(User.userid).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
-            )
-        )
-    return session.exec(query).one()
+    return query
 
 
 def _to_batch_upload_item(u: UploadRequest) -> BatchUploadItem:
@@ -83,21 +64,6 @@ def _to_batch_upload_item(u: UploadRequest) -> BatchUploadItem:
     )
 
 
-def _to_batch_item(batch_obj: Batch, username: str | None) -> BatchItem:
-    """Convert a Batch row to a BatchItem with empty stats."""
-    return BatchItem(
-        id=batch_obj.id,
-        created_at=batch_obj.created_at.isoformat(),
-        updated_at=batch_obj.updated_at.isoformat(),
-        edit_group_id=batch_obj.edit_group_id,
-        username=username or "Unknown",
-        userid=batch_obj.userid,
-        stats=BatchStats(
-            total=0, queued=0, in_progress=0, completed=0, failed=0, duplicate=0
-        ),
-    )
-
-
 def _copy_upload_to_batch(
     upload: UploadRequest,
     new_batch_id: int,
@@ -108,7 +74,7 @@ def _copy_upload_to_batch(
     return UploadRequest(
         batchid=new_batch_id,
         userid=userid,
-        status="queued",
+        status=UploadStatus.QUEUED,
         key=upload.key,
         handler=upload.handler,
         collection=upload.collection,
@@ -135,20 +101,7 @@ def get_all_upload_requests(
 ) -> list[BatchUploadItem]:
     """Fetch all upload requests."""
     query = select(UploadRequest).order_by(col(UploadRequest.id).desc())
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(UploadRequest.id), String).ilike(
-                    f"%{filter_text}%"
-                ),
-                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
-                    f"%{filter_text}%"
-                ),
-                col(UploadRequest.userid).ilike(f"%{filter_text}%"),
-                col(UploadRequest.filename).ilike(f"%{filter_text}%"),
-                col(UploadRequest.status).ilike(f"%{filter_text}%"),
-            )
-        )
+    query = _apply_upload_filter(query, filter_text)
     if statuses:
         query = query.where(col(UploadRequest.status).in_(statuses))
     if date_from:
@@ -168,20 +121,7 @@ def count_all_upload_requests(
     date_to: Optional[date] = None,
 ) -> int:
     query = select(func.count(UploadRequest.id))
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(UploadRequest.id), String).ilike(
-                    f"%{filter_text}%"
-                ),
-                sqlalchemy_cast(col(UploadRequest.batchid), String).ilike(
-                    f"%{filter_text}%"
-                ),
-                col(UploadRequest.userid).ilike(f"%{filter_text}%"),
-                col(UploadRequest.filename).ilike(f"%{filter_text}%"),
-                col(UploadRequest.status).ilike(f"%{filter_text}%"),
-            )
-        )
+    query = _apply_upload_filter(query, filter_text)
     if statuses:
         query = query.where(col(UploadRequest.status).in_(statuses))
     if date_from:
@@ -199,9 +139,11 @@ def cancel_upload_requests(session: Session, ids: list[int]) -> int:
         update(UploadRequest)
         .where(
             col(UploadRequest.id).in_(ids),
-            col(UploadRequest.status).in_(["queued", "in_progress"]),
+            col(UploadRequest.status).in_(
+                [UploadStatus.QUEUED, UploadStatus.IN_PROGRESS]
+            ),
         )
-        .values(status="cancelled")
+        .values(status=UploadStatus.CANCELLED)
     )
     return result.rowcount
 
@@ -214,44 +156,13 @@ def fail_upload_requests(session: Session, ids: list[int]) -> int:
         update(UploadRequest)
         .where(
             col(UploadRequest.id).in_(ids),
-            col(UploadRequest.status) != "failed",
+            col(UploadRequest.status) != UploadStatus.FAILED,
         )
-        .values(status="failed", error={"message": "Manually marked as failed"})
+        .values(
+            status=UploadStatus.FAILED, error={"message": "Manually marked as failed"}
+        )
     )
     return result.rowcount
-
-
-def ensure_user(session: Session, userid: str, username: str) -> User:
-    """Ensure a `User` row exists for `userid`; set username.
-
-    Returns the `User` instance (possibly newly created).
-    """
-    user: Optional[User] = session.get(User, userid)
-
-    if user is None:
-        user = User(userid=userid, username=username)
-        session.add(user)
-        session.flush()
-
-        logger.info(f"[dal] Created user {userid} {username}")
-
-    return user
-
-
-def create_batch(session: Session, userid: str, username: str) -> Batch:
-    """
-    Create a new `Batch` row linked to `userid`.
-
-    Returns the `Batch` instance.
-    """
-    edit_group_id = generate_edit_group_id()
-    batch = Batch(userid=userid, edit_group_id=edit_group_id)
-    session.add(batch)
-    session.flush()
-
-    logger.info(f"[dal] Created batch {batch.id} for {username}")
-
-    return batch
 
 
 def create_upload_requests_for_batch(
@@ -280,7 +191,7 @@ def create_upload_requests_for_batch(
             batchid=batchid,
             key=item.id,
             handler=handler,
-            status="queued",
+            status=UploadStatus.QUEUED,
             collection=item.input,
             access_token=encrypted_access_token,
             filename=item.title,
@@ -298,31 +209,6 @@ def create_upload_requests_for_batch(
     )
 
     return reqs
-
-
-def get_batch(session: Session, batchid: int) -> Optional[BatchItem]:
-    """Fetch a single batch by ID."""
-    user_attr = class_mapper(Batch).relationships["user"].class_attribute
-    query = (
-        select(Batch).options(selectinload(user_attr)).where(col(Batch.id) == batchid)
-    )
-    batch = session.exec(query).first()
-
-    if not batch:
-        return None
-
-    username = batch.user.username if batch.user else None
-    batch_item = _to_batch_item(batch, username)
-    batch_items_map = {batch.id: batch_item}
-    _populate_batch_stats(session, batch_items_map, [batch.id])
-
-    return batch_item
-
-
-def count_uploads_in_batch(session: Session, batchid: int) -> int:
-    return session.exec(
-        select(func.count(UploadRequest.id)).where(UploadRequest.batchid == batchid)
-    ).one()
 
 
 def get_upload_request(
@@ -443,7 +329,10 @@ def cancel_batch(
 
     statement = (
         select(UploadRequest)
-        .where(UploadRequest.batchid == batchid, UploadRequest.status == "queued")
+        .where(
+            UploadRequest.batchid == batchid,
+            UploadRequest.status == UploadStatus.QUEUED,
+        )
         .with_for_update()
     )
     queued_uploads = session.exec(statement).all()
@@ -456,7 +345,7 @@ def cancel_batch(
     }
 
     for upload in queued_uploads:
-        upload.status = "cancelled"
+        upload.status = UploadStatus.CANCELLED
         session.add(upload)
 
     session.flush()
@@ -482,7 +371,7 @@ def retry_selected_uploads_to_new_batch(
 
     statement = select(UploadRequest).where(
         col(UploadRequest.id).in_(upload_ids),
-        col(UploadRequest.status) != "in_progress",
+        col(UploadRequest.status) != UploadStatus.IN_PROGRESS,
     )
     uploads = session.exec(statement).all()
 
@@ -528,7 +417,7 @@ def reset_failed_uploads_to_new_batch(
         raise PermissionError("Permission denied")
 
     statement = select(UploadRequest).where(
-        UploadRequest.batchid == batchid, UploadRequest.status == "failed"
+        UploadRequest.batchid == batchid, UploadRequest.status == UploadStatus.FAILED
     )
     failed_uploads = session.exec(statement).all()
 
@@ -549,399 +438,6 @@ def reset_failed_uploads_to_new_batch(
     return new_ids, new_batch.edit_group_id, new_batch.id
 
 
-def _populate_batch_stats(
-    session: Session, batch_items_map: dict[int, BatchItem], batch_ids: list[int]
-) -> None:
-    """Populate batch stats by aggregating upload request statuses.
-
-    Updates the stats field in batch_items_map in place.
-    """
-    duplicate_statuses = [
-        DuplicateError.model_fields["type"].default,
-        DuplicatedSdcUpdatedError.model_fields["type"].default,
-        DuplicatedSdcNotUpdatedError.model_fields["type"].default,
-    ]
-
-    stats_query = (
-        sa_select(
-            col(UploadRequest.batchid),
-            func.count(col(UploadRequest.id)),
-            func.sum(case((col(UploadRequest.status) == "queued", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "in_progress", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "completed", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "failed", 1), else_=0)),
-            func.sum(case((col(UploadRequest.status) == "cancelled", 1), else_=0)),
-            func.sum(
-                case(
-                    (col(UploadRequest.status).in_(duplicate_statuses), 1),
-                    else_=0,
-                )
-            ),
-        )
-        .where(col(UploadRequest.batchid).in_(batch_ids))
-        .group_by(col(UploadRequest.batchid))
-    )
-
-    stats_results = session.exec(stats_query).all()  # type: ignore
-
-    for row in stats_results:
-        (
-            bid,
-            total,
-            queued,
-            in_progress,
-            completed,
-            failed,
-            cancelled,
-            duplicate,
-        ) = row
-        if bid in batch_items_map:
-            batch_items_map[bid].stats = BatchStats(
-                total=total or 0,
-                queued=int(queued) if queued else 0,
-                in_progress=int(in_progress) if in_progress else 0,
-                completed=int(completed) if completed else 0,
-                failed=int(failed) if failed else 0,
-                cancelled=int(cancelled) if cancelled else 0,
-                duplicate=int(duplicate) if duplicate else 0,
-            )
-
-
-def get_batches(
-    session: Session,
-    userid: Optional[str] = None,
-    offset: int = 0,
-    limit: int = 100,
-    filter_text: Optional[str] = None,
-) -> list[BatchItem]:
-    """Fetch batches for a user, ordered by creation time descending."""
-    base_query = select(Batch, User.username).join(User)
-
-    if userid:
-        base_query = base_query.where(col(Batch.userid) == userid)
-
-    if filter_text:
-        base_query = base_query.where(
-            or_(
-                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
-            )
-        )
-
-    base_query = (
-        base_query.order_by(col(Batch.created_at).desc()).offset(offset).limit(limit)
-    )
-
-    batch_results = session.exec(base_query).all()
-
-    if not batch_results:
-        return []
-
-    batch_items_map: dict[int, BatchItem] = {}
-    ordered_items: list[BatchItem] = []
-
-    for batch_obj, username in batch_results:
-        item = _to_batch_item(batch_obj, username)
-        batch_items_map[batch_obj.id] = item
-        ordered_items.append(item)
-
-    batch_ids = list(batch_items_map.keys())
-
-    _populate_batch_stats(session, batch_items_map, batch_ids)
-
-    return ordered_items
-
-
-def count_batches(
-    session: Session,
-    userid: Optional[str] = None,
-    filter_text: Optional[str] = None,
-) -> int:
-    """Batch counting with single query."""
-    query = select(func.count(col(Batch.id))).select_from(Batch)
-
-    if filter_text:
-        query = query.join(User).where(
-            or_(
-                sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-                col(User.username).ilike(f"%{filter_text}%"),
-            )
-        )
-
-    if userid:
-        query = query.where(col(Batch.userid) == userid)
-
-    result = session.exec(query).one()
-    return result or 0
-
-
-def get_batch_ids_with_recent_changes(
-    session: Session,
-    last_update_time: datetime,
-    userid: Optional[str] = None,
-    filter_text: Optional[str] = None,
-) -> list[int]:
-    """Get batch IDs that have had upload status changes since last_update_time."""
-    # Build filter expression once to avoid duplication
-    filter_expr = None
-    if filter_text:
-        filter_expr = or_(
-            sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-            col(User.username).ilike(f"%{filter_text}%"),
-        )
-
-    query = (
-        select(col(UploadRequest.batchid))
-        .join(Batch, col(Batch.id) == col(UploadRequest.batchid))
-        .join(User, col(User.userid) == col(Batch.userid))
-        .where(col(UploadRequest.updated_at) > last_update_time)
-        .distinct()
-    )
-
-    if userid:
-        query = query.where(col(Batch.userid) == userid)
-    if filter_expr is not None:
-        query = query.where(filter_expr)
-
-    results = session.exec(query).all()
-    batch_ids = list(results)
-
-    batch_query = (
-        select(col(Batch.id)).join(User).where(col(Batch.updated_at) > last_update_time)
-    )
-
-    if userid:
-        batch_query = batch_query.where(col(Batch.userid) == userid)
-    if filter_expr is not None:
-        batch_query = batch_query.where(filter_expr)
-
-    results = session.exec(batch_query).all()
-    batch_ids.extend(list(results))
-
-    return list(set(batch_ids))
-
-
-def get_batches_minimal(
-    session: Session,
-    batch_ids: list[int],
-) -> list[BatchItem]:
-    """Get minimal batch information for only the specified batch IDs."""
-    if not batch_ids:
-        return []
-
-    base_query = (
-        select(Batch, User.username)
-        .join(User)
-        .where(col(Batch.id).in_(batch_ids))
-        .order_by(col(Batch.id).desc())
-    )
-    batch_results = session.exec(base_query).all()
-
-    if not batch_results:
-        return []
-
-    batch_items_map: dict[int, BatchItem] = {
-        batch_obj.id: _to_batch_item(batch_obj, username)
-        for batch_obj, username in batch_results
-    }
-
-    _populate_batch_stats(session, batch_items_map, batch_ids)
-
-    return list(batch_items_map.values())
-
-
-def get_latest_update_time(
-    session: Session,
-    userid: Optional[str] = None,
-    filter_text: Optional[str] = None,
-) -> Optional[datetime]:
-    """Get the latest updated_at time from both batches and upload_requests."""
-    # Build filter expression once to avoid duplication
-    filter_expr = None
-    if filter_text:
-        filter_expr = or_(
-            sqlalchemy_cast(col(Batch.id), String).ilike(f"%{filter_text}%"),
-            col(User.username).ilike(f"%{filter_text}%"),
-        )
-
-    batch_query = select(func.max(col(Batch.updated_at)))
-    if filter_expr is not None:
-        batch_query = batch_query.join(User).where(filter_expr)
-    if userid:
-        batch_query = batch_query.where(col(Batch.userid) == userid)
-
-    upload_query = select(func.max(col(UploadRequest.updated_at)))
-    if filter_expr is not None:
-        upload_query = (
-            upload_query.join(Batch, col(Batch.id) == col(UploadRequest.batchid))
-            .join(User)
-            .where(filter_expr)
-        )
-    if userid:
-        upload_query = upload_query.where(col(UploadRequest.userid) == userid)
-
-    batch_latest = session.exec(batch_query).one()
-    upload_latest = session.exec(upload_query).one()
-
-    if batch_latest and upload_latest:
-        return max(batch_latest, upload_latest)
-    return batch_latest or upload_latest
-
-
-def get_presets_for_handler(
-    session: Session, userid: str, handler: str
-) -> list[Preset]:
-    """Fetch all presets for user and handler, ordered by created_at desc."""
-    return list(
-        session.exec(
-            select(Preset)
-            .where(col(Preset.userid) == userid, col(Preset.handler) == handler)
-            .order_by(col(Preset.created_at).desc())
-        ).all()
-    )
-
-
-def get_all_presets(
-    session: Session,
-    offset: int = 0,
-    limit: int = 100,
-    filter_text: Optional[str] = None,
-) -> list[Preset]:
-    """Fetch all presets across all users."""
-    query = select(Preset).order_by(col(Preset.created_at).desc())
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(Preset.id), String).ilike(f"%{filter_text}%"),
-                col(Preset.userid).ilike(f"%{filter_text}%"),
-                col(Preset.title).ilike(f"%{filter_text}%"),
-            )
-        )
-    return list(session.exec(query.offset(offset).limit(limit)).all())
-
-
-def count_all_presets(session: Session, filter_text: Optional[str] = None) -> int:
-    """Count total presets across all users."""
-    query = select(func.count(Preset.id))
-    if filter_text:
-        query = query.where(
-            or_(
-                sqlalchemy_cast(col(Preset.id), String).ilike(f"%{filter_text}%"),
-                col(Preset.userid).ilike(f"%{filter_text}%"),
-                col(Preset.title).ilike(f"%{filter_text}%"),
-            )
-        )
-    return session.exec(query).one()
-
-
-def get_default_preset(session: Session, userid: str, handler: str) -> Optional[Preset]:
-    """Fetch single default preset for user and handler."""
-    return session.exec(
-        select(Preset).where(
-            col(Preset.userid) == userid,
-            col(Preset.handler) == handler,
-            col(Preset.is_default).is_(True),
-        )
-    ).first()
-
-
-def create_preset(
-    session: Session,
-    userid: str,
-    handler: str,
-    title: str,
-    title_template: str,
-    labels: Optional[Label] = None,
-    categories: Optional[str] = None,
-    exclude_from_date_category: bool = False,
-    is_default: bool = False,
-) -> Preset:
-    """Create new preset, clearing existing defaults if is_default=True."""
-    if is_default:
-        session.exec(
-            update(Preset)
-            .where(
-                col(Preset.userid) == userid,
-                col(Preset.handler) == handler,
-                col(Preset.is_default),
-            )
-            .values(is_default=False)
-        )
-
-    preset = Preset(
-        userid=userid,
-        handler=handler,
-        title=title,
-        title_template=title_template,
-        labels=labels,
-        categories=categories,
-        exclude_from_date_category=exclude_from_date_category,
-        is_default=is_default,
-    )
-    session.add(preset)
-    session.flush()
-
-    logger.info(f"[dal] Created preset {preset.id} for {userid} handler={handler}")
-
-    return preset
-
-
-def update_preset(
-    session: Session,
-    preset_id: int,
-    userid: str,
-    title: str,
-    title_template: str,
-    labels: Optional[Label] = None,
-    categories: Optional[str] = None,
-    exclude_from_date_category: bool = False,
-    is_default: bool = False,
-) -> Optional[Preset]:
-    """Update existing preset, clearing other defaults if is_default=True."""
-    preset = session.get(Preset, preset_id)
-    if not preset or preset.userid != userid:
-        return None
-
-    if is_default:
-        session.exec(
-            update(Preset)
-            .where(
-                col(Preset.userid) == userid,
-                col(Preset.handler) == preset.handler,
-                col(Preset.is_default),
-                col(Preset.id) != preset_id,
-            )
-            .values(is_default=False)
-        )
-
-    preset.title = title
-    preset.title_template = title_template
-    preset.labels = labels
-    preset.categories = categories
-    preset.exclude_from_date_category = exclude_from_date_category
-    preset.is_default = is_default
-    session.add(preset)
-    session.flush()
-
-    logger.info(f"[dal] Updated preset {preset_id} for {userid}")
-
-    return preset
-
-
-def delete_preset(session: Session, preset_id: int, userid: str) -> bool:
-    """Delete preset if owned by user."""
-    preset = session.get(Preset, preset_id)
-    if not preset or preset.userid != userid:
-        return False
-
-    session.delete(preset)
-    session.flush()
-
-    logger.info(f"[dal] Deleted preset {preset_id} for {userid}")
-
-    return True
-
-
 def mark_uploads_expired(session: Session, ids: list[int]) -> None:
     """Mark queued uploads as failed due to an expired or invalid OAuth token."""
     if not ids:
@@ -950,10 +446,10 @@ def mark_uploads_expired(session: Session, ids: list[int]) -> None:
         update(UploadRequest)
         .where(
             col(UploadRequest.id).in_(ids),
-            col(UploadRequest.status) == "queued",
+            col(UploadRequest.status) == UploadStatus.QUEUED,
         )
         .values(
-            status="failed",
+            status=UploadStatus.FAILED,
             error={
                 "type": "error",
                 "message": "Your session has expired. Please log in and retry.",
@@ -974,7 +470,7 @@ def get_queued_uploads_for_recovery(
             col(Batch.edit_group_id),
         )
         .join(Batch, col(UploadRequest.batchid) == col(Batch.id))
-        .where(col(UploadRequest.status) == "queued")
+        .where(col(UploadRequest.status) == UploadStatus.QUEUED)
         .where(col(UploadRequest.access_token).isnot(None))
         .where(col(Batch.edit_group_id).isnot(None))
     )
@@ -1054,7 +550,7 @@ def get_failed_uploads_grouped(
         )
         .join(Batch, col(UploadRequest.batchid) == col(Batch.id))
         .join(User, col(UploadRequest.userid) == col(User.userid))
-        .where(col(UploadRequest.status) == "failed")
+        .where(col(UploadRequest.status) == UploadStatus.FAILED)
         .group_by(
             col(UploadRequest.batchid),
             col(Batch.created_at),
@@ -1120,7 +616,7 @@ def get_failed_uploads_grouped(
     # Fetch failed upload details for this page's batches only
     detail_q = (
         select(UploadRequest)
-        .where(col(UploadRequest.status) == "failed")
+        .where(col(UploadRequest.status) == UploadStatus.FAILED)
         .where(col(UploadRequest.batchid).in_(batch_ids))
     )
     if error_type:

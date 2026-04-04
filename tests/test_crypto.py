@@ -2,7 +2,7 @@
 
 from mwoauth import AccessToken
 
-from curator.app.crypto import decrypt_access_token, encrypt_access_token
+from curator.core.crypto import decrypt_access_token, encrypt_access_token
 
 
 def test_encrypt_decrypt_roundtrip():

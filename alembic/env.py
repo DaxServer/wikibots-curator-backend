@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 from alembic import context
 
 # Import Base and models to populate target_metadata for autogenerate
-from curator.app import models  # noqa
+from curator.db import models  # noqa
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

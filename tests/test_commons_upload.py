@@ -2,13 +2,13 @@
 
 import pytest
 
-from curator.app.commons import (
+from curator.asyncapi import ErrorLink
+from curator.mediawiki.client import MediaWikiClient, UploadResult
+from curator.mediawiki.commons import (
     DuplicateUploadError,
     HashLockError,
     upload_file_chunked,
 )
-from curator.app.mediawiki_client import MediaWikiClient, UploadResult
-from curator.asyncapi import ErrorLink
 
 
 @pytest.fixture
@@ -30,10 +30,10 @@ def test_upload_file_chunked_success(mocker, mock_mediawiki_client):
     mock_mediawiki_client.apply_sdc.return_value = True
 
     # Mock download_file
-    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+    mocker.patch("curator.mediawiki.commons.download_file", return_value="abc123")
 
     # Mock redis to acquire lock
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = True
 
     # Call upload_file_chunked (without site parameter - new signature)
@@ -73,7 +73,7 @@ def test_upload_file_chunked_duplicate_raises_error(mocker, mock_mediawiki_clien
     ]
 
     # Mock download_file
-    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+    mocker.patch("curator.mediawiki.commons.download_file", return_value="abc123")
 
     # Call upload_file_chunked and expect DuplicateUploadError
     with pytest.raises(DuplicateUploadError) as exc_info:
@@ -103,10 +103,10 @@ def test_upload_file_chunked_upload_failure_propagates(mocker, mock_mediawiki_cl
     )
 
     # Mock download_file
-    mocker.patch("curator.app.commons.download_file", return_value="abc123")
+    mocker.patch("curator.mediawiki.commons.download_file", return_value="abc123")
 
     # Mock redis to acquire lock
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = True
 
     # Call upload_file_chunked and expect ValueError
@@ -134,9 +134,9 @@ def test_upload_file_chunked_acquires_hash_lock_after_duplicate_check(
     )
 
     file_hash = "abc123"
-    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+    mocker.patch("curator.mediawiki.commons.download_file", return_value=file_hash)
 
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = True
 
     upload_file_chunked(
@@ -165,9 +165,9 @@ def test_upload_file_chunked_raises_hash_lock_error_when_lock_exists(
     mock_mediawiki_client.find_duplicates.return_value = []
 
     file_hash = "abc123"
-    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+    mocker.patch("curator.mediawiki.commons.download_file", return_value=file_hash)
 
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = False  # Lock already exists
 
     with pytest.raises(HashLockError) as exc_info:
@@ -194,9 +194,9 @@ def test_upload_file_chunked_releases_lock_after_success(mocker, mock_mediawiki_
     mock_mediawiki_client.find_duplicates.return_value = []
 
     file_hash = "abc123"
-    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+    mocker.patch("curator.mediawiki.commons.download_file", return_value=file_hash)
 
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = True
 
     upload_file_chunked(
@@ -220,9 +220,9 @@ def test_upload_file_chunked_releases_lock_after_failure(mocker, mock_mediawiki_
     mock_mediawiki_client.find_duplicates.return_value = []
 
     file_hash = "abc123"
-    mocker.patch("curator.app.commons.download_file", return_value=file_hash)
+    mocker.patch("curator.mediawiki.commons.download_file", return_value=file_hash)
 
-    mock_redis = mocker.patch("curator.app.commons.redis_client")
+    mock_redis = mocker.patch("curator.mediawiki.commons.redis_client")
     mock_redis.set.return_value = True
 
     with pytest.raises(ValueError):

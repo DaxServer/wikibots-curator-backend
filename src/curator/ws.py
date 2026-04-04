@@ -3,8 +3,6 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from curator.app.auth import LoggedInUser
-from curator.app.handler import Handler
 from curator.asyncapi import (
     CancelBatch,
     CreateBatch,
@@ -21,6 +19,8 @@ from curator.asyncapi import (
     UnsubscribeBatchesList,
     UploadSlice,
 )
+from curator.core.auth import LoggedInUser
+from curator.core.handler import Handler
 from curator.protocol import (
     WS_CHANNEL_ADDRESS,
     AsyncAPIWebSocket,

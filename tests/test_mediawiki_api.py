@@ -4,15 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from mwoauth import AccessToken
 
-from curator.app.errors import DuplicateUploadError
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.core.errors import DuplicateUploadError
 
 
-def test_check_title_blacklisted_returns_false_for_clean_title(mocker):
+def test_check_title_blacklisted_returns_false_for_clean_title(
+    mediawiki_client, mocker
+):
     """Test that check_title_blacklisted returns (False, '') for clean title"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         return_value={
             "titleblacklist": {
@@ -33,9 +33,11 @@ def test_check_title_blacklisted_returns_false_for_clean_title(mocker):
     )
 
 
-def test_check_title_blacklisted_returns_true_for_blacklisted_title(mocker):
+def test_check_title_blacklisted_returns_true_for_blacklisted_title(
+    mediawiki_client, mocker
+):
     """Test that check_title_blacklisted returns (True, reason) for blacklisted title"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         return_value={
             "titleblacklist": {
@@ -50,9 +52,9 @@ def test_check_title_blacklisted_returns_true_for_blacklisted_title(mocker):
     assert result == (True, "Promotional content")
 
 
-def test_check_title_blacklisted_returns_false_on_api_error(mocker):
+def test_check_title_blacklisted_returns_false_on_api_error(mediawiki_client, mocker):
     """Test that check_title_blacklisted returns (False, '') on API error"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(side_effect=Exception("API timeout"))
 
     result = mock_client.check_title_blacklisted("Error_Title.jpg")
@@ -60,9 +62,9 @@ def test_check_title_blacklisted_returns_false_on_api_error(mocker):
     assert result == (False, "")
 
 
-def test_check_title_blacklisted_default_reason(mocker):
+def test_check_title_blacklisted_default_reason(mediawiki_client, mocker):
     """Test that check_title_blacklisted uses default reason when none provided"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         return_value={
             "titleblacklist": {
@@ -76,9 +78,9 @@ def test_check_title_blacklisted_default_reason(mocker):
     assert result == (True, "Title is blacklisted")
 
 
-def test_get_csrf_token_returns_string(mocker):
+def test_get_csrf_token_returns_string(mediawiki_client, mocker):
     """Test that get_csrf_token returns string token"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         return_value={"query": {"tokens": {"csrftoken": "test-csrf-token-123\\+\\"}}}
     )
@@ -92,9 +94,9 @@ def test_get_csrf_token_returns_string(mocker):
     )
 
 
-def test_get_csrf_token_handles_api_error(mocker):
+def test_get_csrf_token_handles_api_error(mediawiki_client, mocker):
     """Test that get_csrf_token raises exception on API error"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(side_effect=Exception("API timeout"))
 
     with pytest.raises(Exception, match="API timeout"):
@@ -130,9 +132,11 @@ def _mock_api_request_for_success(
     return {}
 
 
-def test_upload_file_returns_success_when_final_chunk_returns_success(mocker):
+def test_upload_file_returns_success_when_final_chunk_returns_success(
+    mediawiki_client, mocker
+):
     """Test that upload_file returns success after chunked upload with final commit"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         side_effect=_mock_api_request_for_success
     )
@@ -188,9 +192,11 @@ def _mock_api_request_for_duplicate(
     return {}
 
 
-def test_upload_file_raises_duplicate_error_when_warnings_duplicate(mocker):
+def test_upload_file_raises_duplicate_error_when_warnings_duplicate(
+    mediawiki_client, mocker
+):
     """Test that upload_file raises DuplicateUploadError when final chunk returns duplicate warnings"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         side_effect=_mock_api_request_for_duplicate
     )
@@ -238,9 +244,9 @@ def _mock_api_request_for_warnings(
     return {}
 
 
-def test_upload_file_fails_when_other_warnings(mocker):
+def test_upload_file_fails_when_other_warnings(mediawiki_client, mocker):
     """Test that upload_file returns failure when final chunk returns non-duplicate warnings"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         side_effect=_mock_api_request_for_warnings
     )
@@ -271,15 +277,15 @@ def test_upload_file_fails_when_other_warnings(mocker):
 # Tests for retry functionality with exponential backoff
 
 
-def test_api_request_succeeds_on_first_attempt(mocker):
+def test_api_request_succeeds_on_first_attempt(mediawiki_client, mocker):
     """Test that API request succeeds immediately without retry"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_response = MagicMock()
     mock_response.json.return_value = {"success": True}
     mock_request = mocker.patch.object(
         mock_client._client, "request", return_value=mock_response
     )
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     result = mock_client._api_request({"action": "test"})
 
@@ -288,9 +294,9 @@ def test_api_request_succeeds_on_first_attempt(mocker):
     mock_sleep.assert_not_called()
 
 
-def test_api_request_succeeds_after_first_retry(mocker):
+def test_api_request_succeeds_after_first_retry(mediawiki_client, mocker):
     """Test that API request succeeds after first retry with 1s backoff"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_response = MagicMock()
     mock_response.json.return_value = {"success": True}
     mock_request = mocker.patch.object(
@@ -311,9 +317,9 @@ def test_api_request_succeeds_after_first_retry(mocker):
     mock_sleep.assert_called_once_with(1)
 
 
-def test_api_request_succeeds_after_second_retry(mocker):
+def test_api_request_succeeds_after_second_retry(mediawiki_client, mocker):
     """Test that API request succeeds after second retry with 1s then 3s backoff"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_response = MagicMock()
     mock_response.json.return_value = {"success": True}
     mock_request = mocker.patch.object(
@@ -335,9 +341,9 @@ def test_api_request_succeeds_after_second_retry(mocker):
     assert mock_sleep.call_args_list == [mocker.call(1), mocker.call(3)]
 
 
-def test_api_request_fails_after_all_retries(mocker):
+def test_api_request_fails_after_all_retries(mediawiki_client, mocker):
     """Test that API request raises exception after all retries exhausted"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_request = mocker.patch.object(
         mock_client._client,
         "request",
@@ -354,9 +360,9 @@ def test_api_request_fails_after_all_retries(mocker):
     assert mock_sleep.call_args_list == [mocker.call(1), mocker.call(3)]
 
 
-def test_only_request_exception_triggers_retry(mocker):
+def test_only_request_exception_triggers_retry(mediawiki_client, mocker):
     """Test that only RequestException triggers retry, other exceptions propagate immediately"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_request = mocker.patch.object(
         mock_client._client, "request", side_effect=ValueError("Non-request error")
     )
@@ -370,9 +376,9 @@ def test_only_request_exception_triggers_retry(mocker):
     mock_sleep.assert_not_called()
 
 
-def test_csrf_badtoken_triggers_retry_with_fresh_token(mocker):
+def test_csrf_badtoken_triggers_retry_with_fresh_token(mediawiki_client, mocker):
     """Test that badtoken error retries with a fresh CSRF token"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     badtoken_response = MagicMock()
     badtoken_response.json.return_value = {
@@ -399,9 +405,9 @@ def test_csrf_badtoken_triggers_retry_with_fresh_token(mocker):
     assert mock_get_csrf.call_count == 2
 
 
-def test_csrf_badtoken_returns_error_if_all_retries_fail(mocker):
+def test_csrf_badtoken_returns_error_if_all_retries_fail(mediawiki_client, mocker):
     """Test that persistent badtoken error is returned after all retries exhausted"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     badtoken_response = MagicMock()
     badtoken_response.json.return_value = {
@@ -425,9 +431,9 @@ _NONCE_ERROR_RESPONSE = {
 }
 
 
-def test_nonce_error_retries_and_succeeds(mocker):
+def test_nonce_error_retries_and_succeeds(mediawiki_client, mocker):
     """Nonce already used error retries automatically and returns success on next attempt"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     nonce_response = MagicMock()
     nonce_response.json.return_value = _NONCE_ERROR_RESPONSE
@@ -439,7 +445,7 @@ def test_nonce_error_retries_and_succeeds(mocker):
         "request",
         side_effect=[nonce_response, success_response],
     )
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     result = mock_client._api_request({"action": "test"})
 
@@ -448,30 +454,30 @@ def test_nonce_error_retries_and_succeeds(mocker):
     mock_sleep.assert_called_once_with(1)
 
 
-def test_nonce_error_returns_error_after_retries_exhausted(mocker):
+def test_nonce_error_returns_error_after_retries_exhausted(mediawiki_client, mocker):
     """Nonce error is returned after all nonce retries are exhausted"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     nonce_response = MagicMock()
     nonce_response.json.return_value = _NONCE_ERROR_RESPONSE
 
     mocker.patch.object(mock_client._client, "request", return_value=nonce_response)
-    mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     result = mock_client._api_request({"action": "test"})
 
     assert result["error"]["code"] == "mwoauth-invalid-authorization"
 
 
-def test_nonce_error_uses_delays_1_3(mocker):
+def test_nonce_error_uses_delays_1_3(mediawiki_client, mocker):
     """Nonce retries sleep 1s then 3s before giving up"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     nonce_response = MagicMock()
     nonce_response.json.return_value = _NONCE_ERROR_RESPONSE
 
     mocker.patch.object(mock_client._client, "request", return_value=nonce_response)
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     mock_client._api_request({"action": "test"})
 
@@ -479,9 +485,9 @@ def test_nonce_error_uses_delays_1_3(mocker):
     assert calls == [1, 3]
 
 
-def test_other_mwoauth_errors_not_retried(mocker):
+def test_other_mwoauth_errors_not_retried(mediawiki_client, mocker):
     """mwoauth-invalid-authorization without 'Nonce already used' is returned without retry"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
 
     other_mwoauth_response = MagicMock()
     other_mwoauth_response.json.return_value = {
@@ -494,7 +500,7 @@ def test_other_mwoauth_errors_not_retried(mocker):
     mock_request = mocker.patch.object(
         mock_client._client, "request", return_value=other_mwoauth_response
     )
-    mock_sleep = mocker.patch("curator.app.mediawiki_client.time.sleep")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
     result = mock_client._api_request({"action": "test"})
 
@@ -535,9 +541,9 @@ _USERINFO_RATELIMITS_RESPONSE = {
 }
 
 
-def test_get_user_rate_limits_returns_ratelimits_and_rights(mocker):
+def test_get_user_rate_limits_returns_ratelimits_and_rights(mediawiki_client, mocker):
     """get_user_rate_limits returns (ratelimits, rights) tuple from userinfo API"""
-    mock_client = MediaWikiClient(AccessToken("test", "test"))
+    mock_client = mediawiki_client
     mock_client._api_request = mocker.MagicMock(
         return_value=_USERINFO_RATELIMITS_RESPONSE
     )

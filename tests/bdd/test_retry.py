@@ -9,9 +9,9 @@ from pytest_bdd import parsers, scenario, then, when
 from sqlmodel import Session, select
 
 from curator.admin import check_admin
-from curator.app.auth import check_login
-from curator.app.handler import Handler
-from curator.app.models import UploadRequest
+from curator.core.auth import check_login
+from curator.core.handler import Handler
+from curator.db.models import UploadRequest
 from curator.main import app
 
 from .conftest import run_sync
@@ -73,14 +73,14 @@ def _setup_admin_dependencies(app, admin_user):
 @when(parsers.parse("I retry uploads for batch {batch_id:d}"))
 def when_retry_uploads(active_user, mock_sender, batch_id, event_loop, mocker):
     mock_apply_async = mocker.patch(
-        "curator.app.task_enqueuer.process_upload.apply_async"
+        "curator.core.task_enqueuer.process_upload.apply_async"
     )
     mocker.patch(
-        "curator.app.task_enqueuer.get_rate_limit_for_batch",
+        "curator.core.task_enqueuer.get_rate_limit_for_batch",
         return_value=mocker.MagicMock(),
     )
     mocker.patch(
-        "curator.app.task_enqueuer.get_next_upload_delay",
+        "curator.core.task_enqueuer.get_next_upload_delay",
         return_value=0.0,
     )
     h = Handler(active_user, mock_sender, MagicMock())

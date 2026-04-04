@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 from mwoauth import AccessToken
 from pytest_bdd import scenario, then, when
 
-from curator.app.handler import Handler
+from curator.core.handler import Handler
 
 from .conftest import run_sync
 

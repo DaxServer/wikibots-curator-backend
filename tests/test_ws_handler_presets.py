@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from curator.app.handler import Handler
-from curator.app.models import Preset
 from curator.asyncapi import ImageHandler, Label, PresetItem, SavePresetData
+from curator.core.handler import Handler
+from curator.db.models import Preset
 
 
 @pytest.mark.asyncio
@@ -28,8 +28,8 @@ async def test_fetch_presets_sends_presets_list(
     preset.created_at = datetime(2023, 1, 1)
     preset.updated_at = datetime(2023, 1, 1)
 
-    patch_get_session("curator.app.handler.get_session")
-    with patch("curator.app.handler.get_presets_for_handler", return_value=[preset]):
+    patch_get_session("curator.core.handler.get_session")
+    with patch("curator.core.handler.get_presets_for_handler", return_value=[preset]):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
         await handler.fetch_presets(ImageHandler.MAPILLARY)
@@ -62,10 +62,10 @@ async def test_save_preset_creates_new_preset(
         handler="mapillary",
     )
 
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     with (
-        patch("curator.app.handler.create_preset"),
-        patch("curator.app.handler.get_presets_for_handler", return_value=[]),
+        patch("curator.core.handler.create_preset"),
+        patch("curator.core.handler.get_presets_for_handler", return_value=[]),
     ):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
@@ -92,10 +92,10 @@ async def test_save_preset_updates_existing_preset(
     )
 
     mock_preset = MagicMock(spec=Preset)
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     with (
-        patch("curator.app.handler.update_preset", return_value=mock_preset),
-        patch("curator.app.handler.get_presets_for_handler", return_value=[]),
+        patch("curator.core.handler.update_preset", return_value=mock_preset),
+        patch("curator.core.handler.get_presets_for_handler", return_value=[]),
     ):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
@@ -123,13 +123,13 @@ async def test_save_preset_with_preset_id_updates_not_creates(
 
     mock_preset = MagicMock(spec=Preset)
 
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     with (
         patch(
-            "curator.app.handler.update_preset", return_value=mock_preset
+            "curator.core.handler.update_preset", return_value=mock_preset
         ) as mock_update,
-        patch("curator.app.handler.create_preset") as mock_create,
-        patch("curator.app.handler.get_presets_for_handler", return_value=[]),
+        patch("curator.core.handler.create_preset") as mock_create,
+        patch("curator.core.handler.get_presets_for_handler", return_value=[]),
     ):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
@@ -153,9 +153,9 @@ async def test_delete_preset_deletes_preset(mock_user, mock_sender, patch_get_se
     mock_session.get.return_value = preset
 
     with (
-        patch("curator.app.handler.get_session", return_value=mock_session),
-        patch("curator.app.handler.delete_preset", return_value=True),
-        patch("curator.app.handler.get_presets_for_handler", return_value=[]),
+        patch("curator.core.handler.get_session", return_value=mock_session),
+        patch("curator.core.handler.delete_preset", return_value=True),
+        patch("curator.core.handler.get_presets_for_handler", return_value=[]),
     ):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
@@ -171,8 +171,8 @@ async def test_delete_preset_sends_error_for_not_found(
     mock_session = MagicMock()
     mock_session.get.return_value = None
 
-    patch_get_session("curator.app.handler.get_session")
-    with patch("curator.app.handler.get_session", return_value=mock_session):
+    patch_get_session("curator.core.handler.get_session")
+    with patch("curator.core.handler.get_session", return_value=mock_session):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
         await handler.delete_preset(1)
@@ -195,8 +195,8 @@ async def test_delete_preset_sends_error_for_wrong_user(
     mock_session = MagicMock()
     mock_session.get.return_value = preset
 
-    patch_get_session("curator.app.handler.get_session")
-    with patch("curator.app.handler.get_session", return_value=mock_session):
+    patch_get_session("curator.core.handler.get_session")
+    with patch("curator.core.handler.get_session", return_value=mock_session):
         handler = Handler(mock_user, mock_sender, MagicMock())
 
         await handler.delete_preset(1)

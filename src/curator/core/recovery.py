@@ -6,12 +6,12 @@ from collections import defaultdict
 
 from mwoauth import AccessToken
 
-from curator.app.config import redis_client
-from curator.app.crypto import decrypt_access_token
-from curator.app.dal import get_queued_uploads_for_recovery, mark_uploads_expired
-from curator.app.db import get_session
-from curator.app.mediawiki_client import MediaWikiClient
-from curator.app.task_enqueuer import enqueue_uploads
+from curator.core.config import redis_client
+from curator.core.crypto import decrypt_access_token
+from curator.core.task_enqueuer import enqueue_uploads
+from curator.db.dal_uploads import get_queued_uploads_for_recovery, mark_uploads_expired
+from curator.db.engine import get_session
+from curator.mediawiki.client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
 

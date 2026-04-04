@@ -1,26 +1,6 @@
 import asyncio
 import logging
-from typing import Literal
 
-from curator.app.commons import (
-    apply_sdc,
-    fetch_sdc_from_api,
-    upload_file_chunked,
-)
-from curator.app.crypto import decrypt_access_token
-from curator.app.dal import (
-    clear_upload_access_token,
-    get_upload_request_by_id,
-    update_upload_status,
-)
-from curator.app.db import get_session
-from curator.app.errors import DuplicateUploadError, HashLockError
-from curator.app.mediawiki_client import MediaWikiClient
-from curator.app.models import (
-    StructuredError,
-)
-from curator.app.sdc_merge import merge_sdc_statements
-from curator.app.sdc_v2 import build_statements_from_mapillary_image
 from curator.asyncapi import (
     DuplicatedSdcNotUpdatedError,
     DuplicatedSdcUpdatedError,
@@ -30,7 +10,27 @@ from curator.asyncapi import (
     Statement,
     TitleBlacklistedError,
 )
+from curator.core.crypto import decrypt_access_token
+from curator.core.errors import DuplicateUploadError, HashLockError
+from curator.db.dal_uploads import (
+    clear_upload_access_token,
+    get_upload_request_by_id,
+    update_upload_status,
+)
+from curator.db.engine import get_session
+from curator.db.models import (
+    StructuredError,
+    UploadStatus,
+)
 from curator.handlers.mapillary_handler import MapillaryHandler
+from curator.mediawiki.client import MediaWikiClient
+from curator.mediawiki.commons import (
+    apply_sdc,
+    fetch_sdc_from_api,
+    upload_file_chunked,
+)
+from curator.mediawiki.sdc_merge import merge_sdc_statements
+from curator.mediawiki.sdc_v2 import build_statements_from_mapillary_image
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,9 @@ def _cleanup(session, upload_id: int):
 
 
 def _success(session, upload_id: int, url) -> bool:
-    update_upload_status(session, upload_id=upload_id, status="completed", success=url)
+    update_upload_status(
+        session, upload_id=upload_id, status=UploadStatus.COMPLETED, success=url
+    )
     _cleanup(session, upload_id)
     return True
 
@@ -51,9 +53,7 @@ def _success(session, upload_id: int, url) -> bool:
 def _fail(
     session,
     upload_id: int,
-    status: Literal[
-        "failed", "duplicate", "duplicated_sdc_updated", "duplicated_sdc_not_updated"
-    ],
+    status: str,
     structured_error: StructuredError,
 ) -> bool:
     update_upload_status(
@@ -144,7 +144,7 @@ async def _handle_duplicate_with_sdc_merge(
         logger.info(
             f"[{upload_id}/{batch_id}] merged SDC and labels are equal to existing, skipping API request"
         )
-        return duplicate_file.url, "duplicated_sdc_not_updated"
+        return duplicate_file.url, UploadStatus.DUPLICATED_SDC_NOT_UPDATED
 
     edit_summary = (
         f"Merging SDC from Mapillary image {key} (batch {batch_id}) "
@@ -162,7 +162,7 @@ async def _handle_duplicate_with_sdc_merge(
             f"[{upload_id}/{batch_id}] successfully applied SDC to existing file"
         )
 
-    return duplicate_file.url, "duplicated_sdc_updated"
+    return duplicate_file.url, UploadStatus.DUPLICATED_SDC_UPDATED
 
 
 def _are_labels_equal(labels1: Label | None, labels2: Label | None) -> bool:
@@ -303,20 +303,22 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                 # We can't even fail it in DB if it's not found
                 return False
 
-            if item.status != "queued":
+            if item.status != UploadStatus.QUEUED:
                 logger.error(
                     f"[{upload_id}/{item.batchid}] upload not in queued status"
                 )
                 return False
 
-            update_upload_status(session, upload_id=upload_id, status="in_progress")
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.IN_PROGRESS
+            )
 
             if not item.access_token:
                 logger.error(f"[{upload_id}/{item.batchid}] missing access token")
                 return _fail(
                     session=session,
                     upload_id=upload_id,
-                    status="failed",
+                    status=UploadStatus.FAILED,
                     structured_error=GenericError(message="Missing access token"),
                 )
 
@@ -325,7 +327,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                 return _fail(
                     session=session,
                     upload_id=upload_id,
-                    status="failed",
+                    status=UploadStatus.FAILED,
                     structured_error=GenericError(message="User not found for upload"),
                 )
 
@@ -344,14 +346,13 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             return _fail(
                 session=session,
                 upload_id=upload_id,
-                status="failed",
+                status=UploadStatus.FAILED,
                 structured_error=GenericError(message=f"Initial fetch error: {e}"),
             )
 
     # 2. Long running operations (NO DB SESSION)
+    mediawiki_client = MediaWikiClient(access_token=access_token)
     try:
-        mediawiki_client = MediaWikiClient(access_token=access_token)
-
         # Check if title is blacklisted
         logger.info(f"[{upload_id}/{batchid}] checking if title is blacklisted")
 
@@ -367,7 +368,7 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                 return _fail(
                     session=session,
                     upload_id=upload_id,
-                    status="failed",
+                    status=UploadStatus.FAILED,
                     structured_error=TitleBlacklistedError(message=reason),
                 )
 
@@ -423,18 +424,18 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
 
         with get_session() as session:
             if merge_result:
-                if merge_status == "duplicated_sdc_updated":
+                if merge_status == UploadStatus.DUPLICATED_SDC_UPDATED:
                     return _fail(
                         session,
                         upload_id,
-                        "duplicated_sdc_updated",
+                        UploadStatus.DUPLICATED_SDC_UPDATED,
                         DuplicatedSdcUpdatedError(message=str(e), links=e.duplicates),
                     )
-                elif merge_status == "duplicated_sdc_not_updated":
+                elif merge_status == UploadStatus.DUPLICATED_SDC_NOT_UPDATED:
                     return _fail(
                         session,
                         upload_id,
-                        "duplicated_sdc_not_updated",
+                        UploadStatus.DUPLICATED_SDC_NOT_UPDATED,
                         DuplicatedSdcNotUpdatedError(
                             message=str(e), links=e.duplicates
                         ),
@@ -445,14 +446,16 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                 return _fail(
                     session,
                     upload_id,
-                    "duplicate",
+                    UploadStatus.DUPLICATE,
                     DuplicateError(message=str(e), links=e.duplicates),
                 )
 
     except HashLockError:
         logger.info(f"[{upload_id}/{batchid}] hash locked, resetting status for retry")
         with get_session() as session:
-            update_upload_status(session, upload_id=upload_id, status="queued")
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.QUEUED
+            )
         raise
 
     except Exception as e:
@@ -463,6 +466,8 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
             return _fail(
                 session,
                 upload_id,
-                "failed",
+                UploadStatus.FAILED,
                 GenericError(message=str(e)),
             )
+    finally:
+        mediawiki_client._client.close()

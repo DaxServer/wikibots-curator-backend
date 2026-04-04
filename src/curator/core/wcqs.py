@@ -24,7 +24,7 @@ from urllib.parse import quote_plus
 import requests
 from fastapi import Request, WebSocket
 
-from curator.app.config import USER_AGENT, WCQS_OAUTH_TOKEN, redis_client
+from curator.core.config import USER_AGENT, WCQS_OAUTH_TOKEN, redis_client
 
 
 class WcqsSession:

@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 from mwoauth import AccessToken
 from pytest_bdd import parsers, scenario, then, when
 
-from curator.app.auth import UserSession
-from curator.app.handler import Handler
 from curator.asyncapi import FetchBatchesData
+from curator.core.auth import UserSession
+from curator.core.handler import Handler
 
 from .conftest import run_sync
 
@@ -34,7 +34,7 @@ def test_fetch_batches_with_cancelled():
 @when("I request to fetch my batches")
 def when_streaming(mock_sender, event_loop, mocker):
     mocker.patch(
-        "curator.app.handler.asyncio.sleep",
+        "curator.core.handler.asyncio.sleep",
         side_effect=[None, asyncio.CancelledError],
     )
 

@@ -3,7 +3,7 @@
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.mediawiki_client import MediaWikiClient
+from curator.mediawiki.client import MediaWikiClient
 
 
 def test_fetch_sdc_returns_statements_and_labels(mocker):

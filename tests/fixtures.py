@@ -21,6 +21,7 @@ from curator.asyncapi import (
     MediaImage,
 )
 from curator.asyncapi.GenericError import GenericError
+from curator.mediawiki.client import MediaWikiClient
 
 # Set up encryption key for tests
 if not os.environ.get("TOKEN_ENCRYPTION_KEY"):
@@ -226,9 +227,9 @@ def mock_sender():
 @pytest.fixture
 def handler_instance(mocker, mock_user, mock_sender, patch_get_session):
     """Standardized Handler instance with get_session pre-patched"""
-    from curator.app.handler import Handler
+    from curator.core.handler import Handler
 
-    patch_get_session("curator.app.handler.get_session")
+    patch_get_session("curator.core.handler.get_session")
     return Handler(mock_user, mock_sender, mocker.MagicMock())
 
 
@@ -395,13 +396,13 @@ def mock_external_calls(mocker, request):
         "curator.workers.ingest.upload_file_chunked",
         return_value={"url": "http://s", "title": "S.jpg"},
     )
-    mocker.patch("curator.app.handler.encrypt_access_token", return_value="e")
+    mocker.patch("curator.core.handler.encrypt_access_token", return_value="e")
     mocker.patch(
         "curator.workers.ingest.decrypt_access_token",
         return_value=AccessToken("v", "s"),
     )
     mocker.patch(
-        "curator.app.handler.decrypt_access_token", return_value=AccessToken("v", "s")
+        "curator.core.handler.decrypt_access_token", return_value=AccessToken("v", "s")
     )
     mock_h = mocker.patch("curator.workers.ingest.MapillaryHandler").return_value
     mock_h.fetch_image_metadata = AsyncMock(
@@ -420,6 +421,12 @@ def mock_external_calls(mocker, request):
     mocker.patch(
         "curator.workers.ingest.build_statements_from_mapillary_image", return_value=[]
     )
+
+
+@pytest.fixture
+def mediawiki_client():
+    """Shared MediaWikiClient instance for tests."""
+    return MediaWikiClient(AccessToken("test", "test"))
 
 
 @pytest.fixture(autouse=True)

@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from curator.app.handler import Handler
 from curator.asyncapi import (
     CameraInfo,
     Creator,
@@ -17,6 +16,7 @@ from curator.asyncapi import (
     MediaImage,
     PartialCollectionImagesData,
 )
+from curator.core.handler import Handler
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def create_test_image(image_id: str) -> MediaImage:
 async def test_fetch_images_batch_retrieval_on_500(
     handler_instance, mock_sender, mocker
 ):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         handler = mock_get_handler.return_value
 
         mock_response = mocker.MagicMock()
@@ -103,7 +103,7 @@ async def test_fetch_images_batch_retrieval_on_500(
 async def test_fetch_images_batch_retrieval_on_timeout(
     handler_instance, mock_sender, mocker
 ):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         handler = mock_get_handler.return_value
 
         handler.fetch_collection.side_effect = httpx.ReadTimeout(
@@ -141,7 +141,7 @@ async def test_fetch_images_batch_retrieval_on_timeout(
 async def test_fetch_images_batch_retrieval_fail_after_ids(
     handler_instance, mock_sender, mocker
 ):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         handler = mock_get_handler.return_value
 
         mock_response = mocker.MagicMock()
@@ -167,7 +167,7 @@ async def test_fetch_images_batch_retrieval_fail_after_ids(
 async def test_fetch_images_batch_empty_collection(
     handler_instance, mock_sender, mocker
 ):
-    with patch("curator.app.handler.get_handler_for_handler_type") as mock_get_handler:
+    with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         handler = mock_get_handler.return_value
 
         mock_response = mocker.MagicMock()

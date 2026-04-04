@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from curator.app.dal import cancel_batch
-from curator.app.models import Batch
+from curator.db.dal_uploads import cancel_batch
+from curator.db.models import Batch
 
 
 def test_cancel_batch_success_queued_items_only(mock_session):

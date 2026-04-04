@@ -4,7 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from curator.app.rate_limiter import (
+from curator.core import rate_limiter as rate_limiter_module
+from curator.core.rate_limiter import (
     _NO_RATE_LIMIT,
     RateLimitInfo,
     get_next_upload_delay,
@@ -19,15 +20,13 @@ def setup_redis_mock(mocker):
     mock_redis.get.return_value = None
     mock_redis.set.return_value = True
     mock_redis.delete.return_value = 1
-    mocker.patch("curator.app.rate_limiter.redis_client", mock_redis)
+    mocker.patch("curator.core.rate_limiter.redis_client", mock_redis)
     return mock_redis
 
 
 def get_redis_mock(mocker):
     """Get the redis_client mock."""
-    from curator.app import rate_limiter
-
-    return rate_limiter.redis_client
+    return rate_limiter_module.redis_client
 
 
 class TestGetRateLimitForBatch:
@@ -149,7 +148,7 @@ class TestGetNextUploadDelay:
         rate_limit = RateLimitInfo(uploads_per_period=4, period_seconds=60)
 
         # Mock time to control the flow
-        mock_time = mocker.patch("curator.app.rate_limiter.time")
+        mock_time = mocker.patch("curator.core.rate_limiter.time")
         mock_time.time.return_value = 100.0
 
         # First upload
@@ -176,7 +175,7 @@ class TestGetNextUploadDelay:
         rate_limit = RateLimitInfo(uploads_per_period=4, period_seconds=60)
 
         # Mock time to control the flow
-        mock_time = mocker.patch("curator.app.rate_limiter.time")
+        mock_time = mocker.patch("curator.core.rate_limiter.time")
         mock_time.time.return_value = 100.0
 
         # Upload 1

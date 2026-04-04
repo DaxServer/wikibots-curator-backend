@@ -1,7 +1,5 @@
 """Integration tests for SDC merge operations."""
 
-from curator.app.commons import DuplicateUploadError
-from curator.app.sdc_merge import merge_sdc_statements
 from curator.asyncapi import (
     DataValueEntityId,
     EntityIdDataValue,
@@ -14,6 +12,8 @@ from curator.asyncapi import (
     StringValueSnak,
     WikibaseEntityType,
 )
+from curator.mediawiki.commons import DuplicateUploadError
+from curator.mediawiki.sdc_merge import merge_sdc_statements
 
 
 def test_duplicate_upload_error_structure():

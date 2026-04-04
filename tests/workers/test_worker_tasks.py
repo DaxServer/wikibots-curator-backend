@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mwoauth import AccessToken
 
-from curator.app.crypto import encrypt_access_token
-from curator.app.models import UploadRequest
+from curator.core.crypto import encrypt_access_token
+from curator.db.models import UploadRequest
 from curator.workers.ingest import process_one
 
 

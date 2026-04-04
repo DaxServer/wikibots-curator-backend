@@ -14,8 +14,8 @@ from curator.admin import (
     admin_get_users,
     admin_retry_uploads,
 )
-from curator.app.auth import UserSession
-from curator.app.models import (
+from curator.core.auth import UserSession
+from curator.db.models import (
     BulkCancelRequest,
     BulkFailRequest,
     RetrySelectedUploadsRequest,
