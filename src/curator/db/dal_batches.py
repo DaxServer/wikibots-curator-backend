@@ -104,12 +104,12 @@ def _populate_batch_stats(
         if bid in batch_items_map:
             batch_items_map[bid].stats = BatchStats(
                 total=total or 0,
-                queued=int(queued) if queued else 0,
-                in_progress=int(in_progress) if in_progress else 0,
-                completed=int(completed) if completed else 0,
-                failed=int(failed) if failed else 0,
-                cancelled=int(cancelled) if cancelled else 0,
-                duplicate=int(duplicate) if duplicate else 0,
+                queued=int(queued or 0),
+                in_progress=int(in_progress or 0),
+                completed=int(completed or 0),
+                failed=int(failed or 0),
+                cancelled=int(cancelled or 0),
+                duplicate=int(duplicate or 0),
             )
 
 
