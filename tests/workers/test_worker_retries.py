@@ -35,8 +35,6 @@ async def test_worker_process_one_uploadstash_retry_success(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     upload_attempts = []
@@ -126,8 +124,6 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     def fake_session_iter():

@@ -35,8 +35,6 @@ async def test_worker_process_one_fails_on_blacklisted_title(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     captured_status = {}
@@ -107,8 +105,6 @@ async def test_worker_process_one_uploadstash_retry_different_error(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     def fake_session_iter():

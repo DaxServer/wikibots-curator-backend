@@ -60,7 +60,6 @@ def _to_batch_upload_item(u: UploadRequest) -> BatchUploadItem:
         created_at=u.created_at.isoformat() if u.created_at else None,
         updated_at=u.updated_at.isoformat() if u.updated_at else None,
         image_id=u.key,
-        last_edited_by=u.last_editor.username if u.last_editor else None,
     )
 
 
@@ -215,12 +214,8 @@ def get_upload_request(
     session: Session,
     batchid: int,
 ) -> list[BatchUploadItem]:
-    last_editor_attr = (
-        class_mapper(UploadRequest).relationships["last_editor"].class_attribute
-    )
     query = (
         select(UploadRequest)
-        .options(selectinload(last_editor_attr))
         .where(UploadRequest.batchid == batchid)
         .order_by(col(UploadRequest.id).asc())
     )
@@ -235,12 +230,9 @@ def get_upload_request_by_id(
 ) -> Optional[UploadRequest]:
     """Fetch an UploadRequest by its ID with relationships loaded."""
     user_attr = class_mapper(UploadRequest).relationships["user"].class_attribute
-    last_editor_attr = (
-        class_mapper(UploadRequest).relationships["last_editor"].class_attribute
-    )
     return session.exec(
         select(UploadRequest)
-        .options(selectinload(user_attr), selectinload(last_editor_attr))
+        .options(selectinload(user_attr))
         .where(col(UploadRequest.id) == upload_id)
     ).first()
 

@@ -166,9 +166,6 @@ class UploadRequest(SQLModel, table=True):
         default=None, sa_column=Column(StructuredErrorJSON)
     )
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
-    last_edited_by: Optional[str] = Field(
-        default=None, foreign_key="users.userid", index=True, max_length=255
-    )
     celery_task_id: Optional[str] = Field(default=None, max_length=255)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     updated_at: datetime = Field(
@@ -182,12 +179,6 @@ class UploadRequest(SQLModel, table=True):
         sa_relationship_kwargs={
             "primaryjoin": "User.userid==UploadRequest.userid",
         },
-    )
-    last_editor: Optional[User] = Relationship(
-        sa_relationship_kwargs={
-            "primaryjoin": "UploadRequest.last_edited_by==User.userid",
-            "foreign_keys": "UploadRequest.last_edited_by",
-        }
     )
     batch: Optional[Batch] = Relationship(back_populates="uploads")
 

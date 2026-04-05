@@ -35,8 +35,6 @@ async def test_worker_process_one_includes_edit_group_id_in_summary(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     captured_edit_summary = {}

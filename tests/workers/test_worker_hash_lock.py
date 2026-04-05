@@ -36,8 +36,6 @@ async def test_worker_process_one_propagates_hash_lock_error(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     with (
