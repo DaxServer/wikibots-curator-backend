@@ -254,6 +254,10 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 To verify `selectinload` is applied to a query, inspect `_with_options` on the captured query:
 `option_keys = [opt.path.path[1].key for opt in query._with_options]` — `path[0]` is the Mapper, `path[1]` is the RelationshipProperty (has `.key`).
 
+### selectinload and SQLModel Relationship Attributes
+
+Passing `Model.relationship` directly to `selectinload` (e.g. `selectinload(UploadRequest.last_editor)`) causes a ty type error — the attribute resolves as the related model type, not `QueryableAttribute`. Use `class_mapper` instead: `class_mapper(Model).relationships["name"].class_attribute`.
+
 ## Pull Request Conventions
 - Phabricator tasks must be linked by full URL in PR descriptions: `https://phabricator.wikimedia.org/T123456`
 
