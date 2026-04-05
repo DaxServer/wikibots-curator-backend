@@ -215,8 +215,12 @@ def get_upload_request(
     session: Session,
     batchid: int,
 ) -> list[BatchUploadItem]:
+    last_editor_attr = (
+        class_mapper(UploadRequest).relationships["last_editor"].class_attribute
+    )
     query = (
         select(UploadRequest)
+        .options(selectinload(last_editor_attr))
         .where(UploadRequest.batchid == batchid)
         .order_by(col(UploadRequest.id).asc())
     )

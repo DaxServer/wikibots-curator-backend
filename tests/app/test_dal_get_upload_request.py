@@ -73,3 +73,14 @@ def test_get_upload_request_without_last_editor(mock_session):
 
     assert len(result) == 1
     assert result[0].last_edited_by is None
+
+
+def test_get_upload_request_uses_selectinload_for_last_editor(mock_session):
+    """Verify last_editor is eager-loaded to prevent N+1 queries."""
+    mock_session.exec.return_value.all.return_value = []
+
+    get_upload_request(mock_session, 100)
+
+    query = mock_session.exec.call_args[0][0]
+    option_keys = [opt.path.path[1].key for opt in query._with_options]
+    assert "last_editor" in option_keys
