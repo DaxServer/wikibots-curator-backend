@@ -319,6 +319,7 @@ class MediaWikiClient:
                 error_info = data["error"].get("info", "Upload failed")
                 if not is_last_attempt and (
                     "UploadStashFileException" in error_code
+                    or "uploadstash-exception" in error_code
                     or "UploadChunkFileException" in error_code
                     or "JobQueueError" in error_code
                 ):
@@ -484,7 +485,10 @@ class MediaWikiClient:
                     error_info = data["error"].get(
                         "info", "Upload failed while committing chunked uploads"
                     )
-                    if not is_last_attempt and "backend-fail-internal" in error_code:
+                    if not is_last_attempt and (
+                        "backend-fail-internal" in error_code
+                        or "JobQueueError" in error_code
+                    ):
                         logger.warning(
                             f"Final commit backend error (attempt {commit_attempt + 1}/{max_attempts}), "
                             f"retrying in {delay} seconds: {data}"
@@ -501,6 +505,18 @@ class MediaWikiClient:
 
                 if "upload" in data:
                     result = data["upload"]
+                    warnings = result.get("warnings", {})
+                    if "nochange" in warnings:
+                        existing_title = warnings.get("exists", filename)
+                        raise DuplicateUploadError(
+                            [
+                                ErrorLink(
+                                    title=existing_title,
+                                    url=f"https://commons.wikimedia.org/wiki/File:{existing_title.replace(' ', '_')}",
+                                )
+                            ],
+                            f"File already exists as {existing_title}",
+                        )
                     if result.get("result") == "Success":
                         title = result.get("filename", result.get("title"))
                         imageinfo = result.get("imageinfo", {})

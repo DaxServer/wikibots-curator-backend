@@ -32,7 +32,8 @@
       "WebFetch(domain:www.mediawiki.org)",
       "Skill(code-review:code-review)",
       "Bash(gh repo view *)",
-      "Bash(but squash --help)"
+      "Bash(but squash --help)",
+      "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls/*/comments *)"
     ]
   }
 }

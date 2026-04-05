@@ -22,6 +22,14 @@ _STASH_ERROR_CODE_ONLY = {
     }
 }
 
+# Variant seen in prod (T420956): bare uploadstash-exception code, info contains UploadStashFileException
+_STASH_EXCEPTION_CODE = {
+    "error": {
+        "code": "uploadstash-exception",
+        "info": 'Could not store upload in the stash (MediaWiki\\Upload\\Exception\\UploadStashFileException): "Im Speicher-Backend „local-swift-eqiad" ist ein unbekannter Fehler aufgetreten.".',
+    }
+}
+
 _CHUNK_FILE_ERROR = {
     "error": {
         "code": "internal_api_error-UploadChunkFileException",
@@ -40,6 +48,16 @@ _BACKEND_FAIL_INTERNAL = {
     "error": {
         "code": "backend-fail-internal",
         "info": 'An unknown error occurred in storage backend "local-swift-codfw".',
+    }
+}
+
+_COMMIT_NOCHANGE = {
+    "upload": {
+        "result": "Warning",
+        "warnings": {
+            "exists": "Mapillary_(osmplus_org)_2026-01-27_08H07M14S500_(919357217326871_at_0LaBzsJ8hoFb19uPCWIDKn).jpg",
+            "nochange": {"timestamp": "2026-04-05T12:26:04Z"},
+        },
     }
 }
 
@@ -132,6 +150,19 @@ def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
 
     client = _client_with(
         mocker, _STASH_ERROR_CODE_ONLY, _CHUNK_SUCCESS, _COMMIT_SUCCESS
+    )
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_uploadstash_exception_code_triggers_retry(mocker, tiny_file):
+    """uploadstash-exception error code retries instead of returning failure immediately"""
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
+
+    client = _client_with(
+        mocker, _STASH_EXCEPTION_CODE, _CHUNK_SUCCESS, _COMMIT_SUCCESS
     )
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
 
@@ -247,6 +278,17 @@ def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
     assert "backend-fail-internal" in (result.error or "")
 
 
+def test_job_queue_error_on_commit_retries_and_succeeds(mocker, tiny_file):
+    """JobQueueError on final commit retries instead of returning failure immediately"""
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
+
+    client = _client_with(mocker, _CHUNK_SUCCESS, _JOB_QUEUE_ERROR, _COMMIT_SUCCESS)
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
+
+
 def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
     """network error on final commit retries instead of propagating immediately"""
     mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
@@ -281,3 +323,14 @@ def test_request_exception_on_commit_fails_after_all_retries_exhausted(
 
     assert result.success is False
     assert result.error is not None
+
+
+def test_nochange_warning_on_commit_raises_duplicate_upload_error(mocker, tiny_file):
+    """nochange + exists warning on final commit raises DuplicateUploadError instead of generic failure"""
+    client = _client_with(mocker, _CHUNK_SUCCESS, _COMMIT_NOCHANGE)
+
+    with pytest.raises(DuplicateUploadError) as exc_info:
+        client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert len(exc_info.value.duplicates) == 1
+    assert "919357217326871" in exc_info.value.duplicates[0].title
