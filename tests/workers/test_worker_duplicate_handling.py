@@ -37,8 +37,6 @@ async def test_worker_process_one_duplicate_status(
         collection="seq",
         access_token=encrypt_access_token(AccessToken("t", "s")),
         user=SimpleNamespace(username="User"),
-        last_edited_by=None,
-        last_editor=None,
     )
 
     captured_status = {}

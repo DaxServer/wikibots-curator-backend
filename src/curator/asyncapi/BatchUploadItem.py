@@ -36,7 +36,6 @@ class BatchUploadItem(BaseModel):
         ]
     ] = Field(default=None)
     success: Optional[str] = Field(default=None)
-    last_edited_by: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None)
     updated_at: Optional[str] = Field(default=None)
     image_id: Optional[str] = Field(default=None)
