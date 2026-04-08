@@ -89,8 +89,8 @@ def download_file(
 ) -> str:
     """Download file to temp file using streaming, returns SHA1 hash"""
     max_attempts = len(HTTP_RETRY_DELAYS) + 1
-    resp = None
     for attempt in range(max_attempts):
+        resp = None
         is_last_attempt = attempt == max_attempts - 1
         delay = HTTP_RETRY_DELAYS[attempt] if not is_last_attempt else 0
 
