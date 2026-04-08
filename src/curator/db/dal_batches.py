@@ -322,5 +322,7 @@ def get_batches_minimal(
 def count_uploads_in_batch(session: Session, batchid: int) -> int:
     """Count uploads in a batch."""
     return session.exec(
-        select(func.count(UploadRequest.id)).where(UploadRequest.batchid == batchid)
+        select(func.count(col(UploadRequest.id))).where(
+            UploadRequest.batchid == batchid
+        )
     ).one()

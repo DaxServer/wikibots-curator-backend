@@ -52,7 +52,7 @@ def get_all_presets(
 
 def count_all_presets(session: Session, filter_text: Optional[str] = None) -> int:
     """Count total presets across all users."""
-    query = select(func.count(Preset.id))
+    query = select(func.count(col(Preset.id)))
     query = _apply_preset_filter(query, filter_text)
     return session.exec(query).one()
 

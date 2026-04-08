@@ -119,7 +119,7 @@ def count_all_upload_requests(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
 ) -> int:
-    query = select(func.count(UploadRequest.id))
+    query = select(func.count(col(UploadRequest.id)))
     query = _apply_upload_filter(query, filter_text)
     if statuses:
         query = query.where(col(UploadRequest.status).in_(statuses))
