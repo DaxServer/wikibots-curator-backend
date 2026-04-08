@@ -322,6 +322,7 @@ class MediaWikiClient:
                     or "uploadstash-exception" in error_code
                     or "UploadChunkFileException" in error_code
                     or "JobQueueError" in error_code
+                    or "backend-fail-internal" in error_info
                 ):
                     logger.warning(
                         f"Chunk {chunk_num + 1}/{total_chunks} stash error "
