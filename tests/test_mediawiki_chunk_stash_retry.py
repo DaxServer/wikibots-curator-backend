@@ -51,6 +51,14 @@ _BACKEND_FAIL_INTERNAL = {
     }
 }
 
+# Seen in prod (T424242): stashfailed code with backend-fail-internal in info (swift storage error during stash)
+_STASHFAILED_BACKEND_INTERNAL = {
+    "error": {
+        "code": "stashfailed",
+        "info": "Error storing file in 'mwstore://local-multiwrite/local-temp/1/1a/20260408100112!phpg4nXP5.jpg': backend-fail-internal; local-swift-eqiad",
+    }
+}
+
 _COMMIT_NOCHANGE = {
     "upload": {
         "result": "Warning",
@@ -108,83 +116,62 @@ def tiny_file(tmp_path):
     return str(f)
 
 
-def test_stash_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
-    """Stash error in chunk response retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
-    client = _client_with(mocker, _STASH_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
-    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
-
-    assert result.success is True
-    mock_sleep.assert_called_once_with(3)
+@pytest.fixture
+def mock_sleep(mocker):
+    return mocker.patch("curator.mediawiki.client.time.sleep")
 
 
-def test_stash_error_succeeds_on_second_attempt(mocker, tiny_file):
-    """Upload succeeds when stash error on first attempt, success on second"""
-    mocker.patch("curator.mediawiki.client.time.sleep")
+# --- Chunk retry tests (error on chunk → retry → success) ---
 
-    client = _client_with(mocker, _STASH_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
+
+@pytest.mark.parametrize(
+    "error_response, label",
+    [
+        (_STASH_ERROR, "UploadStashFileException"),
+        (_STASH_ERROR_CODE_ONLY, "UploadStashFileException (code only)"),
+        (_STASH_EXCEPTION_CODE, "uploadstash-exception"),
+        (_CHUNK_FILE_ERROR, "UploadChunkFileException"),
+        (_JOB_QUEUE_ERROR, "JobQueueError"),
+        (_STASHFAILED_BACKEND_INTERNAL, "stashfailed with backend-fail-internal"),
+    ],
+    ids=lambda x: x if isinstance(x, str) else "",
+)
+def test_chunk_error_triggers_retry_and_succeeds(
+    mocker, tiny_file, mock_sleep, error_response, label
+):
+    """Retryable chunk error retries and succeeds on second attempt"""
+    client = _client_with(mocker, error_response, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
 
     assert result.success is True
     assert result.title == "test.jpg"
     assert result.url == "https://commons.wikimedia.org/wiki/File:test.jpg"
+    mock_sleep.assert_called_once_with(3)
 
 
-def test_stash_error_fails_after_all_retries_exhausted(mocker, tiny_file):
-    """Returns failure after all 4 attempts return stash errors"""
-    mocker.patch("curator.mediawiki.client.time.sleep")
-
+@pytest.mark.parametrize(
+    "error_response, expected_substring",
+    [
+        (_STASH_ERROR, "UploadStashFileException"),
+        (_STASHFAILED_BACKEND_INTERNAL, "backend-fail-internal"),
+    ],
+    ids=["UploadStashFileException", "stashfailed-backend-fail-internal"],
+)
+def test_chunk_error_fails_after_all_retries_exhausted(
+    mocker, tiny_file, mock_sleep, error_response, expected_substring
+):
+    """Returns failure after all 4 attempts return chunk errors"""
     client = _client_with(
-        mocker, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR
+        mocker, error_response, error_response, error_response, error_response
     )
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
 
     assert result.success is False
-    assert "UploadStashFileException" in result.error
+    assert expected_substring in result.error
 
 
-def test_stash_error_code_only_triggers_retry(mocker, tiny_file):
-    """Stash error where only the error code (not info) contains UploadStashFileException retries"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
-    client = _client_with(
-        mocker, _STASH_ERROR_CODE_ONLY, _CHUNK_SUCCESS, _COMMIT_SUCCESS
-    )
-    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
-
-    assert result.success is True
-    mock_sleep.assert_called_once_with(3)
-
-
-def test_uploadstash_exception_code_triggers_retry(mocker, tiny_file):
-    """uploadstash-exception error code retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
-    client = _client_with(
-        mocker, _STASH_EXCEPTION_CODE, _CHUNK_SUCCESS, _COMMIT_SUCCESS
-    )
-    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
-
-    assert result.success is True
-    mock_sleep.assert_called_once_with(3)
-
-
-def test_chunk_file_error_triggers_retry(mocker, tiny_file):
-    """UploadChunkFileException retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
-    client = _client_with(mocker, _CHUNK_FILE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
-    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
-
-    assert result.success is True
-    mock_sleep.assert_called_once_with(3)
-
-
-def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):
+def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file, mock_sleep):
     """Retries sleep for 3, 5, 10 seconds in order before giving up"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
     client = _client_with(
         mocker, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR, _STASH_ERROR
     )
@@ -195,19 +182,11 @@ def test_stash_error_retry_uses_delays_3_5_10(mocker, tiny_file):
     assert calls == [3, 5, 10]
 
 
-def test_job_queue_error_triggers_retry_not_immediate_failure(mocker, tiny_file):
-    """JobQueueError in chunk response retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
-    client = _client_with(mocker, _JOB_QUEUE_ERROR, _CHUNK_SUCCESS, _COMMIT_SUCCESS)
-    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
-
-    assert result.success is True
-    mock_sleep.assert_called_once_with(3)
+# --- Chunk warning tests (duplicate/exists detection) ---
 
 
 def test_exists_warning_raises_duplicate_upload_error_when_hashes_match(
-    mocker, tiny_file
+    mocker, tiny_file, mock_sleep
 ):
     """exists warning raises DuplicateUploadError when existing file has the same hash"""
     existing_title = "Mapillary_(rking)_2020-07-23.jpg"
@@ -228,7 +207,9 @@ def test_exists_warning_raises_duplicate_upload_error_when_hashes_match(
     assert exc_info.value.duplicates[0].title == existing_title
 
 
-def test_exists_warning_returns_failure_when_hashes_differ(mocker, tiny_file):
+def test_exists_warning_returns_failure_when_hashes_differ(
+    mocker, tiny_file, mock_sleep
+):
     """exists warning returns generic failure when existing file has a different hash (name conflict)"""
     existing_title = "Mapillary_(rking)_2020-07-23.jpg"
     exists_warning_response = {
@@ -245,10 +226,13 @@ def test_exists_warning_returns_failure_when_hashes_differ(mocker, tiny_file):
     assert result.success is False
 
 
-def test_backend_fail_internal_on_commit_retries_and_succeeds(mocker, tiny_file):
-    """backend-fail-internal on final commit retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
+# --- Final commit retry tests ---
 
+
+def test_backend_fail_internal_on_commit_retries_and_succeeds(
+    mocker, tiny_file, mock_sleep
+):
+    """backend-fail-internal on final commit retries instead of returning failure immediately"""
     client = _client_with(
         mocker, _CHUNK_SUCCESS, _BACKEND_FAIL_INTERNAL, _COMMIT_SUCCESS
     )
@@ -259,11 +243,9 @@ def test_backend_fail_internal_on_commit_retries_and_succeeds(mocker, tiny_file)
 
 
 def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
-    mocker, tiny_file
+    mocker, tiny_file, mock_sleep
 ):
     """backend-fail-internal on final commit fails after all retry attempts"""
-    mocker.patch("curator.mediawiki.client.time.sleep")
-
     client = _client_with(
         mocker,
         _CHUNK_SUCCESS,
@@ -278,10 +260,8 @@ def test_backend_fail_internal_on_commit_fails_after_all_retries_exhausted(
     assert "backend-fail-internal" in (result.error or "")
 
 
-def test_job_queue_error_on_commit_retries_and_succeeds(mocker, tiny_file):
+def test_job_queue_error_on_commit_retries_and_succeeds(mocker, tiny_file, mock_sleep):
     """JobQueueError on final commit retries instead of returning failure immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
     client = _client_with(mocker, _CHUNK_SUCCESS, _JOB_QUEUE_ERROR, _COMMIT_SUCCESS)
     result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
 
@@ -289,10 +269,10 @@ def test_job_queue_error_on_commit_retries_and_succeeds(mocker, tiny_file):
     mock_sleep.assert_called_once_with(3)
 
 
-def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
+def test_request_exception_on_commit_retries_and_succeeds(
+    mocker, tiny_file, mock_sleep
+):
     """network error on final commit retries instead of propagating immediately"""
-    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
-
     client = _client_with(
         mocker,
         _CHUNK_SUCCESS,
@@ -306,11 +286,9 @@ def test_request_exception_on_commit_retries_and_succeeds(mocker, tiny_file):
 
 
 def test_request_exception_on_commit_fails_after_all_retries_exhausted(
-    mocker, tiny_file
+    mocker, tiny_file, mock_sleep
 ):
     """network error on final commit fails after all retry attempts"""
-    mocker.patch("curator.mediawiki.client.time.sleep")
-
     client = _client_with(
         mocker,
         _CHUNK_SUCCESS,
@@ -325,7 +303,9 @@ def test_request_exception_on_commit_fails_after_all_retries_exhausted(
     assert result.error is not None
 
 
-def test_nochange_warning_on_commit_raises_duplicate_upload_error(mocker, tiny_file):
+def test_nochange_warning_on_commit_raises_duplicate_upload_error(
+    mocker, tiny_file, mock_sleep
+):
     """nochange + exists warning on final commit raises DuplicateUploadError instead of generic failure"""
     client = _client_with(mocker, _CHUNK_SUCCESS, _COMMIT_NOCHANGE)
 
