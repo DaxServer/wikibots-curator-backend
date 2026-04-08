@@ -68,6 +68,9 @@ class WikidataProperty:
     MapillaryPhotoID = "P1947"
 
 
+# Retry delays in seconds between HTTP retry attempts
+HTTP_RETRY_DELAYS = [3, 5, 10]
+
 # Geocoding configuration
 GEOCODING_API_URL: str = os.getenv(
     "GEOCODING_API_URL", "https://geocoding.daxserver.com/reverse"

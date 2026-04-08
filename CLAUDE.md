@@ -114,6 +114,9 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - All uploads go to `QUEUE_NORMAL`
 - `get_user_groups()` in `recovery.py` is used only to validate OAuth tokens on startup recovery — the returned groups are not used
 
+### commons.py (Upload Workflow)
+`commons.py` contains both the upload-to-Commons workflow (`upload_file_chunked`) and the image download function (`download_file`) which fetches from external CDNs (e.g., Mapillary/Facebook). Both download and upload chunk retries use `config.HTTP_RETRY_DELAYS` for escalating backoff but have separate retry loops — they differ in error handling and response processing.
+
 ### MediaWiki Client
 - `MediaWikiClient` class handles all Wikimedia Commons operations
 - Instantiate directly: `MediaWikiClient(access_token=access_token)`
@@ -229,7 +232,7 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - Check if the test needs to be isolated from the autouse fixture
 - The fixture patches `curator.app.handler.encrypt_access_token` and other common dependencies
 - Some tests may need to run without this fixture or use `@pytest.mark.usefixtures("mock_external_calls")` explicitly
-- Tests for `mediawiki_client.py` must be in files named `test_mediawiki_*.py` — the fixture skips for modules with "mediawiki" in the name, avoiding a slow `flickr_url_parser` import that causes timeouts
+- The fixture skips for modules with "mediawiki", "geocoding", or "test_download" in the name, avoiding a slow Celery import chain that causes timeouts. New test files that don't need BDD mocks should be added to this skip list in `fixtures.py`.
 
 ### BDD Testing Patterns (pytest-bdd)
 

@@ -4,17 +4,14 @@ import time
 from tempfile import NamedTemporaryFile
 from typing import IO, Any, Optional
 
-import httpx
+import requests
 
 from curator.asyncapi import Label, Statement
-from curator.core.config import redis_client
+from curator.core.config import HTTP_RETRY_DELAYS, redis_client
 from curator.core.errors import DuplicateUploadError, HashLockError
 from curator.mediawiki.client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
-
-# Maximum number of retries for Mapillary image download errors
-MAX_DOWNLOAD_RETRIES = 2
 
 # Lock TTL in seconds (1 minute)
 HASH_LOCK_TTL = 60
@@ -44,7 +41,9 @@ def upload_file_chunked(
     with NamedTemporaryFile() as temp_file:
         # Download directly to temp file, get hash
         file_hash = download_file(file_url, temp_file, upload_id, batch_id)
-        logger.info(f"[{upload_id}/{batch_id}] file hash: {file_hash}")
+        logger.info(
+            f"[{upload_id}/{batch_id}] Image downloaded. File hash: {file_hash}"
+        )
 
         # Check for duplicates before upload using hash
         duplicates_list = mediawiki_client.find_duplicates(file_hash)
@@ -88,48 +87,60 @@ def upload_file_chunked(
 def download_file(
     file_url: str, temp_file: IO[bytes], upload_id: int = 0, batch_id: int = 0
 ) -> str:
-    """
-    Download file directly to temp file using streaming.
-    Returns SHA1 hash computed during download.
-    """
-    for attempt in range(MAX_DOWNLOAD_RETRIES):
+    """Download file to temp file using streaming, returns SHA1 hash"""
+    max_attempts = len(HTTP_RETRY_DELAYS) + 1
+    resp = None
+    for attempt in range(max_attempts):
+        is_last_attempt = attempt == max_attempts - 1
+        delay = HTTP_RETRY_DELAYS[attempt] if not is_last_attempt else 0
+
+        # Reset temp file for retry
+        temp_file.seek(0)
+        temp_file.truncate()
+
         try:
-            with httpx.stream("GET", file_url, timeout=60) as resp:
-                resp.raise_for_status()
+            resp = requests.get(file_url, stream=True, timeout=60)
+            resp.raise_for_status()
 
-                content_type = resp.headers.get("content-type", "")
-                if "application/x-php" in content_type:
-                    # Got application/x-php instead of image
-                    if attempt < MAX_DOWNLOAD_RETRIES - 1:
-                        logger.warning(
-                            f"[{upload_id}/{batch_id}] Received application/x-php instead of image, "
-                            f"retrying in 2 seconds... (attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES})"
-                        )
-                        time.sleep(2)
-                        continue
-                    else:
-                        raise ValueError(
-                            f"Failed to download image from {file_url}: received application/x-php content type after {MAX_DOWNLOAD_RETRIES} retries"
-                        )
-
-                # Stream download: write chunks to temp file and update hash
-                sha1 = hashlib.sha1()
-                for chunk in resp.iter_bytes(chunk_size=8192):
-                    temp_file.write(chunk)
-                    sha1.update(chunk)
-
-                return sha1.hexdigest()
-        except httpx.HTTPError as e:
-            if attempt < MAX_DOWNLOAD_RETRIES - 1:
+            content_type = resp.headers.get("content-type", "")
+            if "application/x-php" in content_type:
+                resp.close()
+                if is_last_attempt:
+                    raise ValueError(
+                        f"Failed to download image from {file_url}: "
+                        f"received application/x-php content type after {max_attempts} attempts"
+                    )
                 logger.warning(
-                    f"[{upload_id}/{batch_id}] Image download attempt {attempt + 1}/{MAX_DOWNLOAD_RETRIES} "
-                    f"failed with HTTP error, retrying: {e}"
+                    f"[{upload_id}/{batch_id}] Received application/x-php instead of image "
+                    f"(attempt {attempt + 1}/{max_attempts}), "
+                    f"retrying in {delay} seconds"
                 )
+                time.sleep(delay)
                 continue
-            logger.error(
-                f"[{upload_id}/{batch_id}] Image download failed after {MAX_DOWNLOAD_RETRIES}/{MAX_DOWNLOAD_RETRIES} attempts: {e}"
+
+            # Stream download: write chunks to temp file and update hash
+            sha1 = hashlib.sha1()
+            for chunk in resp.iter_content(chunk_size=8192):
+                temp_file.write(chunk)
+                sha1.update(chunk)
+
+            return sha1.hexdigest()
+        except requests.exceptions.RequestException as e:
+            if resp is not None:
+                resp.close()
+            if is_last_attempt:
+                logger.error(
+                    f"[{upload_id}/{batch_id}] Image download failed after "
+                    f"{max_attempts}/{max_attempts} attempts: {e}"
+                )
+                raise
+            logger.warning(
+                f"[{upload_id}/{batch_id}] Image download "
+                f"(attempt {attempt + 1}/{max_attempts}) failed, "
+                f"retrying in {delay} seconds: {e}"
             )
-            raise
+            time.sleep(delay)
+            continue
 
     raise AssertionError("Unreachable")
 
