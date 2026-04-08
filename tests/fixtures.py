@@ -386,6 +386,7 @@ def mock_external_calls(mocker, request):
         "mediawiki" in node_name.lower()
         or "mediawiki" in module_name.lower()
         or "geocoding" in module_name.lower()
+        or "test_download" in module_name.lower()
     ):
         return
 

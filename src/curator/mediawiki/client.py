@@ -17,13 +17,10 @@ from jwt.exceptions import PyJWTError
 from mwoauth import AccessToken
 
 from curator.asyncapi import ErrorLink
-from curator.core.config import OAUTH_KEY, OAUTH_SECRET, USER_AGENT
+from curator.core.config import HTTP_RETRY_DELAYS, OAUTH_KEY, OAUTH_SECRET, USER_AGENT
 from curator.core.errors import DuplicateUploadError
 
 logger = logging.getLogger(__name__)
-
-# Retry configuration for chunk uploads (delays in seconds between attempts)
-CHUNK_RETRY_DELAYS = [3, 5, 10]
 
 # Wikimedia Commons API endpoints
 # Note: Must use non-nice URL format for OAuth requests
@@ -282,10 +279,10 @@ class MediaWikiClient:
         file_sha1: str | None = None,
     ) -> str | None | UploadResult:
         """Upload a single chunk with retry logic, return file_key or UploadResult on error."""
-        max_attempts = len(CHUNK_RETRY_DELAYS) + 1
+        max_attempts = len(HTTP_RETRY_DELAYS) + 1
         for chunk_attempt in range(max_attempts):
             is_last_attempt = chunk_attempt == max_attempts - 1
-            delay = CHUNK_RETRY_DELAYS[chunk_attempt] if not is_last_attempt else 0
+            delay = HTTP_RETRY_DELAYS[chunk_attempt] if not is_last_attempt else 0
 
             try:
                 data = self._api_request(
@@ -453,10 +450,10 @@ class MediaWikiClient:
                 "filekey": file_key,
             }
 
-            max_attempts = len(CHUNK_RETRY_DELAYS) + 1
+            max_attempts = len(HTTP_RETRY_DELAYS) + 1
             for commit_attempt in range(max_attempts):
                 is_last_attempt = commit_attempt == max_attempts - 1
-                delay = CHUNK_RETRY_DELAYS[commit_attempt] if not is_last_attempt else 0
+                delay = HTTP_RETRY_DELAYS[commit_attempt] if not is_last_attempt else 0
 
                 try:
                     data = self._api_request(
