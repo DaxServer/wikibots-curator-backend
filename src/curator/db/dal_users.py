@@ -34,7 +34,7 @@ def get_users(
 
 def count_users(session: Session, filter_text: Optional[str] = None) -> int:
     """Count all users."""
-    query = _apply_user_filter(select(func.count(User.userid)), filter_text)
+    query = _apply_user_filter(select(func.count(col(User.userid))), filter_text)
     return session.exec(query).one()
 
 
