@@ -250,6 +250,12 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - This avoids "got multiple values for argument" errors when method is called with keyword arguments
 - Example: `mocker.patch("path.to.Class.method", side_effect=lambda *args, **kwargs: {...})`
 
+### Testing Celery Bound Tasks
+
+- `@app.task(bind=True)` with `autoretry_for` stores the pre-autoretry function as `task._orig_run` (a bound method)
+- To call with a mock `self`: `process_upload._orig_run.__func__(mock_self, upload_id, edit_group_id)` — `__func__` gives the unbound function
+- Calling `process_upload(mock_self, ...)` or `process_upload._orig_run(mock_self, ...)` both fail: the former because Celery's task machinery conflicts with keyword args, the latter because `_orig_run` is already bound to the task instance
+
 ### pytest-timeout Quirks
 
 - pytest-timeout may enforce 0.25s default even with `timeout = 0` in pytest.ini

@@ -4,11 +4,17 @@ import asyncio
 import logging
 import os
 
-from curator.core.errors import HashLockError
+from curator.core.errors import HashLockError, StorageError
+from curator.db.dal_uploads import update_upload_status
+from curator.db.engine import get_session
+from curator.db.models import UploadStatus
 from curator.workers.celery import app
 from curator.workers.ingest import process_one
 
 logger = logging.getLogger(__name__)
+
+# Requeue delays in seconds for StorageError retries: 5 min, 10 min, 15 min
+STORAGE_ERROR_DELAYS = [300, 600, 900]
 
 # Create a single event loop per worker process
 _worker_loop = None
@@ -43,6 +49,24 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
     try:
         result = loop.run_until_complete(process_one(upload_id, edit_group_id))
         return result
+    except StorageError as e:
+        retry_num = self.request.retries
+        if retry_num >= len(STORAGE_ERROR_DELAYS):
+            logger.error(
+                f"[celery] [{upload_id}] [{worker_id}] storage error persisted after "
+                f"{len(STORAGE_ERROR_DELAYS)} retries, failing permanently: {e}"
+            )
+            with get_session() as session:
+                update_upload_status(
+                    session, upload_id=upload_id, status=UploadStatus.FAILED
+                )
+            return False
+        countdown = STORAGE_ERROR_DELAYS[retry_num]
+        logger.warning(
+            f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing in "
+            f"{countdown}s (retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
+        )
+        raise self.retry(countdown=countdown, exc=e)
     except HashLockError as e:
         logger.info(
             f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
