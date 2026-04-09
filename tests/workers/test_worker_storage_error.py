@@ -4,11 +4,10 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from celery.exceptions import MaxRetriesExceededError
 from mwoauth import AccessToken
 
 from curator.core.crypto import encrypt_access_token
-from curator.core.errors import StorageError
+from curator.core.errors import HashLockError, StorageError
 from curator.workers.ingest import process_one
 from curator.workers.tasks import STORAGE_ERROR_DELAYS, process_upload
 
@@ -104,10 +103,12 @@ async def test_process_one_raises_storage_error_on_uploadstash_exception(
 def test_process_upload_fails_permanently_when_celery_max_retries_exceeded(
     mock_session,
 ):
-    """process_upload marks upload as FAILED when self.retry() raises MaxRetriesExceededError."""
+    """process_upload marks upload as FAILED when max_retries < len(STORAGE_ERROR_DELAYS)."""
     mock_self = MagicMock()
-    mock_self.request.retries = 0
-    mock_self.retry.side_effect = MaxRetriesExceededError()
+    mock_self.max_retries = 2
+    mock_self.request.retries = (
+        2  # retries == max_retries, but < len(STORAGE_ERROR_DELAYS)
+    )
 
     captured_status = {}
 
@@ -129,6 +130,7 @@ def test_process_upload_fails_permanently_when_celery_max_retries_exceeded(
 
     assert result is False
     assert captured_status.get("status") == "failed"
+    mock_self.retry.assert_not_called()
 
 
 def test_process_upload_requeues_with_escalating_delays_on_storage_error():
@@ -137,6 +139,7 @@ def test_process_upload_requeues_with_escalating_delays_on_storage_error():
 
     for retry_num, expected_delay in enumerate(STORAGE_ERROR_DELAYS):
         mock_self = MagicMock()
+        mock_self.max_retries = 3
         mock_self.request.retries = retry_num
         mock_self.retry.side_effect = Exception("retry scheduled")
 
@@ -167,6 +170,34 @@ def test_process_upload_fails_permanently_after_max_storage_retries(mock_session
             "curator.workers.tasks.process_one",
             side_effect=StorageError(_UPLOADSTASH_EXCEPTION_ERROR),
         ),
+        patch("curator.workers.tasks.get_session") as mock_get_session,
+        patch("curator.workers.tasks.update_upload_status", side_effect=capture_status),
+    ):
+        mock_get_session.return_value.__enter__ = lambda s: mock_session
+        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+
+    assert result is False
+    assert captured_status.get("status") == "failed"
+    mock_self.retry.assert_not_called()
+
+
+def test_process_upload_fails_permanently_when_hash_lock_exceeds_max_retries(
+    mock_session,
+):
+    """process_upload marks upload as FAILED when HashLockError exhausts Celery max_retries."""
+    mock_self = MagicMock()
+    mock_self.max_retries = 3
+    mock_self.request.retries = 3
+
+    captured_status = {}
+
+    def capture_status(session, upload_id, status, **kwargs):
+        captured_status["status"] = status
+
+    with (
+        patch("curator.workers.tasks.process_one", side_effect=HashLockError("locked")),
         patch("curator.workers.tasks.get_session") as mock_get_session,
         patch("curator.workers.tasks.update_upload_status", side_effect=capture_status),
     ):

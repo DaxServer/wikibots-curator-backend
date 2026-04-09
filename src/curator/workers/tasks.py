@@ -4,7 +4,7 @@ import asyncio
 import logging
 import os
 
-from celery.exceptions import MaxRetriesExceededError
+from celery import Task
 
 from curator.core.errors import HashLockError, StorageError
 from curator.db.dal_uploads import update_upload_status
@@ -29,6 +29,23 @@ def _get_event_loop():
         _worker_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(_worker_loop)
     return _worker_loop
+
+
+def _requeue_or_fail(
+    task: Task, upload_id: int, worker_id: str, countdown: int, exc: Exception
+) -> bool:
+    """Requeue the task or mark upload as FAILED if Celery max_retries is exhausted."""
+    if task.request.retries >= task.max_retries:
+        logger.error(
+            f"[celery] [{upload_id}] [{worker_id}] max retries exceeded, "
+            f"failing permanently: {exc}"
+        )
+        with get_session() as session:
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.FAILED
+            )
+        return False
+    raise task.retry(countdown=countdown, exc=exc)
 
 
 @app.task(
@@ -68,23 +85,12 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
             f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing in "
             f"{countdown}s (retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
         )
-        try:
-            raise self.retry(countdown=countdown, exc=e)
-        except MaxRetriesExceededError:
-            logger.error(
-                f"[celery] [{upload_id}] [{worker_id}] storage error hit Celery max_retries, "
-                f"failing permanently: {e}"
-            )
-            with get_session() as session:
-                update_upload_status(
-                    session, upload_id=upload_id, status=UploadStatus.FAILED
-                )
-            return False
+        return _requeue_or_fail(self, upload_id, worker_id, countdown, e)
     except HashLockError as e:
         logger.info(
             f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
         )
-        raise self.retry(countdown=60, exc=e)
+        return _requeue_or_fail(self, upload_id, worker_id, 60, e)
     except Exception as e:
         logger.error(
             f"[celery] [{upload_id}] [{worker_id}] error processing upload: {e}",
