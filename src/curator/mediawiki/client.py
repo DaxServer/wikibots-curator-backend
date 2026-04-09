@@ -329,7 +329,7 @@ class MediaWikiClient:
                     time.sleep(delay)
                     continue
                 logger.error(data)
-                return UploadResult(success=False, error=error_info)
+                return UploadResult(success=False, error=f"{error_code}: {error_info}")
 
             if "upload" in data:
                 result = data["upload"]
