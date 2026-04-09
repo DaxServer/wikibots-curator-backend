@@ -187,3 +187,73 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
         assert captured_status["error"].type == "error"
         # The error message should contain the original uploadstash-file-not-found error
         assert "uploadstash-file-not-found" in captured_status["error"].message
+
+
+@pytest.mark.asyncio
+async def test_worker_process_one_uploadstash_bad_path_retry_success(
+    mocker, mock_session, mock_isolated_site
+):
+    """Test that process_one retries uploadstash-bad-path errors and succeeds on retry."""
+    item = SimpleNamespace(
+        id=1,
+        batchid=1,
+        userid="u",
+        status="queued",
+        key="img1",
+        handler="mapillary",
+        filename="File.jpg",
+        wikitext="",
+        labels={"en": {"language": "en", "value": "Example"}},
+        copyright_override=False,
+        sdc=None,
+        collection="seq",
+        access_token=encrypt_access_token(AccessToken("t", "s")),
+        user=SimpleNamespace(username="User"),
+    )
+
+    upload_attempts = []
+
+    def mock_upload_file_chunked(*args, **kwargs):
+        upload_attempts.append(len(upload_attempts) + 1)
+        if len(upload_attempts) == 1:
+            raise Exception("uploadstash-bad-path: Path doesn't exist.")
+        return {"result": "success", "title": "File.jpg", "url": "https://example.com"}
+
+    with (
+        patch("curator.workers.ingest.get_upload_request_by_id", return_value=item),
+        patch("curator.workers.ingest.update_upload_status"),
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=mock_upload_file_chunked,
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=SimpleNamespace(
+                id="img1",
+                creator=SimpleNamespace(username="alice"),
+                dates=SimpleNamespace(taken="2023-01-01T00:00:00Z"),
+                urls=SimpleNamespace(
+                    url="https://example.com/photo",
+                    original="https://example.com/file.jpg",
+                    preview="https://example.com/preview",
+                    thumbnail="https://example.com/thumb",
+                ),
+                location=SimpleNamespace(
+                    latitude=1.0, longitude=2.0, compass_angle=3.0
+                ),
+                dimensions=SimpleNamespace(width=100, height=200),
+                camera=SimpleNamespace(make=None, model=None, is_pano=None),
+            ),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_client = mocker.MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
+        ok = await process_one(1, "test_edit_group_abc123")
+        assert ok is True
+        assert len(upload_attempts) == 2

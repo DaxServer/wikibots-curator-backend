@@ -66,12 +66,12 @@ def _fail(
     return False
 
 
-def _is_uploadstash_file_not_found_error(error_message: str) -> bool:
-    """Check if the error message indicates an uploadstash-file-not-found error"""
+def _is_uploadstash_gone_error(error_message: str) -> bool:
+    """Check if the error message indicates the upload stash is gone (uploadstash-file-not-found or uploadstash-bad-path)"""
     return (
         "uploadstash-file-not-found" in error_message
         and "not found in stash" in error_message
-    )
+    ) or ("uploadstash-bad-path" in error_message)
 
 
 async def _handle_duplicate_with_sdc_merge(
@@ -271,7 +271,7 @@ async def _upload_with_retry(
 
             # Check if this is an uploadstash-file-not-found error and we haven't exceeded max retries
             if (
-                _is_uploadstash_file_not_found_error(error_message)
+                _is_uploadstash_gone_error(error_message)
                 and attempt < MAX_UPLOADSTASH_TRIES - 1
             ):
                 logger.warning(
@@ -283,7 +283,7 @@ async def _upload_with_retry(
                 continue
 
             # Either not an uploadstash error or we've exceeded max retries
-            if _is_uploadstash_file_not_found_error(error_message):
+            if _is_uploadstash_gone_error(error_message):
                 logger.error(
                     f"[{upload_id}/{batch_id}] uploadstash-file-not-found error persisted after {MAX_UPLOADSTASH_TRIES} attempts"
                 )
