@@ -255,6 +255,7 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - `@app.task(bind=True)` with `autoretry_for` stores the pre-autoretry function as `task._orig_run` (a bound method)
 - To call with a mock `self`: `process_upload._orig_run.__func__(mock_self, upload_id, edit_group_id)` — `__func__` gives the unbound function
 - Calling `process_upload(mock_self, ...)` or `process_upload._orig_run(mock_self, ...)` both fail: the former because Celery's task machinery conflicts with keyword args, the latter because `_orig_run` is already bound to the task instance
+- When using `MagicMock()` as task `self`, set integer attributes explicitly: `mock_self.max_retries = 3` — MagicMock attributes default to MagicMock instances, causing `TypeError` on numeric comparisons
 
 ### pytest-timeout Quirks
 
