@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Requeue delays in seconds for StorageError retries: 5 min, 10 min, 15 min
 STORAGE_ERROR_DELAYS = [300, 600, 900]
+# Requeue delays in seconds for HashLockError retries: 1 min each
+HASH_LOCK_DELAYS = [60, 60, 60]
 
 # Create a single event loop per worker process
 _worker_loop = None
@@ -32,12 +34,13 @@ def _get_event_loop():
 
 
 def _requeue_or_fail(
-    task: Task, upload_id: int, worker_id: str, countdown: int, exc: Exception
+    task: Task, upload_id: int, worker_id: str, delays: list[int], exc: Exception
 ) -> bool:
-    """Requeue the task or mark upload as FAILED if Celery max_retries is exhausted."""
-    if task.request.retries >= task.max_retries:
+    """Requeue the task or mark upload as FAILED if retries are exhausted."""
+    retry_num = task.request.retries
+    if retry_num >= len(delays) or retry_num >= task.max_retries:
         logger.error(
-            f"[celery] [{upload_id}] [{worker_id}] max retries exceeded, "
+            f"[celery] [{upload_id}] [{worker_id}] retries exhausted, "
             f"failing permanently: {exc}"
         )
         with get_session() as session:
@@ -45,7 +48,7 @@ def _requeue_or_fail(
                 session, upload_id=upload_id, status=UploadStatus.FAILED
             )
         return False
-    raise task.retry(countdown=countdown, exc=exc)
+    raise task.retry(countdown=delays[retry_num], exc=exc)
 
 
 @app.task(
@@ -70,27 +73,16 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
         return result
     except StorageError as e:
         retry_num = self.request.retries
-        if retry_num >= len(STORAGE_ERROR_DELAYS):
-            logger.error(
-                f"[celery] [{upload_id}] [{worker_id}] storage error persisted after "
-                f"{len(STORAGE_ERROR_DELAYS)} retries, failing permanently: {e}"
-            )
-            with get_session() as session:
-                update_upload_status(
-                    session, upload_id=upload_id, status=UploadStatus.FAILED
-                )
-            return False
-        countdown = STORAGE_ERROR_DELAYS[retry_num]
         logger.warning(
-            f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing in "
-            f"{countdown}s (retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
+            f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing "
+            f"(retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
         )
-        return _requeue_or_fail(self, upload_id, worker_id, countdown, e)
+        return _requeue_or_fail(self, upload_id, worker_id, STORAGE_ERROR_DELAYS, e)
     except HashLockError as e:
         logger.info(
-            f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
+            f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing: {e}"
         )
-        return _requeue_or_fail(self, upload_id, worker_id, 60, e)
+        return _requeue_or_fail(self, upload_id, worker_id, HASH_LOCK_DELAYS, e)
     except Exception as e:
         logger.error(
             f"[celery] [{upload_id}] [{worker_id}] error processing upload: {e}",

@@ -9,7 +9,7 @@ from mwoauth import AccessToken
 from curator.core.crypto import encrypt_access_token
 from curator.core.errors import HashLockError, StorageError
 from curator.workers.ingest import process_one
-from curator.workers.tasks import STORAGE_ERROR_DELAYS, process_upload
+from curator.workers.tasks import HASH_LOCK_DELAYS, STORAGE_ERROR_DELAYS, process_upload
 
 _UPLOADSTASH_EXCEPTION_ERROR = (
     "uploadstash-exception: Could not store upload in the stash "
@@ -181,6 +181,27 @@ def test_process_upload_fails_permanently_after_max_storage_retries(mock_session
     assert result is False
     assert captured_status.get("status") == "failed"
     mock_self.retry.assert_not_called()
+
+
+def test_process_upload_requeues_on_hash_lock_error():
+    """process_upload requeues HashLockError with delays from HASH_LOCK_DELAYS."""
+    assert HASH_LOCK_DELAYS == [60, 60, 60]
+
+    for retry_num, expected_delay in enumerate(HASH_LOCK_DELAYS):
+        mock_self = MagicMock()
+        mock_self.max_retries = 3
+        mock_self.request.retries = retry_num
+        mock_self.retry.side_effect = Exception("retry scheduled")
+
+        with patch(
+            "curator.workers.tasks.process_one", side_effect=HashLockError("locked")
+        ):
+            with pytest.raises(Exception, match="retry scheduled"):
+                process_upload._orig_run.__func__(mock_self, 1, "abc")
+
+        mock_self.retry.assert_called_once_with(
+            countdown=expected_delay, exc=mock_self.retry.call_args[1]["exc"]
+        )
 
 
 def test_process_upload_fails_permanently_when_hash_lock_exceeds_max_retries(
