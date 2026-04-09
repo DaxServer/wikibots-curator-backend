@@ -4,6 +4,8 @@ import asyncio
 import logging
 import os
 
+from celery.exceptions import MaxRetriesExceededError
+
 from curator.core.errors import HashLockError, StorageError
 from curator.db.dal_uploads import update_upload_status
 from curator.db.engine import get_session
@@ -66,7 +68,18 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
             f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing in "
             f"{countdown}s (retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
         )
-        raise self.retry(countdown=countdown, exc=e)
+        try:
+            raise self.retry(countdown=countdown, exc=e)
+        except MaxRetriesExceededError:
+            logger.error(
+                f"[celery] [{upload_id}] [{worker_id}] storage error hit Celery max_retries, "
+                f"failing permanently: {e}"
+            )
+            with get_session() as session:
+                update_upload_status(
+                    session, upload_id=upload_id, status=UploadStatus.FAILED
+                )
+            return False
     except HashLockError as e:
         logger.info(
             f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
