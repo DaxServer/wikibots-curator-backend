@@ -4,11 +4,21 @@ import asyncio
 import logging
 import os
 
-from curator.core.errors import HashLockError
+from celery import Task
+
+from curator.core.errors import HashLockError, StorageError
+from curator.db.dal_uploads import update_upload_status
+from curator.db.engine import get_session
+from curator.db.models import UploadStatus
 from curator.workers.celery import app
 from curator.workers.ingest import process_one
 
 logger = logging.getLogger(__name__)
+
+# Requeue delays in seconds for StorageError retries: 5 min, 10 min, 15 min
+STORAGE_ERROR_DELAYS = [300, 600, 900]
+# Requeue delays in seconds for HashLockError retries: 1 min each
+HASH_LOCK_DELAYS = [60, 60, 60]
 
 # Create a single event loop per worker process
 _worker_loop = None
@@ -21,6 +31,24 @@ def _get_event_loop():
         _worker_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(_worker_loop)
     return _worker_loop
+
+
+def _requeue_or_fail(
+    task: Task, upload_id: int, worker_id: str, delays: list[int], exc: Exception
+) -> bool:
+    """Requeue the task or mark upload as FAILED if retries are exhausted."""
+    retry_num = task.request.retries
+    if retry_num >= len(delays) or retry_num >= task.max_retries:
+        logger.error(
+            f"[celery] [{upload_id}] [{worker_id}] retries exhausted, "
+            f"failing permanently: {exc}"
+        )
+        with get_session() as session:
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.FAILED
+            )
+        return False
+    raise task.retry(countdown=delays[retry_num], exc=exc)
 
 
 @app.task(
@@ -43,11 +71,18 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
     try:
         result = loop.run_until_complete(process_one(upload_id, edit_group_id))
         return result
+    except StorageError as e:
+        retry_num = self.request.retries
+        logger.warning(
+            f"[celery] [{upload_id}] [{worker_id}] storage error, requeueing "
+            f"(retry {retry_num + 1}/{len(STORAGE_ERROR_DELAYS)}): {e}"
+        )
+        return _requeue_or_fail(self, upload_id, worker_id, STORAGE_ERROR_DELAYS, e)
     except HashLockError as e:
         logger.info(
-            f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing in 60s: {e}"
+            f"[celery] [{upload_id}] [{worker_id}] hash locked, requeueing: {e}"
         )
-        raise self.retry(countdown=60, exc=e)
+        return _requeue_or_fail(self, upload_id, worker_id, HASH_LOCK_DELAYS, e)
     except Exception as e:
         logger.error(
             f"[celery] [{upload_id}] [{worker_id}] error processing upload: {e}",

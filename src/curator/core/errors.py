@@ -13,3 +13,9 @@ class HashLockError(Exception):
     """Raised when file hash is locked by another worker"""
 
     pass
+
+
+class StorageError(Exception):
+    """Raised when the MediaWiki storage backend fails persistently"""
+
+    pass

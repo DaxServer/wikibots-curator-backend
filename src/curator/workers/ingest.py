@@ -11,7 +11,7 @@ from curator.asyncapi import (
     TitleBlacklistedError,
 )
 from curator.core.crypto import decrypt_access_token
-from curator.core.errors import DuplicateUploadError, HashLockError
+from curator.core.errors import DuplicateUploadError, HashLockError, StorageError
 from curator.db.dal_uploads import (
     clear_upload_access_token,
     get_upload_request_by_id,
@@ -288,6 +288,9 @@ async def _upload_with_retry(
                     f"[{upload_id}/{batch_id}] uploadstash-file-not-found error persisted after {MAX_UPLOADSTASH_TRIES} attempts"
                 )
 
+            if "uploadstash-exception" in error_message:
+                raise StorageError(error_message) from upload_error
+
             raise
 
 
@@ -449,6 +452,16 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                     UploadStatus.DUPLICATE,
                     DuplicateError(message=str(e), links=e.duplicates),
                 )
+
+    except StorageError:
+        logger.warning(
+            f"[{upload_id}/{batchid}] storage backend error, resetting status for requeue"
+        )
+        with get_session() as session:
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.QUEUED
+            )
+        raise
 
     except HashLockError:
         logger.info(f"[{upload_id}/{batchid}] hash locked, resetting status for retry")
