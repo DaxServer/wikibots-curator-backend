@@ -67,11 +67,18 @@ def _fail(
 
 
 def _is_uploadstash_gone_error(error_message: str) -> bool:
-    """Check if the error message indicates the upload stash is gone (uploadstash-file-not-found or uploadstash-bad-path)"""
+    """Check if the error message indicates the upload stash is gone (uploadstash-file-not-found, uploadstash-bad-path, or stashfailed with session-not-found)"""
     return (
-        "uploadstash-file-not-found" in error_message
-        and "not found in stash" in error_message
-    ) or ("uploadstash-bad-path" in error_message)
+        (
+            "uploadstash-file-not-found" in error_message
+            and "not found in stash" in error_message
+        )
+        or ("uploadstash-bad-path" in error_message)
+        or (
+            "stashfailed" in error_message
+            and "No chunked upload session with this key" in error_message
+        )
+    )
 
 
 async def _handle_duplicate_with_sdc_merge(
