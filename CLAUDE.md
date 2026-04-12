@@ -166,7 +166,7 @@ The replica schema uses `linktarget` as a normalised title store — `cl_to`, `p
 - `NOT EXISTS` subqueries are catastrophically slow on large tables like `categorylinks` (~4.5 min for 100 rows) — the optimizer cannot short-circuit them. Always use `LEFT JOIN ... WHERE p_target.page_id IS NULL` instead.
 - `EXPLAIN` is not available on replica (insufficient privileges) — benchmark with `time sql commonswiki`.
 - `categorylinks` does not have a `cl_to` column (removed in 1.43–1.45) — join via `cl_target_id` → `linktarget(lt_id, lt_namespace, lt_title)`.
-- For wanted-categories queries, filtering `p_from.page_namespace IN (0, 6, 14)` halves query time (3.7s → 1.7s). Sampled data shows namespace 0 (gallery pages) accounts for nearly all results on Commons; namespaces 6 (files) and 14 (categories) are included for completeness.
+- For categorylinks-based wanted-categories queries (discarded approach), filtering `p_from.page_namespace IN (0, 6, 14)` halves query time (3.7s → 1.7s). Not applicable to the accepted `category` table query, which has no `p_from`.
 - `DISTINCT` with `LIMIT` does not allow early termination — the DB must find all distinct rows before applying the limit. Avoid `DISTINCT` on high-cardinality scans where possible; use narrow filters instead to reduce the working set.
 
 **`category` table for wanted-categories counts:**
