@@ -53,28 +53,36 @@ src/curator/
 ├── protocol.py          # AsyncAPI WebSocket protocol (union types)
 ├── admin.py             # Admin endpoints
 ├── frontend_utils.py    # Frontend asset management
-├── app/                 # Core application logic
+├── core/                # Business logic and application services
 │   ├── config.py        # Configuration from environment
-│   ├── db.py           # Database engine
-│   ├── models.py        # SQLModel models
-│   ├── dal.py          # Data Access Layer
-│   ├── handler.py      # Business logic
-│   ├── auth.py, crypto.py, wcqs.py, sdc_v2.py, sdc_merge.py, commons.py
-│   ├── mediawiki_client.py # MediaWiki API client
-│   ├── errors.py       # DuplicateUploadError, HashLockError
-│   ├── geocoding.py    # Reverse geocoding for location enrichment
+│   ├── handler.py       # WebSocket business logic
+│   ├── auth.py, crypto.py, wcqs.py
+│   ├── errors.py        # DuplicateUploadError, HashLockError
+│   ├── geocoding.py     # Reverse geocoding for location enrichment
 │   ├── task_enqueuer.py # Upload task enqueueing with rate limiting
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
 │   └── recovery.py      # Startup recovery for uploads stuck in queued state
+├── db/                  # Database layer
+│   ├── engine.py        # SQLAlchemy engine and get_session()
+│   ├── commons_engine.py # Wikimedia Commons replica DB connection
+│   ├── models.py        # SQLModel models
+│   ├── dal_batches.py   # Batch queries
+│   ├── dal_uploads.py   # Upload request queries
+│   ├── dal_presets.py   # Preset queries
+│   └── dal_users.py     # User queries
+├── mediawiki/           # Wikimedia Commons integration
+│   ├── client.py        # MediaWiki API client
+│   ├── commons.py       # Upload workflow (download, hash, upload, SDC)
+│   ├── sdc_v2.py, sdc_merge.py
 ├── handlers/            # Image source handlers
-│   ├── interfaces.py   # Abstract Handler class
+│   ├── interfaces.py    # Abstract Handler class
 │   ├── mapillary_handler.py
 │   └── flickr_handler.py
 ├── asyncapi/            # Auto-generated AsyncAPI models (do not edit)
 └── workers/             # Celery workers
-    ├── tasks.py        # Background tasks
-    ├── celery.py       # Celery config
-    └── ingest.py       # Ingestion worker
+    ├── tasks.py         # Background tasks
+    ├── celery.py        # Celery config
+    └── ingest.py        # Ingestion worker
 ```
 
 ## Project-Specific Patterns
@@ -144,6 +152,14 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
 - DAL's `_fix_sdc_keys()` function recursively maps snake_case to kebab-case for database storage
 - Mapping is defined in `dal.py` and is updated when AsyncAPI schema changes
+
+### Commons Replica Database
+
+`db/commons_engine.py` provides a read-only connection to the Wikimedia Commons replica database, available from Toolforge. Uses the same `TOOL_TOOLSDB_USER`/`TOOL_TOOLSDB_PASSWORD` credentials as the app's own DB, but connects to `commonswiki.analytics.db.svc.wikimedia.cloud` / `commonswiki_p`. Falls back to `COMMONS_DB_URL` env var for local development.
+
+**Local development:** When `TOOL_TOOLSDB_USER` is absent, the engine auto-starts an SSH tunnel through `login.toolforge.org` (override with `TOOLFORGE_SSH_HOST` env var) on the first request. Credentials are read from the Toolforge bastion via `ssh login.toolforge.org cat ~/replica.my.cnf` — no local `.cnf` file needed. The tunnel uses `start_new_session=True` so it survives poetry file-watch restarts. PyMySQL reads `.cnf` files natively via `connect_args={"read_default_file": path}` — no manual parsing needed.
+
+The replica schema uses `linktarget` as a normalised title store — `cl_to`, `pl_title`, `tl_title` columns were removed in MediaWiki 1.43–1.45 and replaced with `cl_target_id`/`pl_target_id`/`tl_target_id` foreign keys to `linktarget(lt_id, lt_namespace, lt_title)`.
 
 ### Database Query Performance
 **Only search indexed columns** - When implementing text search/filter functionality, only include columns that have database indexes. Searching unindexed columns (especially JSONB fields) will be very slow on large datasets. Check model definitions for `index=True` before adding search.
@@ -243,6 +259,16 @@ The `tests/fixtures.py` file contains an autouse fixture `mock_external_calls` t
 - Mock `time.sleep` in tests involving retry logic to avoid pytest-timeout (default 0.25s)
 - Use `@when(..., target_fixture="result")` to make return values available to `@then` steps
 - Handle expected exceptions in `@when` steps, return them in result dict for `@then` verification
+
+### TDD Red Phase — Patching Non-Existent Imports
+
+When writing a failing test before the implementation exists, `mocker.patch("module.symbol")` raises `AttributeError` if the symbol doesn't exist yet. Use `create=True` to allow patching symbols that don't exist in the target module:
+
+```python
+mocker.patch("curator.core.handler.get_redlinks", return_value=[...], create=True)
+```
+
+This lets the test fail for the right reason (missing method on Handler) rather than a patching error.
 
 ### Mock Patterns for Instance Methods
 

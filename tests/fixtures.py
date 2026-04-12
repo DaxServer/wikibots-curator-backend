@@ -221,6 +221,7 @@ def mock_sender():
     sender.send_error = AsyncMock()
     sender.send_retry_uploads_response = AsyncMock()
     sender.send_presets_list = AsyncMock()
+    sender.send_redlinks_response = AsyncMock()
     return sender
 
 

@@ -20,6 +20,8 @@ from curator.asyncapi import (
     MediaImage,
     PartialCollectionImagesData,
     PresetItem,
+    RedlinkItem,
+    RedlinksResponseData,
     SavePresetData,
     SubscribeBatchesListData,
     UploadSliceAckItem,
@@ -32,6 +34,7 @@ from curator.core.crypto import (
     encrypt_access_token,
 )
 from curator.core.task_enqueuer import enqueue_uploads
+from curator.db.commons_engine import get_redlinks
 from curator.db.dal_batches import (
     count_batches,
     count_uploads_in_batch,
@@ -622,6 +625,16 @@ class Handler:
 
         # Return updated list
         await self.fetch_presets(handler)
+
+    @handle_exceptions
+    async def fetch_redlinks(self) -> None:
+        """Fetch category redlinks from Commons replica DB."""
+        rows = await asyncio.to_thread(get_redlinks)
+        items = [
+            RedlinkItem(title=r["title"], linked_from=r["linked_from"]) for r in rows
+        ]
+        logger.info(f"[ws] [resp] Sending {len(items)} redlinks to {self.username}")
+        await self.socket.send_redlinks_response(RedlinksResponseData(items=items))
 
 
 def revoke_celery_tasks_by_id(upload_task_ids: dict[int, str]) -> dict[int, bool]:

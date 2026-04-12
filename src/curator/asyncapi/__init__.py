@@ -39,6 +39,7 @@ from .FetchBatchUploads import FetchBatchUploads
 from .FetchImages import FetchImages
 from .FetchPresets import FetchPresets
 from .FetchPresetsData import FetchPresetsData
+from .FetchRedlinks import FetchRedlinks
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
@@ -57,6 +58,9 @@ from .PresetsListData import PresetsListData
 from .QuantityDataValue import QuantityDataValue
 from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
+from .RedlinkItem import RedlinkItem
+from .RedlinksResponse import RedlinksResponse
+from .RedlinksResponseData import RedlinksResponseData
 from .Reference import Reference
 from .RetryUploads import RetryUploads
 from .RetryUploadsResponse import RetryUploadsResponse
@@ -106,6 +110,7 @@ __all__ = [
     "ImageHandler",
     "FetchPresets",
     "FetchPresetsData",
+    "FetchRedlinks",
     "RetryUploads",
     "SavePreset",
     "SavePresetData",
@@ -151,6 +156,9 @@ __all__ = [
     "PresetsList",
     "PresetsListData",
     "PresetItem",
+    "RedlinksResponse",
+    "RedlinksResponseData",
+    "RedlinkItem",
     "RetryUploadsResponse",
     "Subscribed",
     "TryBatchRetrieval",

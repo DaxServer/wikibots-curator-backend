@@ -34,7 +34,8 @@
       "Bash(gh repo view *)",
       "Bash(but squash --help)",
       "Bash(gh api repos/DaxServer/wikibots-curator-backend/pulls/*/comments *)",
-      "Bash(python3 -c \"import sys,json; changes=json.load\\(sys.stdin\\)['unassignedChanges']; print\\('\\\\n'.join\\(f'{c[\\\\\"cliId\\\\\"]} {c[\\\\\"filePath\\\\\"]}' for c in changes\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; changes=json.load\\(sys.stdin\\)['unassignedChanges']; print\\('\\\\n'.join\\(f'{c[\\\\\"cliId\\\\\"]} {c[\\\\\"filePath\\\\\"]}' for c in changes\\)\\)\")",
+      "WebFetch(domain:commons.wikimedia.org)"
     ]
   },
   "spinnerTipsEnabled": false
