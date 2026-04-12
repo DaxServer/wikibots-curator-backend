@@ -161,10 +161,34 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 
 The replica schema uses `linktarget` as a normalised title store — `cl_to`, `pl_title`, `tl_title` columns were removed in MediaWiki 1.43–1.45 and replaced with `cl_target_id`/`pl_target_id`/`tl_target_id` foreign keys to `linktarget(lt_id, lt_namespace, lt_title)`.
 
+**Commons replica query patterns (benchmarked against the live replica):**
+
+- `NOT EXISTS` subqueries are catastrophically slow on large tables like `categorylinks` (~4.5 min for 100 rows) — the optimizer cannot short-circuit them. Always use `LEFT JOIN ... WHERE p_target.page_id IS NULL` instead.
+- `EXPLAIN` is not available on replica (insufficient privileges) — benchmark with `time sql commonswiki`.
+- `categorylinks` does not have a `cl_to` column (removed in 1.43–1.45) — join via `cl_target_id` → `linktarget(lt_id, lt_namespace, lt_title)`.
+- For categorylinks-based wanted-categories queries (discarded approach), filtering `p_from.page_namespace IN (0, 6, 14)` halves query time (3.7s → 1.7s). Not applicable to the accepted `category` table query, which has no `p_from`.
+- `DISTINCT` with `LIMIT` does not allow early termination — the DB must find all distinct rows before applying the limit. Avoid `DISTINCT` on high-cardinality scans where possible; use narrow filters instead to reduce the working set.
+
+**`category` table for wanted-categories counts:**
+
+The `category` table stores pre-computed per-category statistics maintained by MediaWiki in real time — including for categories that don't have a page yet. Columns: `cat_title`, `cat_pages` (total members), `cat_subcats`, `cat_files`. Use `cat_pages - cat_subcats - cat_files` to get regular pages (galleries/templates). This is how `SpecialWantedCategories.php` fetches live counts in `preprocessResults()`.
+
+Query: `SELECT c.cat_title, c.cat_subcats, c.cat_files, (c.cat_pages - c.cat_subcats - c.cat_files) AS pages, c.cat_pages AS total FROM category c LEFT JOIN page p ON p.page_namespace = 14 AND p.page_title = c.cat_title WHERE p.page_id IS NULL ORDER BY c.cat_pages DESC LIMIT 100`
+
+Performance findings:
+- `querypage=WantedCategories` MediaWiki API is disabled on Commons — cannot use the pre-computed cache via API.
+- No index on `cat_pages` — `ORDER BY cat_pages DESC` always requires a full table sort (~7–16s).
+- Threshold filters (`cat_pages >= N`) do not help — full scan cost is fixed regardless.
+- Removing `ORDER BY` brings LIMIT 20 to 0.22s but results are unsorted and the full-scan cost returns with larger LIMITs.
+- Multiple-query approach ruled out: top 10,000 categories by `cat_pages` contain only 1 missing one — missing categories are NOT correlated with the largest categories, so no indexed shortcut exists.
+- GROUP BY aggregation directly on `categorylinks` takes several minutes — do not use.
+- **Accepted approach**: run the ~7s query directly (admin-only, infrequent use, loading state shown). Redis caching with a Celery periodic task is the known improvement path if latency becomes a problem.
+
 ### Database Query Performance
 **Only search indexed columns** - When implementing text search/filter functionality, only include columns that have database indexes. Searching unindexed columns (especially JSONB fields) will be very slow on large datasets. Check model definitions for `index=True` before adding search.
 
 ### Type Conversion Patterns
+- **TypedDict for query return types** — when a query returns rows with mixed key types (e.g., `str` title + `int` counts), define a private `TypedDict` (prefix `_`) in the DAL file. `dict[str, int | str]` is too broad — ty flags callers that expect a specific type per key
 - `ImageHandler` enum - use `str(handler)` when passing to functions expecting `str` type
 - Pydantic objects (e.g., `Label`) - use `model_dump(mode="json")` to convert to dict for database storage
 - Optional asyncapi booleans - add `or False`/`or True` when passing to functions expecting non-optional `bool`
