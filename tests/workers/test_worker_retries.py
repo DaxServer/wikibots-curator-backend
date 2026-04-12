@@ -17,7 +17,9 @@ _UPLOADSTASH_FILE_NOT_FOUND_ERROR = (
 )
 
 
-def _capture_status(captured: dict, session, upload_id, status, error=None, success=None):
+def _capture_status(
+    captured: dict, session, upload_id, status, error=None, success=None
+):
     captured["status"] = status
     captured["error"] = error
 
@@ -50,7 +52,9 @@ def upload_item():
 @pytest.fixture
 def mock_ingest_patches(mocker, upload_item):
     """Patches all common ingest dependencies. Returns the update_upload_status mock."""
-    mocker.patch("curator.workers.ingest.get_upload_request_by_id", return_value=upload_item)
+    mocker.patch(
+        "curator.workers.ingest.get_upload_request_by_id", return_value=upload_item
+    )
     update_status = mocker.patch("curator.workers.ingest.update_upload_status")
     mocker.patch("curator.workers.ingest.clear_upload_access_token")
     mocker.patch(
@@ -86,7 +90,11 @@ def mock_ingest_patches(mocker, upload_item):
         "uploadstash-bad-path: Path doesn't exist.",
         "stashfailed: No chunked upload session with this key.",
     ],
-    ids=["uploadstash-file-not-found", "uploadstash-bad-path", "stashfailed-session-not-found"],
+    ids=[
+        "uploadstash-file-not-found",
+        "uploadstash-bad-path",
+        "stashfailed-session-not-found",
+    ],
 )
 async def test_worker_process_one_stash_gone_retry_success(
     mock_session, mock_isolated_site, mock_ingest_patches, error_message
@@ -111,7 +119,9 @@ async def test_worker_process_one_uploadstash_retry_max_attempts(
 ):
     """Test that process_one gives up after MAX_UPLOADSTASH_TRIES attempts."""
     captured_status: dict = {}
-    mock_ingest_patches.side_effect = functools.partial(_capture_status, captured_status)
+    mock_ingest_patches.side_effect = functools.partial(
+        _capture_status, captured_status
+    )
 
     with patch(
         "curator.workers.ingest.upload_file_chunked",

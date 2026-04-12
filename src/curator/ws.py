@@ -11,6 +11,7 @@ from curator.asyncapi import (
     FetchBatchUploads,
     FetchImages,
     FetchPresets,
+    FetchRedlinks,
     RetryUploads,
     SavePreset,
     SubscribeBatch,
@@ -107,6 +108,10 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, UploadSlice):
                 await handler.upload_slice(message.data)
+                continue
+
+            if isinstance(message, FetchRedlinks):
+                await handler.fetch_redlinks()
                 continue
 
             logger.error(
