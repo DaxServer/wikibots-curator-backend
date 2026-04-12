@@ -27,6 +27,8 @@ from curator.asyncapi import (
     UploadSliceAckItem,
     UploadSliceData,
     UploadUpdateItem,
+    WantedCategoriesResponseData,
+    WantedCategoryItem,
 )
 from curator.core.auth import UserSession
 from curator.core.crypto import (
@@ -34,7 +36,7 @@ from curator.core.crypto import (
     encrypt_access_token,
 )
 from curator.core.task_enqueuer import enqueue_uploads
-from curator.db.commons_engine import get_redlinks
+from curator.db.commons_engine import get_redlinks, get_wanted_categories
 from curator.db.dal_batches import (
     count_batches,
     count_uploads_in_batch,
@@ -635,6 +637,27 @@ class Handler:
         ]
         logger.info(f"[ws] [resp] Sending {len(items)} redlinks to {self.username}")
         await self.socket.send_redlinks_response(RedlinksResponseData(items=items))
+
+    @handle_exceptions
+    async def fetch_wanted_categories(self) -> None:
+        """Fetch wanted categories from Commons replica DB."""
+        rows = await asyncio.to_thread(get_wanted_categories)
+        items = [
+            WantedCategoryItem(
+                title=r["title"],
+                subcats=r["subcats"],
+                files=r["files"],
+                pages=r["pages"],
+                total=r["total"],
+            )
+            for r in rows
+        ]
+        logger.info(
+            f"[ws] [resp] Sending {len(items)} wanted categories to {self.username}"
+        )
+        await self.socket.send_wanted_categories_response(
+            WantedCategoriesResponseData(items=items)
+        )
 
 
 def revoke_celery_tasks_by_id(upload_task_ids: dict[int, str]) -> dict[int, bool]:

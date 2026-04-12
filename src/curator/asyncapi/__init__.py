@@ -40,6 +40,7 @@ from .FetchImages import FetchImages
 from .FetchPresets import FetchPresets
 from .FetchPresetsData import FetchPresetsData
 from .FetchRedlinks import FetchRedlinks
+from .FetchWantedCategories import FetchWantedCategories
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
@@ -96,6 +97,9 @@ from .UploadsUpdate import UploadsUpdate
 from .UploadUpdateItem import UploadUpdateItem
 from .UrlDataValue import UrlDataValue
 from .UrlValueSnak import UrlValueSnak
+from .WantedCategoriesResponse import WantedCategoriesResponse
+from .WantedCategoriesResponseData import WantedCategoriesResponseData
+from .WantedCategoryItem import WantedCategoryItem
 from .WikibaseEntityType import WikibaseEntityType
 
 __all__ = [
@@ -111,6 +115,7 @@ __all__ = [
     "FetchPresets",
     "FetchPresetsData",
     "FetchRedlinks",
+    "FetchWantedCategories",
     "RetryUploads",
     "SavePreset",
     "SavePresetData",
@@ -169,6 +174,9 @@ __all__ = [
     "UploadUpdateItem",
     "UploadSliceAck",
     "UploadSliceAckItem",
+    "WantedCategoriesResponse",
+    "WantedCategoriesResponseData",
+    "WantedCategoryItem",
     "NoValueSnak",
     "SomeValueSnak",
     "EntityIdValueSnak",

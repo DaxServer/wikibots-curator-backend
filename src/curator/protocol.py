@@ -22,6 +22,7 @@ from curator.asyncapi import (
     FetchImages,
     FetchPresets,
     FetchRedlinks,
+    FetchWantedCategories,
     PartialCollectionImages,
     PartialCollectionImagesData,
     PresetItem,
@@ -46,6 +47,8 @@ from curator.asyncapi import (
     UploadSliceAck,
     UploadsUpdate,
     UploadUpdateItem,
+    WantedCategoriesResponse,
+    WantedCategoriesResponseData,
 )
 from curator.asyncapi.UploadSliceAckItem import UploadSliceAckItem
 
@@ -62,6 +65,7 @@ ClientMessage = Annotated[
         FetchImages,
         FetchPresets,
         FetchRedlinks,
+        FetchWantedCategories,
         RetryUploads,
         SavePreset,
         SubscribeBatch,
@@ -86,6 +90,7 @@ ServerMessage = Annotated[
         PresetsList,
         RedlinksResponse,
         RetryUploadsResponse,
+        WantedCategoriesResponse,
         Subscribed,
         TryBatchRetrieval,
         UploadCreated,
@@ -169,6 +174,13 @@ class AsyncAPIWebSocket(WebSocket):
 
     async def send_redlinks_response(self, data: RedlinksResponseData) -> None:
         await self.send_json(RedlinksResponse(data=data, nonce=self._get_nonce()))
+
+    async def send_wanted_categories_response(
+        self, data: WantedCategoriesResponseData
+    ) -> None:
+        await self.send_json(
+            WantedCategoriesResponse(data=data, nonce=self._get_nonce())
+        )
 
     async def send_retry_uploads_response(self, data: int) -> None:
         await self.send_json(RetryUploadsResponse(data=data, nonce=self._get_nonce()))

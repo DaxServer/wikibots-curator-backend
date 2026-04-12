@@ -12,6 +12,7 @@ from curator.asyncapi import (
     FetchImages,
     FetchPresets,
     FetchRedlinks,
+    FetchWantedCategories,
     RetryUploads,
     SavePreset,
     SubscribeBatch,
@@ -112,6 +113,10 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, FetchRedlinks):
                 await handler.fetch_redlinks()
+                continue
+
+            if isinstance(message, FetchWantedCategories):
+                await handler.fetch_wanted_categories()
                 continue
 
             logger.error(
