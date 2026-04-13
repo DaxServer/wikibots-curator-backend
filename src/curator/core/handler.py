@@ -605,7 +605,7 @@ class Handler:
                 )
 
         # Return updated list
-        await self.fetch_presets(handler)
+        await self.fetch_presets(ImageHandler(handler))
 
     @handle_exceptions
     async def delete_preset(self, preset_id: int):
@@ -616,7 +616,7 @@ class Handler:
                 await self.socket.send_error("Preset not found or permission denied")
                 return
 
-            handler = preset.handler
+            handler = ImageHandler(preset.handler)
             success = delete_preset(session, preset_id, self.user["userid"])
 
         if not success:
