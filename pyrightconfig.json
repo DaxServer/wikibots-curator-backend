@@ -1,3 +1,5 @@
 {
-  "exclude": ["alembic/"]
+  "exclude": ["alembic/"],
+  "venvPath": ".",
+  "venv": ".venv"
 }

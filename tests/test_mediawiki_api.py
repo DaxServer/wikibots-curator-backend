@@ -541,6 +541,107 @@ _USERINFO_RATELIMITS_RESPONSE = {
 }
 
 
+_FETCH_PAGE_RESPONSE = {
+    "batchcomplete": True,
+    "query": {
+        "pages": [
+            {
+                "pageid": 12345,
+                "ns": 6,
+                "title": "File:Test.jpg",
+                "revisions": [
+                    {"slots": {"main": {"content": "== Wikitext ==\n{{Information}}"}}}
+                ],
+            }
+        ]
+    },
+}
+
+
+_ERROR_RESPONSE = {
+    "error": {"code": "internal_api_error_DBQueryError", "info": "transient"}
+}
+
+
+def test_fetch_page_retries_and_raises_key_error_when_query_always_missing(
+    mediawiki_client, mocker
+):
+    """_fetch_page retries all attempts then raises KeyError and logs when 'query' is always absent"""
+    mock_client = mediawiki_client
+    mock_client._api_request = mocker.MagicMock(return_value=_ERROR_RESPONSE)
+    mock_logger = mocker.patch("curator.mediawiki.client.logger")
+    mocker.patch("curator.mediawiki.client.time.sleep")
+
+    with pytest.raises(KeyError, match="query"):
+        mock_client._fetch_page("Test.jpg")
+
+    assert mock_client._api_request.call_count == 4  # len(HTTP_RETRY_DELAYS) + 1
+    mock_logger.error.assert_called_once()
+    assert "Test.jpg" in mock_logger.error.call_args[0][0]
+    assert "internal_api_error_DBQueryError" in str(mock_logger.error.call_args)
+
+
+def test_fetch_page_retries_and_succeeds_when_query_missing_then_present(
+    mediawiki_client, mocker
+):
+    """_fetch_page retries on missing 'query' key and returns page on subsequent success"""
+    mock_client = mediawiki_client
+    mocker.patch("curator.mediawiki.client.logger")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
+
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=[_ERROR_RESPONSE, _FETCH_PAGE_RESPONSE]
+    )
+
+    result = mock_client._fetch_page("Test.jpg")
+
+    assert result == _FETCH_PAGE_RESPONSE["query"]["pages"][0]
+    assert mock_client._api_request.call_count == 2
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_null_edit_succeeds_when_fetch_page_eventually_returns_page(
+    mediawiki_client, mocker
+):
+    """null_edit succeeds after _fetch_page retries internally and returns a valid page"""
+    mock_client = mediawiki_client
+    mocker.patch("curator.mediawiki.client.logger")
+    mocker.patch("curator.mediawiki.client.time.sleep")
+
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=[
+            _ERROR_RESPONSE,
+            _FETCH_PAGE_RESPONSE,
+            {"edit": {"result": "Success"}},
+        ]
+    )
+
+    result = mock_client.null_edit("Test.jpg")
+
+    assert result is True
+
+
+def test_null_edit_raises_key_error_after_all_retries_exhausted(
+    mediawiki_client, mocker
+):
+    """null_edit propagates KeyError after _fetch_page exhausts all retry attempts"""
+    mock_client = mediawiki_client
+    mocker.patch("curator.mediawiki.client.logger")
+    mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
+
+    mock_client._api_request = mocker.MagicMock(return_value=_ERROR_RESPONSE)
+
+    with pytest.raises(KeyError, match="query"):
+        mock_client.null_edit("Test.jpg")
+
+    assert mock_client._api_request.call_count == 4  # len(HTTP_RETRY_DELAYS) + 1
+    assert mock_sleep.call_args_list == [
+        mocker.call(3),
+        mocker.call(5),
+        mocker.call(10),
+    ]
+
+
 def test_get_user_rate_limits_returns_ratelimits_and_rights(mediawiki_client, mocker):
     """get_user_rate_limits returns (ratelimits, rights) tuple from userinfo API"""
     mock_client = mediawiki_client

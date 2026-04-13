@@ -546,7 +546,25 @@ class MediaWikiClient:
             "formatversion": "2",
         }
 
-        return self._api_request(query_params)["query"]["pages"][0]
+        max_attempts = len(HTTP_RETRY_DELAYS) + 1
+        for attempt in range(max_attempts):
+            is_last_attempt = attempt == max_attempts - 1
+            delay = HTTP_RETRY_DELAYS[attempt] if not is_last_attempt else 0
+            result = self._api_request(query_params)
+            if "query" in result:
+                return result["query"]["pages"][0]
+            if is_last_attempt:
+                logger.error(
+                    f"Unexpected API response for {filename} after {max_attempts} attempts: {result}"
+                )
+                raise KeyError(f"'query' key missing in API response for {filename}")
+            logger.warning(
+                f"Unexpected API response for {filename} "
+                f"(attempt {attempt + 1}/{max_attempts}), retrying in {delay}s: {result}"
+            )
+            time.sleep(delay)
+
+        raise AssertionError("Unreachable")
 
     def file_exists(self, filename: str) -> bool:
         """
