@@ -546,11 +546,25 @@ class MediaWikiClient:
             "formatversion": "2",
         }
 
-        result = self._api_request(query_params)
-        if "query" not in result:
-            logger.error(f"Unexpected API response for {filename}: {result}")
-            raise KeyError(f"'query' key missing in API response for {filename}")
-        return result["query"]["pages"][0]
+        max_attempts = len(HTTP_RETRY_DELAYS) + 1
+        for attempt in range(max_attempts):
+            is_last_attempt = attempt == max_attempts - 1
+            delay = HTTP_RETRY_DELAYS[attempt] if not is_last_attempt else 0
+            result = self._api_request(query_params)
+            if "query" in result:
+                return result["query"]["pages"][0]
+            if is_last_attempt:
+                logger.error(
+                    f"Unexpected API response for {filename} after {max_attempts} attempts: {result}"
+                )
+                raise KeyError(f"'query' key missing in API response for {filename}")
+            logger.warning(
+                f"Unexpected API response for {filename} "
+                f"(attempt {attempt + 1}/{max_attempts}), retrying in {delay}s: {result}"
+            )
+            time.sleep(delay)
+
+        raise AssertionError("Unreachable")
 
     def file_exists(self, filename: str) -> bool:
         """
@@ -563,24 +577,7 @@ class MediaWikiClient:
         """
         Perform a null edit on a file page to trigger template re-parsing.
         """
-        max_attempts = len(HTTP_RETRY_DELAYS) + 1
-        page = None
-        for attempt in range(max_attempts):
-            is_last_attempt = attempt == max_attempts - 1
-            delay = HTTP_RETRY_DELAYS[attempt] if not is_last_attempt else 0
-            try:
-                page = self._fetch_page(filename)
-                break
-            except KeyError as e:
-                if is_last_attempt:
-                    raise
-                logger.warning(
-                    f"_fetch_page failed for {filename} "
-                    f"(attempt {attempt + 1}/{max_attempts}), retrying in {delay}s: {e}"
-                )
-                time.sleep(delay)
-
-        assert page is not None
+        page = self._fetch_page(filename)
         if "missing" in page:
             logger.warning(f"File {filename} does not exist, skipping null edit")
             return False

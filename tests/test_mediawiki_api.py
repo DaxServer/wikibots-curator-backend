@@ -558,64 +558,83 @@ _FETCH_PAGE_RESPONSE = {
 }
 
 
-def test_fetch_page_raises_key_error_when_query_missing(mediawiki_client, mocker):
-    """_fetch_page raises KeyError and logs when 'query' key is absent from response"""
+_ERROR_RESPONSE = {
+    "error": {"code": "internal_api_error_DBQueryError", "info": "transient"}
+}
+
+
+def test_fetch_page_retries_and_raises_key_error_when_query_always_missing(
+    mediawiki_client, mocker
+):
+    """_fetch_page retries all attempts then raises KeyError and logs when 'query' is always absent"""
     mock_client = mediawiki_client
-    mock_client._api_request = mocker.MagicMock(
-        return_value={
-            "error": {"code": "internal_api_error_DBQueryError", "info": "transient"}
-        }
-    )
+    mock_client._api_request = mocker.MagicMock(return_value=_ERROR_RESPONSE)
     mock_logger = mocker.patch("curator.mediawiki.client.logger")
+    mocker.patch("curator.mediawiki.client.time.sleep")
 
     with pytest.raises(KeyError, match="query"):
         mock_client._fetch_page("Test.jpg")
 
+    assert mock_client._api_request.call_count == 4  # len(HTTP_RETRY_DELAYS) + 1
     mock_logger.error.assert_called_once()
-    logged_args = mock_logger.error.call_args[0][0]
-    assert "Test.jpg" in logged_args
+    assert "Test.jpg" in mock_logger.error.call_args[0][0]
     assert "internal_api_error_DBQueryError" in str(mock_logger.error.call_args)
 
 
-def test_null_edit_retries_on_key_error_and_succeeds(mediawiki_client, mocker):
-    """null_edit retries _fetch_page on KeyError and succeeds when page is returned"""
+def test_fetch_page_retries_and_succeeds_when_query_missing_then_present(
+    mediawiki_client, mocker
+):
+    """_fetch_page retries on missing 'query' key and returns page on subsequent success"""
     mock_client = mediawiki_client
     mocker.patch("curator.mediawiki.client.logger")
     mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
-    mock_client._fetch_page = mocker.MagicMock(
-        side_effect=[
-            KeyError("'query' key missing"),
-            _FETCH_PAGE_RESPONSE["query"]["pages"][0],
-        ]
-    )
     mock_client._api_request = mocker.MagicMock(
-        return_value={"edit": {"result": "Success"}}
+        side_effect=[_ERROR_RESPONSE, _FETCH_PAGE_RESPONSE]
+    )
+
+    result = mock_client._fetch_page("Test.jpg")
+
+    assert result == _FETCH_PAGE_RESPONSE["query"]["pages"][0]
+    assert mock_client._api_request.call_count == 2
+    mock_sleep.assert_called_once_with(3)
+
+
+def test_null_edit_succeeds_when_fetch_page_eventually_returns_page(
+    mediawiki_client, mocker
+):
+    """null_edit succeeds after _fetch_page retries internally and returns a valid page"""
+    mock_client = mediawiki_client
+    mocker.patch("curator.mediawiki.client.logger")
+    mocker.patch("curator.mediawiki.client.time.sleep")
+
+    mock_client._api_request = mocker.MagicMock(
+        side_effect=[
+            _ERROR_RESPONSE,
+            _FETCH_PAGE_RESPONSE,
+            {"edit": {"result": "Success"}},
+        ]
     )
 
     result = mock_client.null_edit("Test.jpg")
 
     assert result is True
-    assert mock_client._fetch_page.call_count == 2
-    mock_sleep.assert_called_once_with(3)
 
 
 def test_null_edit_raises_key_error_after_all_retries_exhausted(
     mediawiki_client, mocker
 ):
-    """null_edit re-raises KeyError after all retry attempts fail"""
+    """null_edit propagates KeyError after _fetch_page exhausts all retry attempts"""
     mock_client = mediawiki_client
     mocker.patch("curator.mediawiki.client.logger")
     mock_sleep = mocker.patch("curator.mediawiki.client.time.sleep")
 
-    mock_client._fetch_page = mocker.MagicMock(
-        side_effect=KeyError("'query' key missing")
-    )
+    mock_client._api_request = mocker.MagicMock(return_value=_ERROR_RESPONSE)
 
     with pytest.raises(KeyError, match="query"):
         mock_client.null_edit("Test.jpg")
 
-    assert mock_client._fetch_page.call_count == 4  # len(HTTP_RETRY_DELAYS) + 1
+    assert mock_client._api_request.call_count == 4  # len(HTTP_RETRY_DELAYS) + 1
     assert mock_sleep.call_args_list == [
         mocker.call(3),
         mocker.call(5),
