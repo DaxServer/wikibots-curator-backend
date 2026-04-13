@@ -130,6 +130,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 - Instantiate directly: `MediaWikiClient(access_token=access_token)`
 - `_api_request()` always retries with exponential backoff (3 attempts: 0s, 1s, 3s delays)
 - `requests.exceptions.RequestException`, `badtoken` CSRF errors, and OAuth "Nonce already used" errors trigger retries; other exceptions propagate immediately
+- API-level error responses (e.g. `{"error": {"code": "..."}}`) are returned as-is — `_api_request` does not raise on them; callers must check for expected keys (e.g. `"query"`) before indexing
 - Client instances are passed where needed (no global state)
 - Async methods are used where available, or `asyncio.to_thread` for synchronous calls
 - Clients are closed after use (e.g., using `try...finally`)
