@@ -11,10 +11,16 @@ from curator.asyncapi import (
     BatchUploadsList,
     BatchUploadsListData,
     CancelBatch,
+    CategoriesDeletedResponse,
+    CategoriesDeletedResponseData,
+    CategoryCreatedResponse,
+    CategoryCreatedResponseData,
+    CheckCategoriesDeleted,
     CollectionImageIds,
     CollectionImages,
     CollectionImagesData,
     CreateBatch,
+    CreateCategory,
     DeletePreset,
     Error,
     FetchBatches,
@@ -58,7 +64,9 @@ WS_CHANNEL_ADDRESS: str = "/ws"
 ClientMessage = Annotated[
     Union[
         CancelBatch,
+        CheckCategoriesDeleted,
         CreateBatch,
+        CreateCategory,
         DeletePreset,
         FetchBatches,
         FetchBatchUploads,
@@ -82,6 +90,8 @@ ServerMessage = Annotated[
     Union[
         BatchesList,
         BatchUploadsList,
+        CategoriesDeletedResponse,
+        CategoryCreatedResponse,
         CollectionImages,
         CollectionImageIds,
         BatchCreated,
@@ -170,6 +180,20 @@ class AsyncAPIWebSocket(WebSocket):
     ) -> None:
         await self.send_json(
             UploadSliceAck(data=data, sliceid=sliceid, nonce=self._get_nonce())
+        )
+
+    async def send_categories_deleted_response(
+        self, data: CategoriesDeletedResponseData
+    ) -> None:
+        await self.send_json(
+            CategoriesDeletedResponse(data=data, nonce=self._get_nonce())
+        )
+
+    async def send_category_created_response(
+        self, data: CategoryCreatedResponseData
+    ) -> None:
+        await self.send_json(
+            CategoryCreatedResponse(data=data, nonce=self._get_nonce())
         )
 
     async def send_redlinks_response(self, data: RedlinksResponseData) -> None:

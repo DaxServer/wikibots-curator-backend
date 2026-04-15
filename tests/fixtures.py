@@ -223,6 +223,8 @@ def mock_sender():
     sender.send_presets_list = AsyncMock()
     sender.send_redlinks_response = AsyncMock()
     sender.send_wanted_categories_response = AsyncMock()
+    sender.send_categories_deleted_response = AsyncMock()
+    sender.send_category_created_response = AsyncMock()
     return sender
 
 
@@ -389,6 +391,8 @@ def mock_external_calls(mocker, request):
         or "mediawiki" in module_name.lower()
         or "geocoding" in module_name.lower()
         or "test_download" in module_name.lower()
+        or "wanted_categories_cache" in module_name.lower()
+        or "wikidata_client" in module_name.lower()
     ):
         return
 

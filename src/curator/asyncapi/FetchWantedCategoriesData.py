@@ -3,15 +3,13 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .WantedCategoryItem import WantedCategoryItem
 
-
-class WantedCategoriesResponseData(BaseModel):
-    items: List[WantedCategoryItem] = Field()
-    total: int = Field()
+class FetchWantedCategoriesData(BaseModel):
+    offset: int = Field(default=0)
+    filter: Optional[str] = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)

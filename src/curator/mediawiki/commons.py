@@ -145,12 +145,10 @@ def download_file(
     raise AssertionError("Unreachable")
 
 
-def _build_sdc_payload(
+def build_sdc_payload(
     sdc: Optional[list[Statement]], labels: Optional[Label]
 ) -> dict[str, Any]:
-    """
-    Build the wbeditentity data payload from SDC statements and labels
-    """
+    """Build the wbeditentity data payload from SDC statements and labels"""
     data: dict[str, Any] = {}
 
     if sdc:
@@ -182,7 +180,7 @@ def apply_sdc(
     """
     Apply SDC to an existing file on Commons using MediaWikiClient
     """
-    data = _build_sdc_payload(sdc, labels)
+    data = build_sdc_payload(sdc, labels)
 
     if not data:
         return False

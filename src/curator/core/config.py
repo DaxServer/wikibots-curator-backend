@@ -76,3 +76,7 @@ GEOCODING_API_URL: str = os.getenv(
     "GEOCODING_API_URL", "https://geocoding.daxserver.com/reverse"
 )
 GEOCODING_CONCURRENCY_LIMIT: int = int(os.getenv("GEOCODING_CONCURRENCY_LIMIT", "10"))
+
+WANTED_CATEGORIES_DUCKDB_PATH: str = os.getenv(
+    "WANTED_CATEGORIES_DUCKDB_PATH", "wanted_categories.duckdb"
+)

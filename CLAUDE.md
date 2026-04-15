@@ -185,6 +185,16 @@ Performance findings:
 - GROUP BY aggregation directly on `categorylinks` takes several minutes — do not use.
 - **Accepted approach**: run the ~7s query directly (admin-only, infrequent use, loading state shown). Redis caching with a Celery periodic task is the known improvement path if latency becomes a problem.
 
+**DuckDB text filter pattern:** To add case-insensitive text search alongside exclusion conditions in `wanted_categories_cache.py`, append `lower(title) LIKE '%{filter_text.lower()}%'` to the `conditions` list before building the `WHERE` clause. Use `filter_text.lower()` to normalize input.
+
+**`filter` field naming:** AsyncAPI may generate a Python model field named `filter` (a Python built-in). Use `filter_text` as the parameter name in cache/handler functions to avoid shadowing the built-in.
+
+**`test_wanted_categories_cache.py` import pattern:** Cache tests import module functions *inside* `with patch("curator.db.wanted_categories_cache._get_duck_conn", ...)` blocks so the mock is active on the call. New tests for this file must follow the same inline-import pattern.
+
+**DuckDB concurrency pattern:** `_duck_conn` opens in write mode (not `read_only=True`) so reads and writes share one connection. A `threading.Lock` (`_duck_lock`) serialises all access — DuckDB connections are not thread-safe, and `asyncio.gather` runs `count`/`query` concurrently in threads. Write mutations (e.g., `mark_created`) acquire `_duck_lock` and use `_get_duck_conn()` directly. Tests mock `_get_duck_conn` (not `duckdb.connect`) for both read and write operations.
+
+**Title format in wanted categories:** DuckDB stores `cat_title` with underscores (`March_1924_in_Boston`). The backend sends titles as-is — no `replace("_", " ")`. Display transformation (`replaceAll('_', ' ')`) happens only in the Vue template. Exception: `CATEGORY_CREATED_RESPONSE` title comes from MediaWiki API with spaces — normalize to underscores in the handler before sending (`created_title.replace(" ", "_")`).
+
 ### Database Query Performance
 **Only search indexed columns** - When implementing text search/filter functionality, only include columns that have database indexes. Searching unindexed columns (especially JSONB fields) will be very slow on large datasets. Check model definitions for `index=True` before adding search.
 

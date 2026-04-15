@@ -7,10 +7,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .FetchWantedCategoriesData import FetchWantedCategoriesData
+
 
 class FetchWantedCategories(BaseModel):
     type: Literal["FETCH_WANTED_CATEGORIES"] = Field(
         default="FETCH_WANTED_CATEGORIES", frozen=True
     )
+    data: FetchWantedCategoriesData = Field()
 
     model_config = ConfigDict(populate_by_name=True)
