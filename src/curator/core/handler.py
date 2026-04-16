@@ -540,7 +540,9 @@ class Handler:
     async def fetch_presets(self, handler: ImageHandler):
         """Fetch all presets for user and handler."""
         with get_session() as session:
-            presets = get_presets_for_handler(session, self.user["userid"], handler.value)
+            presets = get_presets_for_handler(
+                session, self.user["userid"], handler.value
+            )
 
             preset_items = [
                 PresetItem(
