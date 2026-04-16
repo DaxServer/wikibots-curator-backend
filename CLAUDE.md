@@ -190,7 +190,7 @@ Performance findings:
 
 ### Type Conversion Patterns
 - **TypedDict for query return types** — when a query returns rows with mixed key types (e.g., `str` title + `int` counts), define a private `TypedDict` (prefix `_`) in the DAL file. `dict[str, int | str]` is too broad — ty flags callers that expect a specific type per key
-- `ImageHandler` enum - use `str(handler)` when passing to functions expecting `str` type
+- `ImageHandler` enum - use `handler.value` when passing to functions expecting `str` type (`str(handler)` returns `'ImageHandler.MAPILLARY'`, not the value)
 - Pydantic objects (e.g., `Label`) - use `model_dump(mode="json")` to convert to dict for database storage
 - Optional asyncapi booleans - add `or False`/`or True` when passing to functions expecting non-optional `bool`
 - When AsyncAPI fields become required with defaults (e.g., `Field(default=False)`), remove the fallback pattern
