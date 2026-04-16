@@ -156,7 +156,7 @@ class TestGetNextUploadDelay:
         delay1 = get_next_upload_delay("user123", rate_limit)
         assert delay1 == 0.0
 
-        # Get the next_available time that was set (100 + 15 = 115)
+        # Get the next_available time that was set (100 + 22.5 = 122.5)
         call_args = mock_redis.set.call_args
         next_available = float(call_args[0][1])
 
@@ -165,9 +165,9 @@ class TestGetNextUploadDelay:
         mock_redis.get.return_value = str(next_available)
         delay2 = get_next_upload_delay("user123", rate_limit)
 
-        # Should have delay close to 15 seconds (115 - 100.1 = 14.9)
-        assert delay2 > 14.0
-        assert delay2 <= 15.0
+        # Should have delay close to 22.5 seconds (122.5 - 100.1 = 22.4)
+        assert delay2 > 21.0
+        assert delay2 <= 22.5
 
     def test_multiple_uploads_incremental_delays(self, mocker):
         """Test that multiple uploads get incremental delays."""
@@ -184,14 +184,14 @@ class TestGetNextUploadDelay:
         assert delay1 == 0.0
 
         # Manually update redis mock to simulate state for next call
-        # Next available = 100 + 15 = 115
-        mock_redis.get.return_value = "115.0"
+        # Next available = 100 + 22.5 = 122.5
+        mock_redis.get.return_value = "122.5"
 
         # Upload 2 (immediate)
         delay2 = get_next_upload_delay("user123", rate_limit)
-        # Should wait 15s (until 115)
-        assert delay2 == 15.0
+        # Should wait 22.5s (until 122.5)
+        assert delay2 == 22.5
 
-        # New next available should be 115 + 15 = 130
+        # New next available should be 122.5 + 22.5 = 145.0
         call_args = mock_redis.set.call_args
-        assert float(call_args[0][1]) == 130.0
+        assert float(call_args[0][1]) == 145.0
