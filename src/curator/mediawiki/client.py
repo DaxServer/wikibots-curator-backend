@@ -320,6 +320,7 @@ class MediaWikiClient:
                     or "UploadChunkFileException" in error_code
                     or "JobQueueError" in error_code
                     or "backend-fail-internal" in error_info
+                    or "internal_api_error_" in error_code
                 ):
                     logger.warning(
                         f"Chunk {chunk_num + 1}/{total_chunks} stash error "
@@ -486,6 +487,7 @@ class MediaWikiClient:
                     if not is_last_attempt and (
                         "backend-fail-internal" in error_code
                         or "JobQueueError" in error_code
+                        or "internal_api_error_" in error_code
                     ):
                         logger.warning(
                             f"Final commit backend error (attempt {commit_attempt + 1}/{max_attempts}), "

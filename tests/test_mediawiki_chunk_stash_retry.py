@@ -69,6 +69,13 @@ _COMMIT_NOCHANGE = {
     }
 }
 
+_DB_QUERY_ERROR = {
+    "error": {
+        "code": "internal_api_error_DBQueryError",
+        "info": "[c6218e04-9faa-4dfc-a784-81934ee89ef8] Caught exception of type Wikimedia\\Rdbms\\DBQueryError",
+    }
+}
+
 _CSRF_RESPONSE = {"query": {"tokens": {"csrftoken": "test_token"}}}
 
 _CHUNK_SUCCESS = {"upload": {"result": "Success", "filekey": "key123"}}
@@ -133,6 +140,7 @@ def mock_sleep(mocker):
         (_CHUNK_FILE_ERROR, "UploadChunkFileException"),
         (_JOB_QUEUE_ERROR, "JobQueueError"),
         (_STASHFAILED_BACKEND_INTERNAL, "stashfailed with backend-fail-internal"),
+        (_DB_QUERY_ERROR, "internal_api_error_DBQueryError"),
     ],
     ids=lambda x: x if isinstance(x, str) else "",
 )
@@ -301,6 +309,15 @@ def test_request_exception_on_commit_fails_after_all_retries_exhausted(
 
     assert result.success is False
     assert result.error is not None
+
+
+def test_db_query_error_on_commit_retries_and_succeeds(mocker, tiny_file, mock_sleep):
+    """internal_api_error_DBQueryError on final commit retries instead of returning failure immediately"""
+    client = _client_with(mocker, _CHUNK_SUCCESS, _DB_QUERY_ERROR, _COMMIT_SUCCESS)
+    result = client.upload_file("test.jpg", tiny_file, "wikitext", "summary")
+
+    assert result.success is True
+    mock_sleep.assert_called_once_with(3)
 
 
 def test_nochange_warning_on_commit_raises_duplicate_upload_error(
