@@ -539,9 +539,8 @@ class Handler:
     @handle_exceptions
     async def fetch_presets(self, handler: ImageHandler):
         """Fetch all presets for user and handler."""
-        handler_str = str(handler)
         with get_session() as session:
-            presets = get_presets_for_handler(session, self.user["userid"], handler_str)
+            presets = get_presets_for_handler(session, self.user["userid"], handler.value)
 
             preset_items = [
                 PresetItem(
@@ -562,7 +561,7 @@ class Handler:
         logger.info(
             f"[ws] [resp] Sending {len(preset_items)} presets for {self.username} handler={handler}"
         )
-        await self.socket.send_presets_list(handler_str, preset_items)
+        await self.socket.send_presets_list(handler.value, preset_items)
 
     @handle_exceptions
     async def save_preset(self, data: SavePresetData):
@@ -605,7 +604,7 @@ class Handler:
                 )
 
         # Return updated list
-        await self.fetch_presets(handler)
+        await self.fetch_presets(ImageHandler(handler))
 
     @handle_exceptions
     async def delete_preset(self, preset_id: int):
@@ -616,7 +615,7 @@ class Handler:
                 await self.socket.send_error("Preset not found or permission denied")
                 return
 
-            handler = preset.handler
+            handler = ImageHandler(preset.handler)
             success = delete_preset(session, preset_id, self.user["userid"])
 
         if not success:

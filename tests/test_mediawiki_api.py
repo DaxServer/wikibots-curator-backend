@@ -1,5 +1,6 @@
 """Tests for MediaWiki API request handling"""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -541,7 +542,7 @@ _USERINFO_RATELIMITS_RESPONSE = {
 }
 
 
-_FETCH_PAGE_RESPONSE = {
+_FETCH_PAGE_RESPONSE: dict[str, Any] = {
     "batchcomplete": True,
     "query": {
         "pages": [

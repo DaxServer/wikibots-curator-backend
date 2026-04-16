@@ -37,7 +37,8 @@
       "WebFetch(domain:commons.wikimedia.org)",
       "Bash(gh api repos/DaxServer/*/pulls/*/comments *)",
       "Bash(but --help)",
-      "Bash(poetry env info *)"
+      "Bash(poetry env info *)",
+      "Bash(python3 -c \"import sys,json; s=json.load\\(sys.stdin\\); print\\(s['stacks'][0]['branches'][0]['branchStatus']\\)\")"
     ]
   },
   "spinnerTipsEnabled": false
