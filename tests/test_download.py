@@ -8,6 +8,7 @@ import pytest
 import requests.exceptions
 
 from curator.core.config import HTTP_RETRY_DELAYS
+from curator.core.errors import SourceCdnError
 from curator.mediawiki.commons import download_file
 
 MAX_DOWNLOAD_ATTEMPTS = len(HTTP_RETRY_DELAYS) + 1
@@ -74,10 +75,30 @@ def test_download_retries_on_http_error_then_succeeds(mocker):
     mock_sleep.assert_called_once_with(HTTP_RETRY_DELAYS[0])
 
 
-def test_download_raises_after_all_retries_on_http_error(mocker):
-    """504 on all attempts raises after all retries exhausted"""
+@pytest.mark.parametrize("status_code", [502, 504])
+def test_download_raises_source_cdn_error_after_all_retries_on_5xx(mocker, status_code):
+    """5xx (502, 504) on all attempts raises SourceCdnError after retries exhausted"""
     mocker.patch("curator.mediawiki.commons.time.sleep")
-    error = _make_http_error(504)
+    error = _make_http_error(status_code)
+    mocker.patch(
+        "curator.mediawiki.commons.requests.get",
+        side_effect=[
+            _make_response(mocker, http_error=error)
+            for _ in range(MAX_DOWNLOAD_ATTEMPTS)
+        ],
+    )
+
+    with NamedTemporaryFile() as temp_file:
+        with pytest.raises(SourceCdnError):
+            download_file(
+                "https://example.com/file.jpg", temp_file, upload_id=1, batch_id=2
+            )
+
+
+def test_download_raises_http_error_after_all_retries_on_4xx(mocker):
+    """4xx on all attempts raises HTTPError (not SourceCdnError) — not transient"""
+    mocker.patch("curator.mediawiki.commons.time.sleep")
+    error = _make_http_error(403)
     mocker.patch(
         "curator.mediawiki.commons.requests.get",
         side_effect=[
@@ -160,7 +181,7 @@ def test_download_logs_error_when_all_retries_exhausted(mocker, caplog):
         caplog.at_level(logging.ERROR, logger="curator.mediawiki.commons"),
         NamedTemporaryFile() as temp_file,
     ):
-        with pytest.raises(requests.exceptions.HTTPError):
+        with pytest.raises(SourceCdnError):
             download_file(
                 "https://example.com/file.jpg", temp_file, upload_id=1, batch_id=2
             )
