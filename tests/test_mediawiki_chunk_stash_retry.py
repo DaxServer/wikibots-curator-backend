@@ -232,6 +232,7 @@ def test_exists_warning_returns_failure_when_hashes_differ(
     )
 
     assert result.success is False
+    assert "different content" in (result.error or "")
 
 
 # --- Final commit retry tests ---

@@ -368,6 +368,10 @@ class MediaWikiClient:
                             ],
                             f"File already exists as {existing_title}",
                         )
+                    return UploadResult(
+                        success=False,
+                        error=f"File already exists with different content: {existing_title}",
+                    )
 
                 if warnings:
                     logger.warning(warnings)
