@@ -27,12 +27,13 @@ from curator.ws import router as ws_router
 async def lifespan(app: FastAPI):
     user = os.environ.get("TOOL_TOOLSDB_USER")
     password = os.environ.get("TOOL_TOOLSDB_PASSWORD")
-    # Clear stale DuckDB populate lock left by a previous crashed run
-    redis_client.delete(WANTED_CATEGORIES_LOCK_KEY)
 
     if not user or not password:
         yield
         return
+
+    # Clear stale DuckDB populate lock left by a previous crashed run
+    redis_client.delete(WANTED_CATEGORIES_LOCK_KEY)
 
     # Run database migrations
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
