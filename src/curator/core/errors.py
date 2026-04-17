@@ -19,3 +19,9 @@ class StorageError(Exception):
     """Raised when the MediaWiki storage backend fails persistently"""
 
     pass
+
+
+class SourceCdnError(Exception):
+    """Raised when the image source CDN fails with a 5xx error after all download retries"""
+
+    pass

@@ -8,7 +8,7 @@ import requests
 
 from curator.asyncapi import Label, Statement
 from curator.core.config import HTTP_RETRY_DELAYS, redis_client
-from curator.core.errors import DuplicateUploadError, HashLockError
+from curator.core.errors import DuplicateUploadError, HashLockError, SourceCdnError
 from curator.mediawiki.client import MediaWikiClient
 
 logger = logging.getLogger(__name__)
@@ -133,6 +133,12 @@ def download_file(
                     f"[{upload_id}/{batch_id}] Image download failed after "
                     f"{max_attempts}/{max_attempts} attempts: {e}"
                 )
+                if (
+                    isinstance(e, requests.exceptions.HTTPError)
+                    and e.response is not None
+                    and e.response.status_code >= 500
+                ):
+                    raise SourceCdnError(str(e)) from e
                 raise
             logger.warning(
                 f"[{upload_id}/{batch_id}] Image download "

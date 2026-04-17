@@ -6,7 +6,7 @@ import os
 
 from celery import Task
 
-from curator.core.errors import HashLockError, StorageError
+from curator.core.errors import HashLockError, SourceCdnError, StorageError
 from curator.db.dal_uploads import update_upload_status
 from curator.db.engine import get_session
 from curator.db.models import UploadStatus
@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 STORAGE_ERROR_DELAYS = [300, 600, 900]
 # Requeue delays in seconds for HashLockError retries: 1 min each
 HASH_LOCK_DELAYS = [60, 60, 60]
+# Requeue delay for source CDN 5xx errors: single 10-minute retry
+SOURCE_CDN_DELAYS = [600]
 
 # Create a single event loop per worker process
 _worker_loop = None
@@ -71,6 +73,13 @@ def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
     try:
         result = loop.run_until_complete(process_one(upload_id, edit_group_id))
         return result
+    except SourceCdnError as e:
+        retry_num = self.request.retries
+        logger.warning(
+            f"[celery] [{upload_id}] [{worker_id}] source CDN error, requeueing "
+            f"(retry {retry_num + 1}/{len(SOURCE_CDN_DELAYS)}): {e}"
+        )
+        return _requeue_or_fail(self, upload_id, worker_id, SOURCE_CDN_DELAYS, e)
     except StorageError as e:
         retry_num = self.request.retries
         logger.warning(

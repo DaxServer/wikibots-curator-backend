@@ -11,7 +11,12 @@ from curator.asyncapi import (
     TitleBlacklistedError,
 )
 from curator.core.crypto import decrypt_access_token
-from curator.core.errors import DuplicateUploadError, HashLockError, StorageError
+from curator.core.errors import (
+    DuplicateUploadError,
+    HashLockError,
+    SourceCdnError,
+    StorageError,
+)
 from curator.db.dal_uploads import (
     clear_upload_access_token,
     get_upload_request_by_id,
@@ -459,6 +464,16 @@ async def process_one(upload_id: int, edit_group_id: str) -> bool:
                     UploadStatus.DUPLICATE,
                     DuplicateError(message=str(e), links=e.duplicates),
                 )
+
+    except SourceCdnError:
+        logger.warning(
+            f"[{upload_id}/{batchid}] source CDN error, resetting status for requeue"
+        )
+        with get_session() as session:
+            update_upload_status(
+                session, upload_id=upload_id, status=UploadStatus.QUEUED
+            )
+        raise
 
     except StorageError:
         logger.warning(

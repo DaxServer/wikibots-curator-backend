@@ -57,7 +57,7 @@ src/curator/
 │   ├── config.py        # Configuration from environment
 │   ├── handler.py       # WebSocket business logic
 │   ├── auth.py, crypto.py, wcqs.py
-│   ├── errors.py        # DuplicateUploadError, HashLockError
+│   ├── errors.py        # DuplicateUploadError, HashLockError, StorageError, SourceCdnError
 │   ├── geocoding.py     # Reverse geocoding for location enrichment
 │   ├── task_enqueuer.py # Upload task enqueueing with rate limiting
 │   ├── rate_limiter.py  # Upload rate limiting with privileged user handling
@@ -113,6 +113,9 @@ Retry functionality allows users and admins to retry failed uploads. The current
 ### Redis Role
 Redis serves as both the Celery **broker** (task queue) and **result backend**. A Redis restart destroys all in-flight task data — tasks sitting in the broker queue are gone, but the database retains `status="queued"` records. The startup recovery system (`recovery.py`) reconciles this.
 
+### Worker Requeue Pattern
+`tasks.py` uses `_requeue_or_fail(self, upload_id, worker_id, DELAYS, exc)` to requeue or permanently fail on exhaustion. Each error type has its own delay list constant: `STORAGE_ERROR_DELAYS = [300, 600, 900]`, `HASH_LOCK_DELAYS = [60, 60, 60]`, `SOURCE_CDN_DELAYS = [600]`. To add a new requeue type: add a constant, add a `except NewError` handler in `process_one` (reset to `QUEUED`, re-raise), add a matching handler in `process_upload` calling `_requeue_or_fail`.
+
 ### Rate Limiting
 - Rate limits are fetched from `action=query&meta=userinfo&uiprop=ratelimits|rights` via `MediaWikiClient.get_user_rate_limits()` which returns `(ratelimits, rights)`
 - Each upload costs 2 edit API calls (SDC apply + null edit), so the edit limit is halved before comparing against the upload limit — the more restrictive of the two is used
@@ -124,6 +127,7 @@ Redis serves as both the Celery **broker** (task queue) and **result backend**. 
 
 ### commons.py (Upload Workflow)
 `commons.py` contains both the upload-to-Commons workflow (`upload_file_chunked`) and the image download function (`download_file`) which fetches from external CDNs (e.g., Mapillary/Facebook). Both download and upload chunk retries use `config.HTTP_RETRY_DELAYS` for escalating backoff but have separate retry loops — they differ in error handling and response processing.
+- `download_file` raises `SourceCdnError` (not `HTTPError`) when all retries are exhausted on a 5xx response — this triggers a task-level requeue. 4xx errors raise `HTTPError` directly and are treated as permanent failures.
 
 ### MediaWiki Client
 - `MediaWikiClient` class handles all Wikimedia Commons operations

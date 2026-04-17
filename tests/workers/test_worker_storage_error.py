@@ -7,9 +7,14 @@ import pytest
 from mwoauth import AccessToken
 
 from curator.core.crypto import encrypt_access_token
-from curator.core.errors import HashLockError, StorageError
+from curator.core.errors import HashLockError, SourceCdnError, StorageError
 from curator.workers.ingest import process_one
-from curator.workers.tasks import HASH_LOCK_DELAYS, STORAGE_ERROR_DELAYS, process_upload
+from curator.workers.tasks import (
+    HASH_LOCK_DELAYS,
+    SOURCE_CDN_DELAYS,
+    STORAGE_ERROR_DELAYS,
+    process_upload,
+)
 
 _UPLOADSTASH_EXCEPTION_ERROR = (
     "uploadstash-exception: Could not store upload in the stash "
@@ -219,6 +224,97 @@ def test_process_upload_fails_permanently_when_hash_lock_exceeds_max_retries(
 
     with (
         patch("curator.workers.tasks.process_one", side_effect=HashLockError("locked")),
+        patch("curator.workers.tasks.get_session") as mock_get_session,
+        patch("curator.workers.tasks.update_upload_status", side_effect=capture_status),
+    ):
+        mock_get_session.return_value.__enter__ = lambda s: mock_session
+        mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+
+    assert result is False
+    assert captured_status.get("status") == "failed"
+    mock_self.retry.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_one_resets_to_queued_on_source_cdn_error(
+    mock_session, mock_isolated_site, upload_item, mock_mapillary_image
+):
+    """process_one resets status to queued and re-raises SourceCdnError for task-level requeue."""
+    captured_status = {}
+
+    def capture_status(session, upload_id, status, **kwargs):
+        captured_status["status"] = status
+
+    with (
+        patch(
+            "curator.workers.ingest.get_upload_request_by_id", return_value=upload_item
+        ),
+        patch(
+            "curator.workers.ingest.update_upload_status", side_effect=capture_status
+        ),
+        patch("curator.workers.ingest.MediaWikiClient") as mock_client_patch,
+        patch(
+            "curator.workers.ingest.upload_file_chunked",
+            side_effect=SourceCdnError("502 Bad Gateway"),
+        ),
+        patch("curator.workers.ingest.clear_upload_access_token"),
+        patch(
+            "curator.workers.ingest.MapillaryHandler.fetch_image_metadata",
+            new_callable=AsyncMock,
+            return_value=mock_mapillary_image,
+        ),
+    ):
+        mock_client = MagicMock()
+        mock_client.check_title_blacklisted.return_value = (False, "")
+        mock_client_patch.return_value = mock_client
+
+        with pytest.raises(SourceCdnError):
+            await process_one(1, "test_edit_group_abc123")
+
+    assert captured_status.get("status") == "queued"
+
+
+def test_process_upload_requeues_with_10_min_delay_on_source_cdn_error():
+    """process_upload requeues SourceCdnError with a 10-minute delay."""
+    assert SOURCE_CDN_DELAYS == [600]
+
+    mock_self = MagicMock()
+    mock_self.max_retries = 1
+    mock_self.request.retries = 0
+    mock_self.retry.side_effect = Exception("retry scheduled")
+
+    with patch(
+        "curator.workers.tasks.process_one",
+        side_effect=SourceCdnError("Bad Gateway"),
+    ):
+        with pytest.raises(Exception, match="retry scheduled"):
+            process_upload._orig_run.__func__(mock_self, 1, "abc")
+
+    mock_self.retry.assert_called_once_with(
+        countdown=600, exc=mock_self.retry.call_args[1]["exc"]
+    )
+
+
+def test_process_upload_fails_permanently_after_source_cdn_retry_exhausted(
+    mock_session,
+):
+    """process_upload marks upload as FAILED after the single SourceCdnError retry."""
+    mock_self = MagicMock()
+    mock_self.max_retries = 1
+    mock_self.request.retries = len(SOURCE_CDN_DELAYS)
+
+    captured_status = {}
+
+    def capture_status(session, upload_id, status, **kwargs):
+        captured_status["status"] = status
+
+    with (
+        patch(
+            "curator.workers.tasks.process_one",
+            side_effect=SourceCdnError("502 Bad Gateway"),
+        ),
         patch("curator.workers.tasks.get_session") as mock_get_session,
         patch("curator.workers.tasks.update_upload_status", side_effect=capture_status),
     ):
