@@ -89,7 +89,7 @@ def populate() -> None:
             CREATE TABLE wanted_categories AS
             SELECT column0 AS title, column1 AS subcats, column2 AS files, column3 AS pages, column4 AS total,
                    FALSE AS created
-            FROM read_csv('{tmp_path}', header=false,
+            FROM read_csv('{tmp_path}', header=false, quote='"', escape='"',
                 columns={{'column0': 'VARCHAR', 'column1': 'INTEGER', 'column2': 'INTEGER',
                           'column3': 'INTEGER', 'column4': 'INTEGER'}})
         """)
