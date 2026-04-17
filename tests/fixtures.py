@@ -393,6 +393,7 @@ def mock_external_calls(mocker, request):
         or "test_download" in module_name.lower()
         or "wanted_categories_cache" in module_name.lower()
         or "wikidata_client" in module_name.lower()
+        or "test_admin" in module_name.lower()
     ):
         return
 
