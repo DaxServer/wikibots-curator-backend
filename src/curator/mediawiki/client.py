@@ -665,6 +665,38 @@ class MediaWikiClient:
 
         return True
 
+    def is_category_deleted(self, title: str) -> bool:
+        """Return True if the category has a deletion log entry on Commons."""
+        result = self._api_request(
+            {
+                "action": "query",
+                "list": "logevents",
+                "letype": "delete",
+                "letitle": f"Category:{title}",
+                "formatversion": "2",
+            }
+        )
+        return len(result.get("query", {}).get("logevents", [])) > 0
+
+    def create_page(self, title: str, text: str) -> str:
+        """Create a wiki page, returning the created page title."""
+        query_params: dict[str, str] = {
+            "action": "edit",
+            "format": "json",
+            "formatversion": "2",
+        }
+        post_data: dict[str, str] = {"title": title, "text": text, "createonly": "1"}
+        result = self._api_request(
+            query_params, method="POST", data=post_data, csrf=True
+        )
+
+        if "error" in result:
+            if result["error"].get("code") == "articleexists":
+                return title
+            logger.error(result)
+            raise ValueError(result["error"].get("info", "Edit failed"))
+        return result["edit"]["title"]
+
     def fetch_sdc(self, title: str) -> tuple[dict | None, dict | None]:
         """
         Fetch SDC and labels from Commons by file title.

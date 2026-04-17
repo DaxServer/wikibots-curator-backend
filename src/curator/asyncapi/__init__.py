@@ -11,10 +11,18 @@ from .BatchUploadsList import BatchUploadsList
 from .BatchUploadsListData import BatchUploadsListData
 from .CameraInfo import CameraInfo
 from .CancelBatch import CancelBatch
+from .CategoriesDeletedResponse import CategoriesDeletedResponse
+from .CategoriesDeletedResponseData import CategoriesDeletedResponseData
+from .CategoryCreatedResponse import CategoryCreatedResponse
+from .CategoryCreatedResponseData import CategoryCreatedResponseData
+from .CheckCategoriesDeleted import CheckCategoriesDeleted
+from .CheckCategoriesDeletedData import CheckCategoriesDeletedData
 from .CollectionImageIds import CollectionImageIds
 from .CollectionImages import CollectionImages
 from .CollectionImagesData import CollectionImagesData
 from .CreateBatch import CreateBatch
+from .CreateCategory import CreateCategory
+from .CreateCategoryData import CreateCategoryData
 from .Creator import Creator
 from .DataValueEntityId import DataValueEntityId
 from .DataValueGlobeCoordinate import DataValueGlobeCoordinate
@@ -41,6 +49,7 @@ from .FetchPresets import FetchPresets
 from .FetchPresetsData import FetchPresetsData
 from .FetchRedlinks import FetchRedlinks
 from .FetchWantedCategories import FetchWantedCategories
+from .FetchWantedCategoriesData import FetchWantedCategoriesData
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
@@ -105,6 +114,8 @@ from .WikibaseEntityType import WikibaseEntityType
 __all__ = [
     "CancelBatch",
     "CreateBatch",
+    "CreateCategory",
+    "CreateCategoryData",
     "DeletePreset",
     "DeletePresetData",
     "FetchBatches",
@@ -114,8 +125,11 @@ __all__ = [
     "ImageHandler",
     "FetchPresets",
     "FetchPresetsData",
+    "CheckCategoriesDeleted",
+    "CheckCategoriesDeletedData",
     "FetchRedlinks",
     "FetchWantedCategories",
+    "FetchWantedCategoriesData",
     "RetryUploads",
     "SavePreset",
     "SavePresetData",
@@ -161,6 +175,10 @@ __all__ = [
     "PresetsList",
     "PresetsListData",
     "PresetItem",
+    "CategoriesDeletedResponse",
+    "CategoriesDeletedResponseData",
+    "CategoryCreatedResponse",
+    "CategoryCreatedResponseData",
     "RedlinksResponse",
     "RedlinksResponseData",
     "RedlinkItem",

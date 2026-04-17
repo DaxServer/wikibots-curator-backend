@@ -15,9 +15,10 @@ from alembic import command
 from alembic.config import Config
 from curator.admin import router as admin_router
 from curator.auth import router as auth_router
-from curator.core.config import TOKEN_ENCRYPTION_KEY
+from curator.core.config import TOKEN_ENCRYPTION_KEY, redis_client
 from curator.core.recovery import recover_queued_uploads
 from curator.db.engine import DB_URL
+from curator.db.wanted_categories_cache import WANTED_CATEGORIES_LOCK_KEY
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
 from curator.ws import router as ws_router
 
@@ -26,9 +27,13 @@ from curator.ws import router as ws_router
 async def lifespan(app: FastAPI):
     user = os.environ.get("TOOL_TOOLSDB_USER")
     password = os.environ.get("TOOL_TOOLSDB_PASSWORD")
+
     if not user or not password:
         yield
         return
+
+    # Clear stale DuckDB populate lock left by a previous crashed run
+    redis_client.delete(WANTED_CATEGORIES_LOCK_KEY)
 
     # Run database migrations
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

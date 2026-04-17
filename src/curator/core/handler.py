@@ -11,6 +11,8 @@ from sqlmodel import Session
 from curator.asyncapi import (
     BatchesListData,
     BatchUploadsListData,
+    CategoriesDeletedResponseData,
+    CategoryCreatedResponseData,
     CollectionImagesData,
     DuplicatedSdcNotUpdatedError,
     DuplicatedSdcUpdatedError,
@@ -20,9 +22,13 @@ from curator.asyncapi import (
     MediaImage,
     PartialCollectionImagesData,
     PresetItem,
+    Rank,
     RedlinkItem,
     RedlinksResponseData,
     SavePresetData,
+    Statement,
+    StringDataValue,
+    StringValueSnak,
     SubscribeBatchesListData,
     UploadSliceAckItem,
     UploadSliceData,
@@ -62,9 +68,21 @@ from curator.db.dal_uploads import (
 from curator.db.dal_users import ensure_user
 from curator.db.engine import get_session
 from curator.db.models import Batch, Preset, UploadItem, UploadStatus
+from curator.db.wanted_categories_cache import (
+    EXCLUDED_WANTED_CATEGORIES,
+    count,
+    is_ready,
+    mark_created,
+    populate_with_lock,
+    query,
+)
 from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
+from curator.mediawiki.client import MediaWikiClient
+from curator.mediawiki.commons import build_sdc_payload
+from curator.mediawiki.sdc_merge import merge_sdc_statements
+from curator.mediawiki.wikidata_client import WikidataClient
 from curator.protocol import AsyncAPIWebSocket
 from curator.workers.celery import app as celery_app
 
@@ -630,6 +648,78 @@ class Handler:
         await self.fetch_presets(handler)
 
     @handle_exceptions
+    async def create_category(
+        self, title: str, text: str, wikidata_qid: str | None = None
+    ) -> None:
+        """Create a category page on Commons using the user's OAuth credentials."""
+        mw = MediaWikiClient(access_token=self.user["access_token"])
+        try:
+            created_title = await asyncio.to_thread(
+                mw.create_page, f"Category:{title}", text
+            )
+        except ValueError as e:
+            await self.socket.send_error(str(e))
+            return
+        finally:
+            mw._client.close()
+        created_title = created_title.replace(" ", "_")
+        logger.info(f"[ws] [resp] Created category {created_title} for {self.username}")
+        await asyncio.to_thread(mark_created, title)
+        await self.socket.send_category_created_response(
+            CategoryCreatedResponseData(title=created_title)
+        )
+        if wikidata_qid:
+            await self._add_wikidata_link(title, wikidata_qid)
+
+    async def _add_wikidata_link(self, title: str, qid: str) -> None:
+        """Add P373 claim and commonswiki sitelink to the Wikidata item."""
+        wd = WikidataClient(access_token=self.user["access_token"])
+        try:
+            entity = await asyncio.to_thread(wd.fetch_item, qid)
+            existing_p373 = [
+                Statement.model_validate(claim)
+                for claim in entity.get("claims", {}).get("P373", [])
+            ]
+            category_name = title.replace("_", " ")
+            new_p373 = Statement(
+                mainsnak=StringValueSnak(
+                    property="P373",
+                    datavalue=StringDataValue(value=category_name),
+                ),
+                rank=Rank.NORMAL,
+            )
+            merged = merge_sdc_statements(existing_p373, [new_p373])
+            claims = build_sdc_payload(merged, None).get("claims")
+            sitelinks = {
+                "commonswiki": {"site": "commonswiki", "title": f"Category:{title}"}
+            }
+            await asyncio.to_thread(wd.edit_item, qid, claims, sitelinks)
+            logger.info(f"[ws] Added P373 and sitelink for {qid} → Category:{title}")
+        except Exception as e:
+            logger.error(f"[ws] Wikidata edit failed for {qid}: {e}")
+        finally:
+            wd._client.close()
+
+    @handle_exceptions
+    async def check_categories_deleted(self, titles: list[str]) -> None:
+        """Check which of the given category titles have been deleted on Commons."""
+        mw = MediaWikiClient(access_token=self.user["access_token"])
+        try:
+            results = await asyncio.gather(
+                *[asyncio.to_thread(mw.is_category_deleted, title) for title in titles]
+            )
+            deleted_titles = [t for t, is_deleted in zip(titles, results) if is_deleted]
+            if deleted_titles:
+                logger.info(
+                    f"[ws] [resp] Categories {deleted_titles} are deleted for {self.username}"
+                )
+                await self.socket.send_categories_deleted_response(
+                    CategoriesDeletedResponseData(deleted=deleted_titles)
+                )
+        finally:
+            mw._client.close()
+
+    @handle_exceptions
     async def fetch_redlinks(self) -> None:
         """Fetch category redlinks from Commons replica DB."""
         rows = await asyncio.to_thread(get_redlinks)
@@ -640,9 +730,26 @@ class Handler:
         await self.socket.send_redlinks_response(RedlinksResponseData(items=items))
 
     @handle_exceptions
-    async def fetch_wanted_categories(self) -> None:
-        """Fetch wanted categories from Commons replica DB."""
-        rows = await asyncio.to_thread(get_wanted_categories)
+    async def fetch_wanted_categories(
+        self, offset: int = 0, filter_text: str | None = None
+    ) -> None:
+        """Fetch wanted categories from DuckDB cache or fall back to MySQL top-N query."""
+        if await asyncio.to_thread(is_ready):
+            total, rows = await asyncio.gather(
+                asyncio.to_thread(count, filter_text=filter_text),
+                asyncio.to_thread(query, offset=offset, filter_text=filter_text),
+            )
+        else:
+            rows = await asyncio.to_thread(get_wanted_categories)
+            asyncio.create_task(populate_with_lock())
+            rows = [
+                r
+                for r in rows
+                if not any(term in r["title"] for term in EXCLUDED_WANTED_CATEGORIES)
+            ]
+            if filter_text:
+                rows = [r for r in rows if filter_text.lower() in r["title"].lower()]
+            total = len(rows)
         items = [
             WantedCategoryItem(
                 title=r["title"],
@@ -654,10 +761,10 @@ class Handler:
             for r in rows
         ]
         logger.info(
-            f"[ws] [resp] Sending {len(items)} wanted categories to {self.username}"
+            f"[ws] [resp] Sending {len(items)} wanted categories (offset={offset}, total={total}) to {self.username}"
         )
         await self.socket.send_wanted_categories_response(
-            WantedCategoriesResponseData(items=items)
+            WantedCategoriesResponseData(items=items, total=total)
         )
 
 
