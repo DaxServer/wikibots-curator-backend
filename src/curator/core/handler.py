@@ -705,15 +705,17 @@ class Handler:
         """Check which of the given category titles have been deleted on Commons."""
         mw = MediaWikiClient(access_token=self.user["access_token"])
         try:
-            for title in titles:
-                deleted = await asyncio.to_thread(mw.is_category_deleted, title)
-                if deleted:
-                    logger.info(
-                        f"[ws] [resp] Category {title} deleted for {self.username}"
-                    )
-                    await self.socket.send_categories_deleted_response(
-                        CategoriesDeletedResponseData(deleted=[title])
-                    )
+            results = await asyncio.gather(
+                *[asyncio.to_thread(mw.is_category_deleted, title) for title in titles]
+            )
+            deleted_titles = [t for t, is_deleted in zip(titles, results) if is_deleted]
+            if deleted_titles:
+                logger.info(
+                    f"[ws] [resp] Categories {deleted_titles} are deleted for {self.username}"
+                )
+                await self.socket.send_categories_deleted_response(
+                    CategoriesDeletedResponseData(deleted=deleted_titles)
+                )
         finally:
             mw._client.close()
 

@@ -121,15 +121,18 @@ def query(
         "NOT created",
         *[f"NOT contains(title, '{term}')" for term in excluded],
     ]
+    params: list[str] = []
     if filter_text:
-        conditions.append(f"lower(title) LIKE '%{filter_text.lower()}%'")
+        conditions.append("lower(title) LIKE ?")
+        params.append(f"%{filter_text.lower()}%")
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     t0 = time.monotonic()
     with _duck_lock:
         rows = (
             _get_duck_conn()
             .execute(
-                f"SELECT title, subcats, files, pages, total FROM wanted_categories {where} ORDER BY total DESC LIMIT {limit} OFFSET {offset}"
+                f"SELECT title, subcats, files, pages, total FROM wanted_categories {where} ORDER BY total DESC LIMIT {limit} OFFSET {offset}",
+                params,
             )
             .fetchall()
         )
@@ -151,13 +154,15 @@ def count(
         "NOT created",
         *[f"NOT contains(title, '{term}')" for term in excluded],
     ]
+    params: list[str] = []
     if filter_text:
-        conditions.append(f"lower(title) LIKE '%{filter_text.lower()}%'")
+        conditions.append("lower(title) LIKE ?")
+        params.append(f"%{filter_text.lower()}%")
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     with _duck_lock:
         row = (
             _get_duck_conn()
-            .execute(f"SELECT COUNT(*) FROM wanted_categories {where}")
+            .execute(f"SELECT COUNT(*) FROM wanted_categories {where}", params)
             .fetchone()
         )
     return row[0] if row else 0

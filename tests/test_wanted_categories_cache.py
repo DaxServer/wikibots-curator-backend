@@ -60,9 +60,9 @@ def test_query_with_filter_adds_like_clause():
         from curator.db.wanted_categories_cache import query
 
         query(filter_text="Germany")
-    sql = conn.execute.call_args[0][0]
-    assert "lower(title)" in sql
-    assert "germany" in sql
+    sql, params = conn.execute.call_args[0]
+    assert "lower(title) LIKE ?" in sql
+    assert params == ["%germany%"]
 
 
 def test_query_without_filter_omits_like_clause():
@@ -88,9 +88,9 @@ def test_count_with_filter_adds_like_clause():
 
         result = count(filter_text="Germany")
     assert result == 5
-    sql = conn.execute.call_args[0][0]
-    assert "lower(title)" in sql
-    assert "germany" in sql
+    sql, params = conn.execute.call_args[0]
+    assert "lower(title) LIKE ?" in sql
+    assert params == ["%germany%"]
 
 
 def test_query_excludes_created_categories():

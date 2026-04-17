@@ -129,7 +129,7 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
 
             if isinstance(message, FetchWantedCategories):
                 await handler.fetch_wanted_categories(
-                    message.data.offset, message.data.filter
+                    offset=message.data.offset, filter_text=message.data.filter
                 )
                 continue
 
