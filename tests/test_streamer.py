@@ -5,6 +5,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 import pytest
+from starlette.websockets import WebSocketState
 
 from curator.asyncapi import BatchItem, BatchStats
 from curator.core.handler import OptimizedBatchStreamer
@@ -149,3 +150,33 @@ async def test_streamer_no_updates_on_paginated_page(mock_sender):
 
         # asyncio.sleep should NOT have been called (the loop was bypassed)
         mock_sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_streamer_swallows_error_on_websocket_disconnect(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
+    mock_sender.client_state = WebSocketState.DISCONNECTED
+    mock_sender.send_batches_list.side_effect = AssertionError
+
+    with (
+        patch("curator.core.handler.get_batches"),
+        patch("curator.core.handler.count_batches", return_value=0),
+        patch("curator.core.handler.get_latest_update_time", return_value=None),
+    ):
+        # Should not raise — disconnected WebSocket is a clean exit
+        await streamer.start_streaming(userid="u1")
+
+
+@pytest.mark.asyncio
+async def test_streamer_reraises_error_on_connected_websocket(mock_sender):
+    streamer = OptimizedBatchStreamer(mock_sender, "testuser")
+    mock_sender.client_state = WebSocketState.CONNECTED
+    mock_sender.send_batches_list.side_effect = RuntimeError("unexpected")
+
+    with (
+        patch("curator.core.handler.get_batches"),
+        patch("curator.core.handler.count_batches", return_value=0),
+        patch("curator.core.handler.get_latest_update_time", return_value=None),
+    ):
+        with pytest.raises(RuntimeError, match="unexpected"):
+            await streamer.start_streaming(userid="u1")

@@ -211,6 +211,7 @@ Performance findings:
 
 ### AsyncAPI WebSocket Protocol
 - Union types `ClientMessage` and `ServerMessage` defined in `protocol.py`
+- Background streaming tasks that send on a closing WebSocket receive `AssertionError` (from `websockets.legacy.protocol._drain_helper`), not `WebSocketDisconnect` — detect a clean shutdown via `socket.client_state == WebSocketState.DISCONNECTED` (import from `starlette.websockets`)
 - 50+ auto-generated message types in `asyncapi/`
 - Two-phase upload process: creation phase (slices via `UPLOAD_SLICE`) → subscription phase (`SUBSCRIBE_BATCH`)
 - `UploadSliceAck` provides immediate item status updates to client
