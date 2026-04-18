@@ -98,7 +98,7 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
                 continue
 
             if isinstance(message, FetchImages):
-                await handler.fetch_images(message.data, "mapillary")
+                await handler.fetch_images(message.data, message.handler)
                 continue
 
             if isinstance(message, FetchPresets):

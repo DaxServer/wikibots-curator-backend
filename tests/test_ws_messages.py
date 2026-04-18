@@ -1,6 +1,6 @@
 """Tests for WebSocket message routing."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -43,6 +43,12 @@ def setup_auth_override():
 @pytest.fixture
 def mock_mapillary_handler():
     with patch("curator.core.handler.MapillaryHandler") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_flickr_handler():
+    with patch("curator.core.handler.FlickrHandler") as mock:
         yield mock
 
 
@@ -105,6 +111,51 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         data = websocket.receive_json()
         assert data["type"] == "ERROR"
         assert data["data"] == "Collection not found"
+
+
+def test_ws_fetch_images_flickr(mock_flickr_handler):
+    """Test that FETCH_IMAGES with handler=flickr uses FlickrHandler, not MapillaryHandler."""
+    mock_handler_instance = mock_flickr_handler.return_value
+    mock_handler_instance.fetch_collection = AsyncMock(return_value={})
+
+    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
+        websocket.send_json(
+            {"type": "FETCH_IMAGES", "data": "some_collection", "handler": "flickr"}
+        )
+
+        data = websocket.receive_json()
+        assert data["type"] == "ERROR"
+        assert data["data"] == "Collection not found"
+
+    mock_flickr_handler.assert_called_once()
+
+
+def test_ws_fetch_presets():
+    """Test that FETCH_PRESETS correctly converts the handler string to an ImageHandler enum."""
+    mock_preset = MagicMock()
+    mock_preset.id = 1
+    mock_preset.title = "My Preset"
+    mock_preset.title_template = "{title}"
+    mock_preset.labels = None
+    mock_preset.categories = None
+    mock_preset.exclude_from_date_category = False
+    mock_preset.handler = "mapillary"
+    mock_preset.is_default = False
+    mock_preset.created_at.isoformat.return_value = "2024-01-01T00:00:00"
+    mock_preset.updated_at.isoformat.return_value = "2024-01-01T00:00:00"
+
+    with (
+        patch(
+            "curator.core.handler.get_presets_for_handler", return_value=[mock_preset]
+        ),
+        patch("curator.core.handler.get_session"),
+        client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket,
+    ):
+        websocket.send_json({"type": "FETCH_PRESETS", "data": {"handler": "mapillary"}})
+
+        data = websocket.receive_json()
+        assert data["type"] == "PRESETS_LIST"
+        assert data["data"]["handler"] == "mapillary"
 
 
 def test_ws_invalid_message():

@@ -231,6 +231,7 @@ Backend models are auto-generated from `../frontend/asyncapi.json`. When updatin
 - Use short names without redundant prefixes (e.g., `original` not `url_original`)
 - Boolean flags should be required with defaults, not Optional
 - Required boolean fields generate as `Field(default=False)` in Python models
+- Use `$ref: "#/components/schemas/ImageHandler"` (not `type: string`) for enum fields — produces typed `ImageHandler` enum in both Python and TypeScript instead of plain strings
 
 **When adding new server messages, update all 4 locations in `asyncapi.json` (alphabetical order):**
 1. `components/messages/` - Message definition (`"RetryUploadsResponse": {"payload": {...}}`)
