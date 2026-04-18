@@ -1,5 +1,6 @@
 """BDD tests for chunk_upload_retry.feature"""
 
+import functools
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,31 @@ from curator.mediawiki.client import MediaWikiClient
 
 # Flag to track if default mock should be applied
 _use_default_mock = True
+
+
+def _chunk3_dbqueryerror_then_stashfailed_mock(call_count: dict, *args, **kwargs) -> dict:
+    params = args[0] if args else kwargs.get("params", {})
+    if params.get("action") == "query" and params.get("meta") == "tokens":
+        return {"query": {"tokens": {"csrftoken": "test_token"}}}
+    call_count["count"] += 1
+    count = call_count["count"]
+    if count <= 2:
+        return {"upload": {"result": "Success", "filekey": "testfilekey.abc.jpg"}}
+    if count == 3:
+        return {
+            "error": {
+                "code": "internal_api_error_DBQueryError",
+                "info": "Caught exception of type Wikimedia\\Rdbms\\DBQueryError",
+            }
+        }
+    if count == 4:
+        return {
+            "error": {
+                "code": "stashfailed",
+                "info": "Chunked upload is already completed, check status for details.",
+            }
+        }
+    return {"upload": {"result": "Success", "filename": "test.jpg"}}
 
 
 # --- Scenarios ---
@@ -38,6 +64,14 @@ def test_chunk_upload_fails_after_max_retries():
 
 @scenario("features/chunk_upload_retry.feature", "Chunk upload retry on timeout")
 def test_chunk_upload_retry_on_timeout():
+    pass
+
+
+@scenario(
+    "features/chunk_upload_retry.feature",
+    "Chunk 3 stashfailed already-completed after DBQueryError proceeds to final commit",
+)
+def test_chunk3_stashfailed_already_completed_proceeds_to_commit():
     pass
 
 
@@ -215,6 +249,21 @@ def api_request_chunk_times_out(mocker):
 
 
 @given(
+    "chunk 3 gets DBQueryError on first attempt then stashfailed already completed on retry"
+)
+def api_chunk3_dbqueryerror_then_stashfailed_already_completed(mocker):
+    """Mock chunk 3 to return DBQueryError on first attempt, stashfailed-already-completed on retry."""
+    global _use_default_mock
+    _use_default_mock = False
+    call_count = {"count": 0}
+    return mocker.patch(
+        "curator.mediawiki.client.MediaWikiClient._api_request",
+        side_effect=functools.partial(_chunk3_dbqueryerror_then_stashfailed_mock, call_count),
+        autospec=False,
+    )
+
+
+@given(
     parsers.parse("the API response for chunk {chunk_num:d} contains duplicate warning")
 )
 def api_request_duplicate_warning(mocker):
@@ -380,6 +429,11 @@ def chunk_1_retried(upload_result):
 def duplicate_error_raised(upload_result):
     assert upload_result["exception"] is not None
     assert isinstance(upload_result["exception"], DuplicateUploadError)
+
+
+@then(parsers.parse("{count:d} total API calls should be made"))
+def total_api_calls(upload_result, count):
+    assert upload_result["client"]._api_request.call_count == count
 
 
 @then("no retries should occur for the duplicate error")
