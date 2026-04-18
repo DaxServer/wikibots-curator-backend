@@ -435,6 +435,16 @@ class MediaWikiClient:
                     chunk_num, total_chunks, query_params, post_data, files, file_sha1
                 )
                 if isinstance(chunk_result, UploadResult):
+                    if (
+                        file_key
+                        and chunk_result.error
+                        and "stashfailed" in chunk_result.error
+                        and "already completed" in chunk_result.error
+                    ):
+                        logger.info(
+                            f"Chunk {chunk_num + 1}/{total_chunks} already stashed (stash complete), proceeding to final commit"
+                        )
+                        break
                     return chunk_result
                 file_key = chunk_result
 

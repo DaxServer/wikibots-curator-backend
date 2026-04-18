@@ -37,6 +37,14 @@ Feature: Chunk Upload Retry Logic
     Then the upload should succeed
     And chunk 1 should be retried once
 
+  Scenario: Chunk 3 stashfailed already-completed after DBQueryError proceeds to final commit
+    Given a MediaWiki client with valid authentication
+    And a file exists at "/tmp/test.jpg" with size 3MB
+    And chunk 3 gets DBQueryError on first attempt then stashfailed already completed on retry
+    When I upload the file using chunked upload
+    Then the upload should succeed
+    And 5 total API calls should be made
+
   Scenario: Duplicate error does not trigger retry
     Given a MediaWiki client with valid authentication
     And a file exists at "/tmp/test.jpg" with size 3MB
