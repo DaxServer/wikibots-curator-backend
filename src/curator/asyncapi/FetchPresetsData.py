@@ -5,8 +5,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .ImageHandler import ImageHandler
+
 
 class FetchPresetsData(BaseModel):
-    handler: str = Field()
+    handler: ImageHandler = Field()
 
     model_config = ConfigDict(populate_by_name=True)
