@@ -7,6 +7,7 @@ from typing import Any, Optional, cast
 import httpx
 from fastapi import WebSocketDisconnect
 from sqlmodel import Session
+from starlette.websockets import WebSocketState
 
 from curator.asyncapi import (
     BatchesListData,
@@ -856,8 +857,13 @@ class OptimizedBatchStreamer:
                 f"[ws] [resp] Stopping optimized batch streaming for {self.username}"
             )
         except Exception as e:
-            logger.error(f"[ws] [resp] Error in optimized batch streaming: {e}")
-            raise
+            if self.socket.client_state == WebSocketState.DISCONNECTED:
+                logger.info(
+                    f"[ws] [resp] Streaming stopped: WebSocket disconnected for {self.username}"
+                )
+            else:
+                logger.error(f"[ws] [resp] Error in optimized batch streaming: {e}")
+                raise
 
     async def stop_streaming(self):
         """Stop the streaming process."""
