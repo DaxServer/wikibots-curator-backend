@@ -225,6 +225,7 @@ def mock_sender():
     sender.send_wanted_categories_response = AsyncMock()
     sender.send_categories_deleted_response = AsyncMock()
     sender.send_category_created_response = AsyncMock()
+    sender.send_recategorize_files_response = AsyncMock()
     return sender
 
 
@@ -394,6 +395,7 @@ def mock_external_calls(mocker, request):
         or "wanted_categories_cache" in module_name.lower()
         or "wikidata_client" in module_name.lower()
         or "test_admin" in module_name.lower()
+        or "recategorize" in module_name.lower()
     ):
         return
 

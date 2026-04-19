@@ -68,6 +68,10 @@ from .PresetsListData import PresetsListData
 from .QuantityDataValue import QuantityDataValue
 from .QuantityValueSnak import QuantityValueSnak
 from .Rank import Rank
+from .RecategorizeFiles import RecategorizeFiles
+from .RecategorizeFilesData import RecategorizeFilesData
+from .RecategorizeFilesResponse import RecategorizeFilesResponse
+from .RecategorizeFilesResponseData import RecategorizeFilesResponseData
 from .RedlinkItem import RedlinkItem
 from .RedlinksResponse import RedlinksResponse
 from .RedlinksResponseData import RedlinksResponseData
@@ -144,6 +148,8 @@ __all__ = [
     "UploadItem",
     "UploadSlice",
     "UploadSliceData",
+    "RecategorizeFiles",
+    "RecategorizeFilesData",
     "BatchCreated",
     "BatchesList",
     "BatchesListData",
@@ -195,6 +201,8 @@ __all__ = [
     "WantedCategoriesResponse",
     "WantedCategoriesResponseData",
     "WantedCategoryItem",
+    "RecategorizeFilesResponse",
+    "RecategorizeFilesResponseData",
     "NoValueSnak",
     "SomeValueSnak",
     "EntityIdValueSnak",

@@ -25,5 +25,6 @@ coverage
 *.sw?
 
 .claude
+.code-review-graph/
 *.duckdb
 *.duckdb.wal

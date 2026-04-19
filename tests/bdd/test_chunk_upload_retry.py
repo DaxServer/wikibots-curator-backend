@@ -15,7 +15,9 @@ from curator.mediawiki.client import MediaWikiClient
 _use_default_mock = True
 
 
-def _chunk3_dbqueryerror_then_stashfailed_mock(call_count: dict, *args, **kwargs) -> dict:
+def _chunk3_dbqueryerror_then_stashfailed_mock(
+    call_count: dict, *args, **kwargs
+) -> dict:
     params = args[0] if args else kwargs.get("params", {})
     if params.get("action") == "query" and params.get("meta") == "tokens":
         return {"query": {"tokens": {"csrftoken": "test_token"}}}
@@ -258,7 +260,9 @@ def api_chunk3_dbqueryerror_then_stashfailed_already_completed(mocker):
     call_count = {"count": 0}
     return mocker.patch(
         "curator.mediawiki.client.MediaWikiClient._api_request",
-        side_effect=functools.partial(_chunk3_dbqueryerror_then_stashfailed_mock, call_count),
+        side_effect=functools.partial(
+            _chunk3_dbqueryerror_then_stashfailed_mock, call_count
+        ),
         autospec=False,
     )
 

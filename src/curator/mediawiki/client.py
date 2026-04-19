@@ -5,6 +5,7 @@ MediaWiki API client
 import json
 import logging
 import os
+import re
 import secrets
 import time
 from dataclasses import dataclass
@@ -706,6 +707,79 @@ class MediaWikiClient:
             logger.error(result)
             raise ValueError(result["error"].get("info", "Edit failed"))
         return result["edit"]["title"]
+
+    def get_category_members(self, category: str) -> list[str]:
+        """Return all file titles in the given category."""
+        params: dict[str, str] = {
+            "action": "query",
+            "list": "categorymembers",
+            "cmtitle": f"Category:{category}",
+            "cmtype": "file",
+            "cmlimit": "500",
+        }
+        titles: list[str] = []
+        while True:
+            result = self._api_request(params)
+            if "error" in result:
+                raise ValueError(
+                    f"Failed to fetch category members: {result['error'].get('info')}"
+                )
+            members = result.get("query", {}).get("categorymembers", [])
+            titles.extend(m["title"] for m in members)
+            if "continue" not in result:
+                break
+            params = {**params, "cmcontinue": result["continue"]["cmcontinue"]}
+        logger.info(
+            f"Retrieved {len(titles)} file titles in [[Category:{category.replace('_', ' ')}]]"
+        )
+        return titles
+
+    def replace_category_in_page(self, title: str, source: str, target: str) -> bool:
+        """Replace source category with target in a page's wikitext. Returns True if replaced."""
+        result = self._api_request(
+            {
+                "action": "query",
+                "prop": "revisions",
+                "rvprop": "content",
+                "rvslots": "main",
+                "titles": title,
+            }
+        )
+        if "error" in result:
+            logger.error(f"Failed to fetch wikitext for {title}: {result['error']}")
+            return False
+        pages = result.get("query", {}).get("pages", {})
+        page = next(iter(pages.values()))
+        wikitext = (
+            page.get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("*", "")
+        )
+        source_normalized = source.replace("_", " ")
+        target_normalized = target.replace("_", " ")
+        source_regex = r"(?:_| )".join(re.escape(w) for w in source_normalized.split())
+        pattern = re.compile(r"\[\[(?i:Category):" + source_regex + r"(\|[^\]]+)?\]\]")
+        if not pattern.search(wikitext):
+            return False
+        new_text = pattern.sub(
+            lambda m: f"[[Category:{target_normalized}{m.group(1) or ''}]]",
+            wikitext,
+        )
+        edit_result = self._api_request(
+            {"action": "edit", "format": "json", "formatversion": "2"},
+            method="POST",
+            data={
+                "title": title,
+                "text": new_text,
+                "summary": f"Recategorize: [[Category:{source_normalized}]] → [[Category:{target_normalized}]]",
+            },
+            csrf=True,
+        )
+        if "error" in edit_result:
+            logger.error(f"Failed to recategorize {title}: {edit_result['error']}")
+            return False
+        logger.info(
+            f"Recategorized {title} from [[Category:{source_normalized}]] to [[Category:{target_normalized}]]"
+        )
+        return True
 
     def fetch_sdc(self, title: str) -> tuple[dict | None, dict | None]:
         """
