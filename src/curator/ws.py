@@ -15,6 +15,7 @@ from curator.asyncapi import (
     FetchPresets,
     FetchRedlinks,
     FetchWantedCategories,
+    RecategorizeFiles,
     RetryUploads,
     SavePreset,
     SubscribeBatch,
@@ -130,6 +131,12 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
             if isinstance(message, FetchWantedCategories):
                 await handler.fetch_wanted_categories(
                     offset=message.data.offset, filter_text=message.data.filter
+                )
+                continue
+
+            if isinstance(message, RecategorizeFiles):
+                await handler.recategorize_files(
+                    message.data.source, message.data.target
                 )
                 continue
 

@@ -34,6 +34,8 @@ from curator.asyncapi import (
     PresetItem,
     PresetsList,
     PresetsListData,
+    RecategorizeFiles,
+    RecategorizeFilesResponse,
     RedlinksResponse,
     RedlinksResponseData,
     RetryUploads,
@@ -56,6 +58,7 @@ from curator.asyncapi import (
     WantedCategoriesResponse,
     WantedCategoriesResponseData,
 )
+from curator.asyncapi.RecategorizeFilesResponseData import RecategorizeFilesResponseData
 from curator.asyncapi.UploadSliceAckItem import UploadSliceAckItem
 
 WS_CHANNEL_ADDRESS: str = "/ws"
@@ -74,6 +77,7 @@ ClientMessage = Annotated[
         FetchPresets,
         FetchRedlinks,
         FetchWantedCategories,
+        RecategorizeFiles,
         RetryUploads,
         SavePreset,
         SubscribeBatch,
@@ -98,6 +102,7 @@ ServerMessage = Annotated[
         Error,
         PartialCollectionImages,
         PresetsList,
+        RecategorizeFilesResponse,
         RedlinksResponse,
         RetryUploadsResponse,
         WantedCategoriesResponse,
@@ -204,6 +209,13 @@ class AsyncAPIWebSocket(WebSocket):
     ) -> None:
         await self.send_json(
             WantedCategoriesResponse(data=data, nonce=self._get_nonce())
+        )
+
+    async def send_recategorize_files_response(
+        self, data: RecategorizeFilesResponseData
+    ) -> None:
+        await self.send_json(
+            RecategorizeFilesResponse(data=data, nonce=self._get_nonce())
         )
 
     async def send_retry_uploads_response(self, data: int) -> None:

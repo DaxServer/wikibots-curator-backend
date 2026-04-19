@@ -5,6 +5,7 @@ MediaWiki API client
 import json
 import logging
 import os
+import re
 import secrets
 import time
 from dataclasses import dataclass
@@ -706,6 +707,69 @@ class MediaWikiClient:
             logger.error(result)
             raise ValueError(result["error"].get("info", "Edit failed"))
         return result["edit"]["title"]
+
+    def get_category_members(self, category: str) -> list[str]:
+        """Return all file titles in the given category."""
+        params: dict[str, str] = {
+            "action": "query",
+            "list": "categorymembers",
+            "cmtitle": f"Category:{category}",
+            "cmtype": "file",
+            "cmlimit": "500",
+        }
+        titles: list[str] = []
+        while True:
+            result = self._api_request(params)
+            members = result.get("query", {}).get("categorymembers", [])
+            titles.extend(m["title"] for m in members)
+            if "continue" not in result:
+                break
+            params = {**params, "cmcontinue": result["continue"]["cmcontinue"]}
+        logger.info(
+            f"Retrieved {len(titles)} file titles in [[Category:{category.replace('_', ' ')}]]"
+        )
+        return titles
+
+    def replace_category_in_page(self, title: str, source: str, target: str) -> bool:
+        """Replace source category with target in a page's wikitext. Returns True if replaced."""
+        result = self._api_request(
+            {
+                "action": "query",
+                "prop": "revisions",
+                "rvprop": "content",
+                "rvslots": "main",
+                "titles": title,
+            }
+        )
+        pages = result.get("query", {}).get("pages", {})
+        page = next(iter(pages.values()))
+        wikitext = (
+            page.get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("*", "")
+        )
+        source_normalized = source.replace("_", " ")
+        pattern = re.compile(
+            r"\[\[Category:" + re.escape(source_normalized) + r"(\|[^\]]+)?\]\]"
+        )
+        if not pattern.search(wikitext):
+            return False
+        new_text = pattern.sub(
+            lambda m: f"[[Category:{target}{m.group(1) or ''}]]",
+            wikitext,
+        )
+        self._api_request(
+            {"action": "edit", "format": "json", "formatversion": "2"},
+            method="POST",
+            data={
+                "title": title,
+                "text": new_text,
+                "summary": f"Recategorize: [[Category:{source_normalized}]] → [[Category:{target}]]",
+            },
+            csrf=True,
+        )
+        logger.info(
+            f"Recategorized {title} from [[Category:{source_normalized}]] to [[Category:{target}]]"
+        )
+        return True
 
     def fetch_sdc(self, title: str) -> tuple[dict | None, dict | None]:
         """

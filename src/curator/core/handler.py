@@ -37,6 +37,7 @@ from curator.asyncapi import (
     WantedCategoriesResponseData,
     WantedCategoryItem,
 )
+from curator.asyncapi.RecategorizeFilesResponseData import RecategorizeFilesResponseData
 from curator.core.auth import UserSession
 from curator.core.crypto import (
     decrypt_access_token,
@@ -719,6 +720,30 @@ class Handler:
                 )
         finally:
             mw._client.close()
+
+    @handle_exceptions
+    async def recategorize_files(self, source: str, target: str) -> None:
+        """Replace source category with target on all files in that category."""
+        mw = MediaWikiClient(access_token=self.user["access_token"])
+        try:
+            titles = await asyncio.to_thread(mw.get_category_members, source)
+            count = 0
+            for title in titles:
+                replaced = await asyncio.to_thread(
+                    mw.replace_category_in_page, title, source, target
+                )
+                if replaced:
+                    count += 1
+        finally:
+            mw._client.close()
+        await asyncio.to_thread(mark_created, source)
+        logger.info(
+            f"[ws] [resp] Recategorized {count}/{len(titles)} files from [[Category:{source.replace('_', ' ')}]]"
+            f" to [[Category:{target.replace('_', ' ')}]] for {self.username}"
+        )
+        await self.socket.send_recategorize_files_response(
+            RecategorizeFilesResponseData(source=source, count=count)
+        )
 
     @handle_exceptions
     async def fetch_redlinks(self) -> None:
