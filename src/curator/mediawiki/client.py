@@ -720,6 +720,10 @@ class MediaWikiClient:
         titles: list[str] = []
         while True:
             result = self._api_request(params)
+            if "error" in result:
+                raise ValueError(
+                    f"Failed to fetch category members: {result['error'].get('info')}"
+                )
             members = result.get("query", {}).get("categorymembers", [])
             titles.extend(m["title"] for m in members)
             if "continue" not in result:
@@ -741,33 +745,39 @@ class MediaWikiClient:
                 "titles": title,
             }
         )
+        if "error" in result:
+            logger.error(f"Failed to fetch wikitext for {title}: {result['error']}")
+            return False
         pages = result.get("query", {}).get("pages", {})
         page = next(iter(pages.values()))
         wikitext = (
             page.get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("*", "")
         )
         source_normalized = source.replace("_", " ")
-        pattern = re.compile(
-            r"\[\[Category:" + re.escape(source_normalized) + r"(\|[^\]]+)?\]\]"
-        )
+        target_normalized = target.replace("_", " ")
+        source_regex = r"(?:_| )".join(re.escape(w) for w in source_normalized.split())
+        pattern = re.compile(r"\[\[(?i:Category):" + source_regex + r"(\|[^\]]+)?\]\]")
         if not pattern.search(wikitext):
             return False
         new_text = pattern.sub(
-            lambda m: f"[[Category:{target}{m.group(1) or ''}]]",
+            lambda m: f"[[Category:{target_normalized}{m.group(1) or ''}]]",
             wikitext,
         )
-        self._api_request(
+        edit_result = self._api_request(
             {"action": "edit", "format": "json", "formatversion": "2"},
             method="POST",
             data={
                 "title": title,
                 "text": new_text,
-                "summary": f"Recategorize: [[Category:{source_normalized}]] → [[Category:{target}]]",
+                "summary": f"Recategorize: [[Category:{source_normalized}]] → [[Category:{target_normalized}]]",
             },
             csrf=True,
         )
+        if "error" in edit_result:
+            logger.error(f"Failed to recategorize {title}: {edit_result['error']}")
+            return False
         logger.info(
-            f"Recategorized {title} from [[Category:{source_normalized}]] to [[Category:{target}]]"
+            f"Recategorized {title} from [[Category:{source_normalized}]] to [[Category:{target_normalized}]]"
         )
         return True
 
