@@ -88,11 +88,10 @@ class MediaWikiClient:
             if attempt > 0 and backoff > 0:
                 time.sleep(backoff)
 
-            if csrf:
-                data = data or {}
-                data["token"] = self.get_csrf_token()
-
             try:
+                if csrf:
+                    data = data or {}
+                    data["token"] = self.get_csrf_token()
                 response = self._client.request(
                     method,
                     COMMONS_API,
@@ -201,6 +200,15 @@ class MediaWikiClient:
         }
 
         data = self._api_request(params)
+        if (
+            "query" not in data
+            or "tokens" not in data["query"]
+            or "csrftoken" not in data["query"]["tokens"]
+        ):
+            logger.error(f"CSRF token request returned unexpected response: {data}")
+            raise requests.exceptions.RequestException(
+                "CSRF token request returned unexpected response"
+            )
         csrf_token = data["query"]["tokens"]["csrftoken"]
         logger.info(f"Got CSRF token: {csrf_token[:10]}...")
         return csrf_token
