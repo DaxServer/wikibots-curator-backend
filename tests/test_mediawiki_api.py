@@ -79,6 +79,47 @@ def test_check_title_blacklisted_default_reason(mediawiki_client, mocker):
     assert result == (True, "Title is blacklisted")
 
 
+def test_get_csrf_token_raises_request_exception_when_query_key_missing(
+    mediawiki_client, mocker
+):
+    """get_csrf_token raises RequestException (not KeyError) when API returns error response without 'query'"""
+    mock_client = mediawiki_client
+    mock_client._api_request = mocker.MagicMock(
+        return_value={
+            "error": {"code": "internal_api_error_DBQueryError", "info": "transient"}
+        }
+    )
+
+    with pytest.raises(requests.exceptions.RequestException):
+        mock_client.get_csrf_token()
+
+
+def test_api_request_retries_when_csrf_token_fetch_fails(mediawiki_client, mocker):
+    """csrf=True request retries the full attempt (including fresh CSRF token) when token fetch raises RequestException"""
+    mock_client = mediawiki_client
+
+    success_response = MagicMock()
+    success_response.json.return_value = {"edit": {"result": "Success"}}
+
+    mocker.patch.object(mock_client._client, "request", return_value=success_response)
+    mock_get_csrf = mocker.patch.object(
+        mock_client,
+        "get_csrf_token",
+        side_effect=[
+            requests.exceptions.RequestException(
+                "CSRF token request returned unexpected response"
+            ),
+            "valid-token-second",
+        ],
+    )
+    mocker.patch("time.sleep")
+
+    result = mock_client._api_request({"action": "edit"}, method="POST", csrf=True)
+
+    assert result == {"edit": {"result": "Success"}}
+    assert mock_get_csrf.call_count == 2
+
+
 def test_get_csrf_token_returns_string(mediawiki_client, mocker):
     """Test that get_csrf_token returns string token"""
     mock_client = mediawiki_client
