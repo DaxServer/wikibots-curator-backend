@@ -26,5 +26,3 @@ coverage
 
 .claude
 .code-review-graph/
-*.duckdb
-*.duckdb.wal

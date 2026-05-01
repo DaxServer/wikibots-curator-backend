@@ -24,8 +24,6 @@ from curator.asyncapi import (
     PartialCollectionImagesData,
     PresetItem,
     Rank,
-    RedlinkItem,
-    RedlinksResponseData,
     SavePresetData,
     Statement,
     StringDataValue,
@@ -34,8 +32,6 @@ from curator.asyncapi import (
     UploadSliceAckItem,
     UploadSliceData,
     UploadUpdateItem,
-    WantedCategoriesResponseData,
-    WantedCategoryItem,
 )
 from curator.asyncapi.RecategorizeFilesResponseData import RecategorizeFilesResponseData
 from curator.core.auth import UserSession
@@ -44,7 +40,6 @@ from curator.core.crypto import (
     encrypt_access_token,
 )
 from curator.core.task_enqueuer import enqueue_uploads
-from curator.db.commons_engine import get_redlinks, get_wanted_categories
 from curator.db.dal_batches import (
     count_batches,
     count_uploads_in_batch,
@@ -70,14 +65,6 @@ from curator.db.dal_uploads import (
 from curator.db.dal_users import ensure_user
 from curator.db.engine import get_session
 from curator.db.models import Batch, Preset, UploadItem, UploadStatus
-from curator.db.wanted_categories_cache import (
-    EXCLUDED_WANTED_CATEGORIES,
-    count,
-    is_ready,
-    mark_created,
-    populate_with_lock,
-    query,
-)
 from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
@@ -666,7 +653,6 @@ class Handler:
             mw._client.close()
         created_title = created_title.replace(" ", "_")
         logger.info(f"[ws] [resp] Created category {created_title} for {self.username}")
-        await asyncio.to_thread(mark_created, title)
         await self.socket.send_category_created_response(
             CategoryCreatedResponseData(title=created_title)
         )
@@ -736,61 +722,12 @@ class Handler:
                     count += 1
         finally:
             mw._client.close()
-        await asyncio.to_thread(mark_created, source)
         logger.info(
             f"[ws] [resp] Recategorized {count}/{len(titles)} files from [[Category:{source.replace('_', ' ')}]]"
             f" to [[Category:{target.replace('_', ' ')}]] for {self.username}"
         )
         await self.socket.send_recategorize_files_response(
             RecategorizeFilesResponseData(source=source, count=count)
-        )
-
-    @handle_exceptions
-    async def fetch_redlinks(self) -> None:
-        """Fetch category redlinks from Commons replica DB."""
-        rows = await asyncio.to_thread(get_redlinks)
-        items = [
-            RedlinkItem(title=r["title"], linked_from=r["linked_from"]) for r in rows
-        ]
-        logger.info(f"[ws] [resp] Sending {len(items)} redlinks to {self.username}")
-        await self.socket.send_redlinks_response(RedlinksResponseData(items=items))
-
-    @handle_exceptions
-    async def fetch_wanted_categories(
-        self, offset: int = 0, filter_text: str | None = None
-    ) -> None:
-        """Fetch wanted categories from DuckDB cache or fall back to MySQL top-N query."""
-        if await asyncio.to_thread(is_ready):
-            total, rows = await asyncio.gather(
-                asyncio.to_thread(count, filter_text=filter_text),
-                asyncio.to_thread(query, offset=offset, filter_text=filter_text),
-            )
-        else:
-            rows = await asyncio.to_thread(get_wanted_categories)
-            asyncio.create_task(populate_with_lock())
-            rows = [
-                r
-                for r in rows
-                if not any(term in r["title"] for term in EXCLUDED_WANTED_CATEGORIES)
-            ]
-            if filter_text:
-                rows = [r for r in rows if filter_text.lower() in r["title"].lower()]
-            total = len(rows)
-        items = [
-            WantedCategoryItem(
-                title=r["title"],
-                subcats=r["subcats"],
-                files=r["files"],
-                pages=r["pages"],
-                total=r["total"],
-            )
-            for r in rows
-        ]
-        logger.info(
-            f"[ws] [resp] Sending {len(items)} wanted categories (offset={offset}, total={total}) to {self.username}"
-        )
-        await self.socket.send_wanted_categories_response(
-            WantedCategoriesResponseData(items=items, total=total)
         )
 
 

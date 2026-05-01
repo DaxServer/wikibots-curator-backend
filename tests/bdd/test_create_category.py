@@ -47,7 +47,6 @@ def when_create_category(mock_sender, event_loop, mocker):
     mock_mw = MagicMock()
     mock_mw.create_page.return_value = "Category:Foo"
     mocker.patch("curator.core.handler.MediaWikiClient", return_value=mock_mw)
-    mocker.patch("curator.core.handler.mark_created")
     h = Handler(
         {
             "username": "testuser",
@@ -119,7 +118,6 @@ def when_create_category_with_qid(mock_sender, event_loop, mocker):
     mock_mw = MagicMock()
     mock_mw.create_page.return_value = "Category:Foo"
     mocker.patch("curator.core.handler.MediaWikiClient", return_value=mock_mw)
-    mocker.patch("curator.core.handler.mark_created")
     mock_wd = _mock_wikidata_client(mocker)
     run_sync(
         _make_handler(mock_sender).create_category("Foo", "{{WI}}", "Q123"), event_loop
@@ -134,7 +132,6 @@ def when_create_category_wikidata_fails(mock_sender, event_loop, mocker):
     mock_mw = MagicMock()
     mock_mw.create_page.return_value = "Category:Foo"
     mocker.patch("curator.core.handler.MediaWikiClient", return_value=mock_mw)
-    mocker.patch("curator.core.handler.mark_created")
     mock_wd = MagicMock()
     mock_wd.fetch_item.return_value = {"claims": {}, "sitelinks": {}}
     mock_wd.edit_item.side_effect = Exception("API error")

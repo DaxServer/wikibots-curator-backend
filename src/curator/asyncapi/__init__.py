@@ -47,9 +47,6 @@ from .FetchBatchUploads import FetchBatchUploads
 from .FetchImages import FetchImages
 from .FetchPresets import FetchPresets
 from .FetchPresetsData import FetchPresetsData
-from .FetchRedlinks import FetchRedlinks
-from .FetchWantedCategories import FetchWantedCategories
-from .FetchWantedCategoriesData import FetchWantedCategoriesData
 from .GenericError import GenericError
 from .GeoLocation import GeoLocation
 from .GlobeCoordinateDataValue import GlobeCoordinateDataValue
@@ -72,9 +69,6 @@ from .RecategorizeFiles import RecategorizeFiles
 from .RecategorizeFilesData import RecategorizeFilesData
 from .RecategorizeFilesResponse import RecategorizeFilesResponse
 from .RecategorizeFilesResponseData import RecategorizeFilesResponseData
-from .RedlinkItem import RedlinkItem
-from .RedlinksResponse import RedlinksResponse
-from .RedlinksResponseData import RedlinksResponseData
 from .Reference import Reference
 from .RetryUploads import RetryUploads
 from .RetryUploadsResponse import RetryUploadsResponse
@@ -110,9 +104,6 @@ from .UploadsUpdate import UploadsUpdate
 from .UploadUpdateItem import UploadUpdateItem
 from .UrlDataValue import UrlDataValue
 from .UrlValueSnak import UrlValueSnak
-from .WantedCategoriesResponse import WantedCategoriesResponse
-from .WantedCategoriesResponseData import WantedCategoriesResponseData
-from .WantedCategoryItem import WantedCategoryItem
 from .WikibaseEntityType import WikibaseEntityType
 
 __all__ = [
@@ -131,9 +122,6 @@ __all__ = [
     "FetchPresetsData",
     "CheckCategoriesDeleted",
     "CheckCategoriesDeletedData",
-    "FetchRedlinks",
-    "FetchWantedCategories",
-    "FetchWantedCategoriesData",
     "RetryUploads",
     "SavePreset",
     "SavePresetData",
@@ -185,9 +173,6 @@ __all__ = [
     "CategoriesDeletedResponseData",
     "CategoryCreatedResponse",
     "CategoryCreatedResponseData",
-    "RedlinksResponse",
-    "RedlinksResponseData",
-    "RedlinkItem",
     "RetryUploadsResponse",
     "Subscribed",
     "TryBatchRetrieval",
@@ -198,9 +183,6 @@ __all__ = [
     "UploadUpdateItem",
     "UploadSliceAck",
     "UploadSliceAckItem",
-    "WantedCategoriesResponse",
-    "WantedCategoriesResponseData",
-    "WantedCategoryItem",
     "RecategorizeFilesResponse",
     "RecategorizeFilesResponseData",
     "NoValueSnak",
