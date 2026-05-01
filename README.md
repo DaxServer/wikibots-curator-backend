@@ -34,7 +34,6 @@ SESSION_SECRET_KEY
 TOKEN_ENCRYPTION_KEY
 MAPILLARY_API_TOKEN
 WCQS_OAUTH_TOKEN
-FLICKR_API_KEY
 ```
 
 `SESSION_SECRET_KEY` signs cookie sessions. Rotating it invalidates all active user sessions. Generate with:
