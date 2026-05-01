@@ -2,16 +2,14 @@
 
 # Curator Application
 
-A full-stack application for managing and monitoring CuratorBot jobs.
+A full-stack application for managing CuratorBot jobs that upload media to Wikimedia Commons.
 
 ## Overview
 
 The Curator Application consists of:
 
-1. **Backend**: A FastAPI-based service that provides an interface to the Wikimedia Toolforge API
-2. **Frontend**: A Vue.js application with TypeScript and PrimeVue for displaying and managing Toolforge jobs
-
-This application is designed to work within the Wikimedia ecosystem, particularly for tools that need to interact with the Toolforge infrastructure programmatically.
+1. **Backend**: A FastAPI service with a REST API and WebSocket endpoint. Celery workers handle background upload tasks.
+2. **Frontend**: A Vue.js application with TypeScript and PrimeVue for managing uploads and monitoring job status.
 
 ## Deployment
 
@@ -29,16 +27,23 @@ Use `toolforge envvars` to set them up. The OAuth1 application is at [OAuth appl
 
 ```bash
 X_USERNAME
+X_API_KEY
 CURATOR_OAUTH1_KEY
 CURATOR_OAUTH1_SECRET
-SECRET_KEY
+SESSION_SECRET_KEY
 TOKEN_ENCRYPTION_KEY
 ```
 
-`TOKEN_ENCRYPTION_KEY` is used to encrypt the access tokens using Fernet key, which is a 32 url-safe base64-encoded byte string. Generate a new key using:
+`SESSION_SECRET_KEY` signs cookie sessions. Rotating it invalidates all active user sessions. Generate with:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
+```
+
+`TOKEN_ENCRYPTION_KEY` encrypts OAuth access tokens stored in the database using Fernet. Must be a valid Fernet key — generate with:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 ### Webservice
@@ -49,7 +54,8 @@ When deploying for the first time, use:
 toolforge webservice buildservice start --buildservice-image tool-curator/web:latest --mount all
 ```
 
-For subsequent deployments, use:
+For subsequent deployments:
+
 ```bash
 toolforge webservice restart
 ```
@@ -64,8 +70,6 @@ toolforge jobs run --image tool-curator/web:latest --emails all --continuous --f
 
 ## Development
 
-This project is the Backend application.
-
 ### Prerequisites
 
 - Python 3.13 or higher
@@ -73,50 +77,34 @@ This project is the Backend application.
 
 ### Installation
 
-Install backend dependencies:
-
 ```bash
 poetry install
 ```
 
 ### Running the server
 
-Start the FastAPI server:
-
 ```bash
-X_USERNAME=DaxServer CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 TOKEN_ENCRYPTION_KEY=abc123 poetry run web
+X_USERNAME=DaxServer X_API_KEY=test CURATOR_OAUTH1_KEY=abc123 CURATOR_OAUTH1_SECRET=abc123 SESSION_SECRET_KEY=dev-secret TOKEN_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())") poetry run web
 ```
 
-The backend server will be available at http://localhost:8000. The OAuth1 application is at [OAuth applications - Wikimedia Meta-Wiki](https://meta.wikimedia.org/wiki/Special:OAuthListConsumers/view/007829f26d944fb553e89e0c0fd02f31).
-
-### Testing build
-
-Build the frontend for production:
-
-```bash
-pack build -B tools-harbor.wmcloud.org/toolforge/heroku-builder:24_0.20.7 curator-web
-```
+The backend server will be available at http://localhost:8000.
 
 ### Running Tests
 
-To run the tests, use the following command:
-
 ```bash
-poetry run pytest
-```
-
-For verbose output:
-
-```bash
-poetry run pytest -v
+poetry run pytest -q
 ```
 
 ### Code Style
 
-This project uses [Black](https://black.readthedocs.io/en/stable/) for code formatting. Run Black before committing your changes:
+```bash
+poetry run isort . && poetry run ruff format && poetry run ruff check
+```
+
+### Type Checking
 
 ```bash
-poetry run black .
+poetry run ty check
 ```
 
 ## License
