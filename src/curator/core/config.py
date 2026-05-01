@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 
 import redis
 from cryptography.fernet import Fernet
@@ -33,6 +34,7 @@ URLS = PROD_URLS
 TOKEN_ENCRYPTION_KEY = os.environ.get(
     "TOKEN_ENCRYPTION_KEY", Fernet.generate_key().decode()
 )
+SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", secrets.token_hex(32))
 WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
 FLICKR_API_KEY = os.getenv("FLICKR_API_KEY", "FLICKR_API_KEY")

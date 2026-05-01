@@ -23,9 +23,11 @@ from curator.asyncapi import (
 from curator.asyncapi.GenericError import GenericError
 from curator.mediawiki.client import MediaWikiClient
 
-# Set up encryption key for tests
+# Set up encryption keys for tests
 if not os.environ.get("TOKEN_ENCRYPTION_KEY"):
     os.environ["TOKEN_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+if not os.environ.get("SESSION_SECRET_KEY"):
+    os.environ["SESSION_SECRET_KEY"] = "test-session-secret-key"
 
 
 # =============================================================================

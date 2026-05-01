@@ -15,7 +15,7 @@ from alembic import command
 from alembic.config import Config
 from curator.admin import router as admin_router
 from curator.auth import router as auth_router
-from curator.core.config import TOKEN_ENCRYPTION_KEY
+from curator.core.config import SESSION_SECRET_KEY
 from curator.core.recovery import recover_queued_uploads
 from curator.db.engine import DB_URL
 from curator.frontend_utils import frontend_dir, setup_frontend_assets
@@ -64,7 +64,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(SessionAutoloadMiddleware)
 app.add_middleware(
     SessionMiddleware,
-    store=CookieStore(TOKEN_ENCRYPTION_KEY),
+    store=CookieStore(SESSION_SECRET_KEY),
 )
 
 
