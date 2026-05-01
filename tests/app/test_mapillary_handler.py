@@ -120,3 +120,28 @@ def test_from_mapillary_compass_angle_range(compass_angle, expected_compass_angl
     result = from_mapillary(data)
 
     assert result.location.compass_angle == expected_compass_angle
+
+
+@pytest.mark.asyncio
+async def test_fetch_collection_calls_retrieve_seq_key(mock_fetch_sequence):
+    """Test that fetch_collection() calls _retrieve_seq_key_from_image_id when input is URL."""
+
+    INPUT_URL = "https://www.mapillary.com/app/?lat=45.463620323236&lng=9.1900603813155\
+            &z=17&pKey=707869928291666&focus=photo&menu=false"
+
+    with (
+        patch(
+            "curator.handlers.mapillary_handler._retrieve_seq_key_from_image_id",
+            new_callable=AsyncMock,
+        ) as mock_retrieve,
+        patch(
+            "curator.core.geocoding",
+            new_callable=AsyncMock,
+        ),
+    ):
+        mock_fetch_sequence.return_value = {}
+        handler = MapillaryHandler()
+        _ = await handler.fetch_collection(INPUT_URL)
+
+        mock_retrieve.assert_called_once_with("707869928291666")
+        mock_fetch_sequence.assert_called_once()

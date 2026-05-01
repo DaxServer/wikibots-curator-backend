@@ -129,7 +129,7 @@ class Handler:
         loop = asyncio.get_running_loop()
 
         try:
-            images = await handler.fetch_collection(collection)
+            images, collection = await handler.fetch_collection(collection)
         except httpx.ReadTimeout:
             logger.error(
                 f"[{handler.name}] API timeout for {collection} for {self.username}"
@@ -239,7 +239,7 @@ class Handler:
             f"[{handler.name}] Sending collection {collection} images for {self.username}"
         )
         await self.socket.send_collection_images(
-            CollectionImagesData(images=images, creator=creator)
+            CollectionImagesData(images=images, creator=creator, sequence_id=collection)
         )
 
     @handle_exceptions

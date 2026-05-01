@@ -12,5 +12,6 @@ from .MediaImage import MediaImage
 class CollectionImagesData(BaseModel):
     images: dict[str, MediaImage] = Field()
     creator: Creator = Field()
+    sequence_id: str = Field()
 
     model_config = ConfigDict(populate_by_name=True)

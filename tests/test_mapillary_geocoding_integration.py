@@ -62,7 +62,7 @@ async def test_fetch_collection_calls_geocoding(mock_sequence_data):
         ) as mock_geocoding,
     ):
         handler = MapillaryHandler()
-        result = await handler.fetch_collection("seq123")
+        result, _ = await handler.fetch_collection("seq123")
 
         # Verify geocoding was called
         mock_geocoding.assert_called_once()
@@ -110,7 +110,7 @@ async def test_fetch_collection_enriches_geocoding_data(mock_sequence_data):
         ),
     ):
         handler = MapillaryHandler()
-        result = await handler.fetch_collection("seq123")
+        result, _ = await handler.fetch_collection("seq123")
 
         # Verify returned images have geocoding data
         assert result["img1"].location.city == "San Francisco"
@@ -140,7 +140,7 @@ async def test_fetch_collection_handles_geocoding_failure(mock_sequence_data):
         ),
     ):
         handler = MapillaryHandler()
-        result = await handler.fetch_collection("seq123")
+        result, _ = await handler.fetch_collection("seq123")
 
         # Verify images are still returned with original location data
         assert len(result) == 2
