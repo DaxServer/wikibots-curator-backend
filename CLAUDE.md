@@ -98,34 +98,6 @@ Redis = Celery **broker** + **result backend**. Redis restart destroys in-flight
 
 **Local dev:** When `TOOL_TOOLSDB_USER` absent, auto-starts SSH tunnel through `login.toolforge.org`. Credentials read from bastion via `ssh login.toolforge.org cat ~/replica.my.cnf`. Tunnel uses `start_new_session=True` so it survives poetry file-watch restarts.
 
-Replica schema: `cl_to`, `pl_title`, `tl_title` removed in MW 1.43–1.45, replaced with `cl_target_id`/`pl_target_id`/`tl_target_id` → `linktarget(lt_id, lt_namespace, lt_title)`.
-
-**Commons replica query patterns (benchmarked against live replica):**
-
-- `NOT EXISTS` catastrophically slow on large tables like `categorylinks` (~4.5 min for 100 rows). Use `LEFT JOIN ... WHERE p_target.page_id IS NULL` instead.
-- `EXPLAIN` unavailable on replica — benchmark with `time sql commonswiki`.
-- `categorylinks` has no `cl_to` — join via `cl_target_id` → `linktarget`.
-- `DISTINCT` with `LIMIT` does not allow early termination. Avoid on high-cardinality scans.
-
-**`category` table for wanted-categories counts:**
-
-`category` table = pre-computed per-category stats. Use `cat_pages - cat_subcats - cat_files` for regular pages. Query:
-
-`SELECT c.cat_title, c.cat_subcats, c.cat_files, (c.cat_pages - c.cat_subcats - c.cat_files) AS pages, c.cat_pages AS total FROM category c LEFT JOIN page p ON p.page_namespace = 14 AND p.page_title = c.cat_title WHERE p.page_id IS NULL ORDER BY c.cat_pages DESC LIMIT 100`
-
-Performance:
-- `querypage=WantedCategories` API disabled on Commons.
-- No index on `cat_pages` — `ORDER BY cat_pages DESC` requires full table sort (~7–16s).
-- Missing categories NOT correlated with largest categories — no indexed shortcut.
-- **Accepted approach**: run ~7s query directly (admin-only, infrequent). Redis caching with Celery periodic task = known improvement path.
-
-**DuckDB text filter:** Append `lower(title) LIKE '%{filter_text.lower()}%'` to `conditions` list. Use `filter_text` param name (not `filter` — shadows built-in).
-
-**`test_wanted_categories_cache.py`:** Cache tests import module functions *inside* `with patch("curator.db.wanted_categories_cache._get_duck_conn", ...)` blocks. New tests must follow same inline-import pattern.
-
-**DuckDB concurrency:** `_duck_conn` opens in write mode. `threading.Lock` (`_duck_lock`) serialises all access — DuckDB not thread-safe. Tests mock `_get_duck_conn` (not `duckdb.connect`) for both read + write.
-
-**Title format in wanted categories:** DuckDB stores `cat_title` with underscores. Backend sends as-is. Display transformation in Vue template only. Exception: `CATEGORY_CREATED_RESPONSE` title from MediaWiki API uses spaces — normalize to underscores before sending (`created_title.replace(" ", "_")`).
 
 ### Database Query Performance
 Search indexed columns only — unindexed columns (especially JSONB fields) very slow on large datasets. Check model definitions for `index=True`.
@@ -215,7 +187,7 @@ with patch("os.path.getsize", return_value=1000), patch(
 `mocker.patch("module.symbol")` raises `AttributeError` if symbol doesn't exist. Use `create=True`:
 
 ```python
-mocker.patch("curator.core.handler.get_redlinks", return_value=[...], create=True)
+mocker.patch("curator.core.handler.get_category_members", return_value=[...], create=True)
 ```
 
 ### Mock Patterns for Instance Methods

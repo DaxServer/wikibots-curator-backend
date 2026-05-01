@@ -5,9 +5,8 @@ import socket
 import subprocess
 import time
 from contextlib import contextmanager
-from typing import Any, Generator, Sequence, TypedDict
+from typing import Generator
 
-from sqlalchemy import Row, text
 from sqlalchemy.engine import Connection
 from sqlmodel import create_engine
 
@@ -31,69 +30,6 @@ if _env_user and _env_password:
 else:
     logger.info("Commons DB: tunnel mode — engine created lazily on first request")
     _commons_engine = None
-
-_NAMESPACE_PREFIX_CASE = """
-        CASE p_from.page_namespace
-            WHEN 0  THEN ''
-            WHEN 1  THEN 'Talk:'
-            WHEN 2  THEN 'User:'
-            WHEN 3  THEN 'User talk:'
-            WHEN 4  THEN 'Commons:'
-            WHEN 5  THEN 'Commons talk:'
-            WHEN 6  THEN 'File:'
-            WHEN 7  THEN 'File talk:'
-            WHEN 8  THEN 'MediaWiki:'
-            WHEN 9  THEN 'MediaWiki talk:'
-            WHEN 10 THEN 'Template:'
-            WHEN 11 THEN 'Template talk:'
-            WHEN 12 THEN 'Help:'
-            WHEN 13 THEN 'Help talk:'
-            WHEN 14 THEN 'Category:'
-            WHEN 15 THEN 'Category talk:'
-            WHEN 100 THEN 'Creator:'
-            WHEN 101 THEN 'Creator talk:'
-            WHEN 102 THEN 'TimedText:'
-            WHEN 103 THEN 'TimedText talk:'
-            WHEN 104 THEN 'Sequence:'
-            WHEN 105 THEN 'Sequence talk:'
-            WHEN 106 THEN 'Institution:'
-            WHEN 107 THEN 'Institution talk:'
-            WHEN 460 THEN 'Campaign:'
-            WHEN 461 THEN 'Campaign talk:'
-            WHEN 486 THEN 'Data:'
-            WHEN 487 THEN 'Data talk:'
-            WHEN 828 THEN 'Module:'
-            WHEN 829 THEN 'Module talk:'
-            WHEN 1198 THEN 'Translations:'
-            WHEN 1199 THEN 'Translations talk:'
-            WHEN 1728 THEN 'Event:'
-            WHEN 1729 THEN 'Event talk:'
-            WHEN 2600 THEN 'Topic:'
-            ELSE CONCAT(p_from.page_namespace, ':')
-        END"""
-
-_REDLINKS_SQL = text(f"""
-    SELECT DISTINCT lt_title AS title,
-        CONCAT(
-            {_NAMESPACE_PREFIX_CASE},
-            p_from.page_title
-        ) AS linked_from
-    FROM pagelinks pl
-    JOIN linktarget ON pl.pl_target_id = lt_id
-    LEFT JOIN page AS p_target ON (p_target.page_namespace = lt_namespace AND p_target.page_title = lt_title)
-    JOIN page AS p_from ON p_from.page_id = pl.pl_from
-    WHERE p_target.page_id IS NULL
-      AND lt_namespace = 14
-      AND NOT EXISTS (
-          SELECT 1
-          FROM templatelinks tl
-          JOIN linktarget lt_tmpl ON tl.tl_target_id = lt_tmpl.lt_id
-          JOIN page p_tmpl ON p_tmpl.page_title = lt_tmpl.lt_title AND p_tmpl.page_namespace = 10
-          JOIN pagelinks pl_tmpl ON pl_tmpl.pl_from = p_tmpl.page_id AND pl_tmpl.pl_target_id = pl.pl_target_id
-          WHERE tl.tl_from = pl.pl_from
-      )
-    LIMIT 100
-""")
 
 
 def _port_open(port: int) -> bool:
@@ -166,77 +102,3 @@ def get_commons_connection() -> Generator[Connection, None, None]:
         raise RuntimeError("Commons DB not configured — set TOOL_TOOLSDB_USER/PASSWORD")
     with _commons_engine.connect() as conn:
         yield conn
-
-
-_WANTED_CATEGORIES_BASE_SQL = """
-    SELECT c.cat_title AS title,
-        c.cat_subcats AS subcats,
-        c.cat_files AS files,
-        (c.cat_pages - c.cat_subcats - c.cat_files) AS pages,
-        c.cat_pages AS total
-    FROM category c
-    LEFT JOIN page p ON p.page_namespace = 14 AND p.page_title = c.cat_title
-    WHERE p.page_id IS NULL
-    ORDER BY c.cat_pages DESC
-"""
-
-_WANTED_CATEGORIES_INITIAL_LIMIT = 100
-
-_WANTED_CATEGORIES_SQL = text(
-    _WANTED_CATEGORIES_BASE_SQL + f"    LIMIT {_WANTED_CATEGORIES_INITIAL_LIMIT}"
-)
-_WANTED_CATEGORIES_ALL_SQL = text(_WANTED_CATEGORIES_BASE_SQL)
-
-
-class WantedCategoryRow(TypedDict):
-    title: str
-    subcats: int
-    files: int
-    pages: int
-    total: int
-
-
-def _map_wanted_category_rows(rows: Sequence[Row[Any]]) -> list[WantedCategoryRow]:
-    return [
-        {
-            "title": row.title.decode(),
-            "subcats": row.subcats,
-            "files": row.files,
-            "pages": row.pages,
-            "total": row.total,
-        }
-        for row in rows
-    ]
-
-
-def get_wanted_categories() -> list[WantedCategoryRow]:
-    """Query Commons replica for the top wanted categories."""
-    logger.info("Querying Commons replica for wanted categories")
-    with get_commons_connection() as conn:
-        rows = conn.execute(_WANTED_CATEGORIES_SQL).fetchall()
-    logger.info(f"Wanted categories query returned {len(rows)} rows")
-    return _map_wanted_category_rows(rows)
-
-
-def get_all_wanted_categories() -> list[WantedCategoryRow]:
-    """Query Commons replica for all wanted categories with no row limit."""
-    logger.info("Querying Commons replica for all wanted categories (no limit)")
-    with get_commons_connection() as conn:
-        rows = conn.execute(_WANTED_CATEGORIES_ALL_SQL).fetchall()
-    logger.info(f"All wanted categories query returned {len(rows)} rows")
-    return _map_wanted_category_rows(rows)
-
-
-def get_redlinks() -> list[dict[str, str]]:
-    """Query Commons replica for category redlinks not generated by template transclusions."""
-    logger.info("Querying Commons replica for redlinks")
-    with get_commons_connection() as conn:
-        rows = conn.execute(_REDLINKS_SQL).fetchall()
-    logger.info(f"Redlinks query returned {len(rows)} rows")
-    return [
-        {
-            "title": row.title.decode().replace("_", " "),
-            "linked_from": row.linked_from.decode().replace("_", " "),
-        }
-        for row in rows
-    ]

@@ -27,8 +27,6 @@ from curator.asyncapi import (
     FetchBatchUploads,
     FetchImages,
     FetchPresets,
-    FetchRedlinks,
-    FetchWantedCategories,
     PartialCollectionImages,
     PartialCollectionImagesData,
     PresetItem,
@@ -36,8 +34,6 @@ from curator.asyncapi import (
     PresetsListData,
     RecategorizeFiles,
     RecategorizeFilesResponse,
-    RedlinksResponse,
-    RedlinksResponseData,
     RetryUploads,
     RetryUploadsResponse,
     SavePreset,
@@ -55,8 +51,6 @@ from curator.asyncapi import (
     UploadSliceAck,
     UploadsUpdate,
     UploadUpdateItem,
-    WantedCategoriesResponse,
-    WantedCategoriesResponseData,
 )
 from curator.asyncapi.RecategorizeFilesResponseData import RecategorizeFilesResponseData
 from curator.asyncapi.UploadSliceAckItem import UploadSliceAckItem
@@ -75,8 +69,6 @@ ClientMessage = Annotated[
         FetchBatchUploads,
         FetchImages,
         FetchPresets,
-        FetchRedlinks,
-        FetchWantedCategories,
         RecategorizeFiles,
         RetryUploads,
         SavePreset,
@@ -103,9 +95,7 @@ ServerMessage = Annotated[
         PartialCollectionImages,
         PresetsList,
         RecategorizeFilesResponse,
-        RedlinksResponse,
         RetryUploadsResponse,
-        WantedCategoriesResponse,
         Subscribed,
         TryBatchRetrieval,
         UploadCreated,
@@ -199,16 +189,6 @@ class AsyncAPIWebSocket(WebSocket):
     ) -> None:
         await self.send_json(
             CategoryCreatedResponse(data=data, nonce=self._get_nonce())
-        )
-
-    async def send_redlinks_response(self, data: RedlinksResponseData) -> None:
-        await self.send_json(RedlinksResponse(data=data, nonce=self._get_nonce()))
-
-    async def send_wanted_categories_response(
-        self, data: WantedCategoriesResponseData
-    ) -> None:
-        await self.send_json(
-            WantedCategoriesResponse(data=data, nonce=self._get_nonce())
         )
 
     async def send_recategorize_files_response(

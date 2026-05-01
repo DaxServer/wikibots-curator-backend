@@ -13,8 +13,6 @@ from curator.asyncapi import (
     FetchBatchUploads,
     FetchImages,
     FetchPresets,
-    FetchRedlinks,
-    FetchWantedCategories,
     RecategorizeFiles,
     RetryUploads,
     SavePreset,
@@ -121,16 +119,6 @@ async def ws(websocket: WebSocket, user: LoggedInUser):
             if isinstance(message, CreateCategory):
                 await handler.create_category(
                     message.data.title, message.data.text, message.data.wikidata_qid
-                )
-                continue
-
-            if isinstance(message, FetchRedlinks):
-                await handler.fetch_redlinks()
-                continue
-
-            if isinstance(message, FetchWantedCategories):
-                await handler.fetch_wanted_categories(
-                    offset=message.data.offset, filter_text=message.data.filter
                 )
                 continue
 
