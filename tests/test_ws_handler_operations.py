@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from curator.asyncapi import RetryUploads
-from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -41,17 +40,18 @@ async def test_retry_uploads_success(mocker, handler_instance):
             "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
         patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.register_user_queue"),
     ):
         mock_reset.return_value = ([1, 2], "newbatch123", 456)
         mock_get_rate_limit.return_value = mocker.MagicMock()
         mock_get_delay.return_value = 0.0
+
         await handler_instance.retry_uploads(123)
 
         mock_reset.assert_called_once()
         assert mock_process_upload.apply_async.call_count == 2
-        # Check that calls were made with queue parameter and new batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
-            assert call[1]["queue"] == QUEUE_NORMAL
+            assert call[1]["queue"] == "uploads-user123"
             assert call[1]["args"][1] == "newbatch123"
 
 
@@ -113,6 +113,7 @@ async def test_retry_uploads_enqueues_with_edit_group_id(mocker, handler_instanc
             "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
         patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.register_user_queue"),
     ):
         mock_reset.return_value = ([1, 2], "newbatch456", 789)
         mock_get_rate_limit.return_value = mocker.MagicMock()
@@ -125,6 +126,7 @@ async def test_retry_uploads_enqueues_with_edit_group_id(mocker, handler_instanc
         upload_ids = {call[1]["args"][0] for call in calls}
         assert upload_ids == {1, 2}
         for call in calls:
-            assert len(call[1]["args"]) == 2
+            assert len(call[1]["args"]) == 3
             assert call[1]["args"][1] == "newbatch456"
-            assert call[1]["queue"] == QUEUE_NORMAL
+            assert call[1]["args"][2] == "user123"
+            assert call[1]["queue"] == "uploads-user123"

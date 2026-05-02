@@ -130,6 +130,15 @@ def count_all_upload_requests(
     return session.exec(query).one()
 
 
+def count_active_uploads_for_user(session: Session, userid: str) -> int:
+    """Count uploads with queued or in_progress status for a user."""
+    query = select(func.count(col(UploadRequest.id))).where(
+        col(UploadRequest.userid) == userid,
+        col(UploadRequest.status).in_([UploadStatus.QUEUED, UploadStatus.IN_PROGRESS]),
+    )
+    return session.exec(query).one()
+
+
 def cancel_upload_requests(session: Session, ids: list[int]) -> int:
     """Cancel upload requests by ID if they are queued or in_progress."""
     if not ids:
