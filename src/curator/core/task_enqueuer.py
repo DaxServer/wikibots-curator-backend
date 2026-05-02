@@ -1,7 +1,7 @@
 """Task enqueuing utilities with rate limiting.
 
 Provides a unified interface for enqueueing upload tasks with proper
-rate limiting. All uploads go to QUEUE_NORMAL.
+rate limiting. Each user's uploads go to a dedicated per-user queue.
 """
 
 import asyncio
@@ -18,7 +18,7 @@ from curator.core.rate_limiter import (
 from curator.db.engine import get_session
 from curator.db.models import UploadRequest
 from curator.mediawiki.client import MediaWikiClient
-from curator.workers.celery import QUEUE_NORMAL
+from curator.workers.celery import QUEUE_USER_PREFIX, register_user_queue
 from curator.workers.tasks import process_upload
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,9 @@ async def enqueue_uploads(
         client=client,
     )
 
+    user_queue = f"{QUEUE_USER_PREFIX}{userid}"
+    register_user_queue(userid)
+
     enqueued_task_ids: list[str] = []
     upload_id_to_task_id: dict[int, str] = {}
 
@@ -45,9 +48,9 @@ async def enqueue_uploads(
         delay = await asyncio.to_thread(get_next_upload_delay, userid, rate_limit)
 
         task_result = process_upload.apply_async(
-            args=[upload_id, edit_group_id],
+            args=[upload_id, edit_group_id, userid],
             countdown=delay,
-            queue=QUEUE_NORMAL,
+            queue=user_queue,
         )
 
         task_id = task_result.id
@@ -64,10 +67,8 @@ async def enqueue_uploads(
                     .where(col(UploadRequest.id) == upload_id)
                     .values(celery_task_id=task_id)
                 )
-            session.flush()
-
     logger.info(
-        f"[task_enqueuer] Enqueued {len(enqueued_task_ids)} uploads to queue {QUEUE_NORMAL}"
+        f"[task_enqueuer] Enqueued {len(enqueued_task_ids)} uploads to queue {user_queue}"
     )
 
     return enqueued_task_ids

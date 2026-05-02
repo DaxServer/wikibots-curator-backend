@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import cast
 
 from celery import Celery
 from celery.signals import (
@@ -25,9 +26,34 @@ from curator.core.config import (
     CELERY_CONCURRENCY,
     CELERY_MAXIMUM_WAIT_TIME,
     CELERY_TASKS_PER_WORKER,
+    redis_client,
 )
+from curator.db.dal_uploads import count_active_uploads_for_user
+from curator.db.engine import get_session
 
 QUEUE_NORMAL = "uploads-normal"
+QUEUE_USER_PREFIX = "uploads-"
+ACTIVE_USER_QUEUES_KEY = "curator:active_user_queues"
+
+
+def register_user_queue(userid: str) -> None:
+    """Register per-user upload queue and notify running workers if new."""
+    queue_name = f"{QUEUE_USER_PREFIX}{userid}"
+    if redis_client.sadd(ACTIVE_USER_QUEUES_KEY, queue_name) == 1:
+        app.control.add_consumer(queue_name, reply=False)
+
+
+def cleanup_user_queue_if_empty(userid: str) -> None:
+    """Remove user queue when no active uploads remain."""
+    try:
+        with get_session() as session:
+            if count_active_uploads_for_user(session, userid) == 0:
+                queue_name = f"{QUEUE_USER_PREFIX}{userid}"
+                redis_client.srem(ACTIVE_USER_QUEUES_KEY, queue_name)
+                app.control.cancel_consumer(queue_name, reply=False)
+    except Exception:
+        logger.exception(f"[celery] Failed to clean up queue for user {userid}")
+
 
 app = Celery("curator")
 app.conf.update(
@@ -64,14 +90,13 @@ task_counter = multiprocessing.Value("i", 0)
 
 
 @worker_init.connect
-def on_worker_init(**kwargs):
-    """Configure logging for Celery worker processes."""
-    # Suppress httpx INFO logs (HTTP Request messages)
+def on_worker_init(**kwargs) -> None:
+    """Configure logging on worker startup."""
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @task_postrun.connect
-def on_task_postrun(**kwargs):
+def on_task_postrun(task=None, args=None, **kwargs) -> None:
     with task_counter.get_lock():
         task_counter.value += 1
         if task_counter.value == CELERY_TASKS_PER_WORKER:
@@ -79,6 +104,14 @@ def on_task_postrun(**kwargs):
                 f"Worker reached task limit ({CELERY_TASKS_PER_WORKER}). Initiating shutdown."
             )
             os.kill(os.getppid(), signal.SIGTERM)
+
+    if (
+        task
+        and task.name == "curator.workers.tasks.process_upload"
+        and args
+        and len(args) >= 3
+    ):
+        cleanup_user_queue_if_empty(args[2])
 
 
 @worker_ready.connect
@@ -160,7 +193,10 @@ def start():
     if sys.platform == "darwin":
         os.environ.setdefault("NO_PROXY", "*")
 
-    queues = QUEUE_NORMAL
+    active_user_queues = list(
+        cast(set[str], redis_client.smembers(ACTIVE_USER_QUEUES_KEY))
+    )
+    queues = ",".join([QUEUE_NORMAL] + active_user_queues)
 
     app.worker_main(
         [
