@@ -12,7 +12,7 @@ from curator.asyncapi import ImageHandler
 async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_image):
     with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = MagicMock()
-        mock_handler.fetch_collection = AsyncMock(return_value={"img1": mock_image})
+        mock_handler.fetch_collection = AsyncMock(return_value=({"img1": mock_image}, "TODO"))
         mock_handler.fetch_existing_pages.return_value = {"img1": []}
         mock_handler.name = "mapillary"
         mock_get_handler.return_value = mock_handler
@@ -29,7 +29,7 @@ async def test_handle_fetch_images_success(handler_instance, mock_sender, mock_i
 async def test_handle_fetch_images_not_found(handler_instance, mock_sender):
     with patch("curator.core.handler.get_handler_for_handler_type") as mock_get_handler:
         mock_handler = MagicMock()
-        mock_handler.fetch_collection = AsyncMock(return_value={})
+        mock_handler.fetch_collection = AsyncMock(return_value=({}, "TODO"))
         mock_handler.name = "mapillary"
         mock_get_handler.return_value = mock_handler
 

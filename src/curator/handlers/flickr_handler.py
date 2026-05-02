@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Tuple
 
 import httpx
 from fastapi import Request, WebSocket
@@ -263,7 +264,7 @@ class FlickrHandler(Handler):
     def name(self) -> str:
         return "flickr"
 
-    async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
+    async def fetch_collection(self, input: str) -> Tuple[dict[str, MediaImage], str]:
         """Fetch all images from Flickr album"""
         photoset_id, user_id = parse_album_url(input)
 
@@ -275,7 +276,7 @@ class FlickrHandler(Handler):
             batch_data = await fetch_photos_batch(batch_ids, photoset_id, user_id)
             all_images.update(batch_data)
 
-        return {k: from_flickr(v, photoset_id) for k, v in all_images.items()}
+        return {k: from_flickr(v, photoset_id) for k, v in all_images.items()}, photoset_id
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
         """Fetch only photo IDs from album"""

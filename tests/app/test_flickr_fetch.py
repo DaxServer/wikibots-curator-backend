@@ -81,7 +81,7 @@ class TestFlickrHandlerFetch:
 
             mock_fetch_batch.return_value = mock_photos
 
-            result = await handler.fetch_collection(url)
+            result, _ = await handler.fetch_collection(url)
 
             assert isinstance(result, dict)
             assert len(result) == 3

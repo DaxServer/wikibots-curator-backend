@@ -76,7 +76,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
     )
 
     # Mock fetch_collection
-    mock_handler_instance.fetch_collection = AsyncMock(return_value={"img1": image})
+    mock_handler_instance.fetch_collection = AsyncMock(return_value=({"img1": image}, "TODO"))
 
     # Mock fetch_existing_pages
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
@@ -90,6 +90,7 @@ def test_ws_fetch_images(mock_mapillary_handler):
         assert data["type"] == "COLLECTION_IMAGES"
         assert "images" in data["data"]
         assert "creator" in data["data"]
+        assert "sequence_id" in data["data"]
         assert data["data"]["creator"] == {
             "id": "c1",
             "username": "creator1",
@@ -101,7 +102,7 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
     """Test that FETCH_IMAGES returns error for non-existent collection."""
     mock_handler_instance = mock_mapillary_handler.return_value
     # Return empty dict to trigger "Collection not found"
-    mock_handler_instance.fetch_collection = AsyncMock(return_value={})
+    mock_handler_instance.fetch_collection = AsyncMock(return_value=({}, "TODO"))
 
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json(
@@ -116,7 +117,7 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
 def test_ws_fetch_images_flickr(mock_flickr_handler):
     """Test that FETCH_IMAGES with handler=flickr uses FlickrHandler, not MapillaryHandler."""
     mock_handler_instance = mock_flickr_handler.return_value
-    mock_handler_instance.fetch_collection = AsyncMock(return_value={})
+    mock_handler_instance.fetch_collection = AsyncMock(return_value=({}, "TODO"))
 
     with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
         websocket.send_json(

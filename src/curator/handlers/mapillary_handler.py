@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple
+from urllib.parse import parse_qs
 
 import httpx
 from fastapi import Request, WebSocket
@@ -197,12 +198,44 @@ async def _fetch_single_image(image_id: str) -> dict:
     return response.json()
 
 
+@retry(
+    retry=retry_if_exception_type(HTTPError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+)
+async def _retrieve_seq_key_from_image_id(image_id: str | None) -> str | None:
+    logger.info(f"[mapillary] retrieving seq_id from {image_id}")
+    if image_id is None:
+        return
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"https://graph.mapillary.com/{image_id}",
+            params={"fields": "sequence"},
+            headers={
+                "Authorization": f"Bearer {MAPILLARY_API_TOKEN}",
+            },
+            timeout=60,
+        )
+    response.raise_for_status()
+    response = response.json()
+    if "sequence" in response:
+        return response["sequence"]
+
+
 class MapillaryHandler(Handler):
     @property
     def name(self) -> str:
         return "mapillary"
 
-    async def fetch_collection(self, input: str) -> dict[str, MediaImage]:
+    async def fetch_collection(self, input: str) -> Tuple[dict[str, MediaImage], str]:
+        if input.startswith("https://www.mapillary.com/app/") and "?" in input:
+            query_params = parse_qs(input.split("?")[1])
+            if "pKey" in query_params:
+                image_id = query_params["pKey"][0]
+            new_input = await _retrieve_seq_key_from_image_id(image_id)
+            input = new_input if new_input is not None else input
+
         collection = await _fetch_sequence_data(input)
         images = {k: from_mapillary(v) for k, v in collection.items()}
 
@@ -210,7 +243,7 @@ class MapillaryHandler(Handler):
         async with httpx.AsyncClient() as client:
             await reverse_geocode_batch(list(images.values()), client)
 
-        return images
+        return images, input
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
         return await _get_sequence_ids(input)
