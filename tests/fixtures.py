@@ -430,6 +430,7 @@ def mock_external_calls(mocker, request):
     mocker.patch(
         "curator.workers.ingest.build_statements_from_mapillary_image", return_value=[]
     )
+    mocker.patch("curator.core.task_enqueuer.register_user_queue")
 
 
 @pytest.fixture

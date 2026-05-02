@@ -222,12 +222,13 @@ async def test_admin_retry_uploads_success(mock_session, patch_get_session):
         assert mock_task.call_count == 3
         # Check that all calls have the correct structure
         for call in mock_task.call_args_list:
-            assert len(call[1]["args"]) == 2  # upload_id and edit_group_id
+            assert len(call[1]["args"]) == 3  # upload_id, edit_group_id, userid
             assert isinstance(call[1]["args"][0], int)  # upload_id is an integer
             assert isinstance(call[1]["args"][1], str)  # edit_group_id is a string
             assert (
                 call[1]["args"][1] == "adminretry123"
             )  # Uses new batch's edit_group_id
+            assert isinstance(call[1]["args"][2], str)  # userid is a string
             assert call[1]["queue"] == QUEUE_NORMAL
         # Verify the correct upload_ids were called
         upload_ids = {call[1]["args"][0] for call in mock_task.call_args_list}

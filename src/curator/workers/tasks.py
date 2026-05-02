@@ -62,7 +62,7 @@ def _requeue_or_fail(
     retry_backoff_max=600,
     retry_jitter=True,
 )
-def process_upload(self, upload_id: int, edit_group_id: str) -> bool:
+def process_upload(self, upload_id: int, edit_group_id: str, userid: str) -> bool:
     """
     Process a single upload request
     """

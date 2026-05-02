@@ -194,7 +194,7 @@ async def admin_retry_uploads(
     tasks_to_update = []
     for upload_id in reset_ids:
         task_result = process_upload.apply_async(
-            args=[upload_id, edit_group_id], queue=QUEUE_NORMAL
+            args=[upload_id, edit_group_id, user["userid"]], queue=QUEUE_NORMAL
         )
         task_id = task_result.id
         if isinstance(task_id, str):

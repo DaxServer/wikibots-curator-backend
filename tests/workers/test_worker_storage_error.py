@@ -131,7 +131,7 @@ def test_process_upload_fails_permanently_when_celery_max_retries_exceeded(
         mock_get_session.return_value.__enter__ = lambda s: mock_session
         mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
     assert result is False
     assert captured_status.get("status") == "failed"
@@ -153,7 +153,7 @@ def test_process_upload_requeues_with_escalating_delays_on_storage_error():
             side_effect=StorageError(_UPLOADSTASH_EXCEPTION_ERROR),
         ):
             with pytest.raises(Exception, match="retry scheduled"):
-                process_upload._orig_run.__func__(mock_self, 1, "abc")
+                process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
         mock_self.retry.assert_called_once_with(
             countdown=expected_delay, exc=mock_self.retry.call_args[1]["exc"]
@@ -181,7 +181,7 @@ def test_process_upload_fails_permanently_after_max_storage_retries(mock_session
         mock_get_session.return_value.__enter__ = lambda s: mock_session
         mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
     assert result is False
     assert captured_status.get("status") == "failed"
@@ -202,7 +202,7 @@ def test_process_upload_requeues_on_hash_lock_error():
             "curator.workers.tasks.process_one", side_effect=HashLockError("locked")
         ):
             with pytest.raises(Exception, match="retry scheduled"):
-                process_upload._orig_run.__func__(mock_self, 1, "abc")
+                process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
         mock_self.retry.assert_called_once_with(
             countdown=expected_delay, exc=mock_self.retry.call_args[1]["exc"]
@@ -230,7 +230,7 @@ def test_process_upload_fails_permanently_when_hash_lock_exceeds_max_retries(
         mock_get_session.return_value.__enter__ = lambda s: mock_session
         mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
     assert result is False
     assert captured_status.get("status") == "failed"
@@ -290,7 +290,7 @@ def test_process_upload_requeues_with_10_min_delay_on_source_cdn_error():
         side_effect=SourceCdnError("Bad Gateway"),
     ):
         with pytest.raises(Exception, match="retry scheduled"):
-            process_upload._orig_run.__func__(mock_self, 1, "abc")
+            process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
     mock_self.retry.assert_called_once_with(
         countdown=600, exc=mock_self.retry.call_args[1]["exc"]
@@ -321,7 +321,7 @@ def test_process_upload_fails_permanently_after_source_cdn_retry_exhausted(
         mock_get_session.return_value.__enter__ = lambda s: mock_session
         mock_get_session.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = process_upload._orig_run.__func__(mock_self, 1, "abc")
+        result = process_upload._orig_run.__func__(mock_self, 1, "abc", "user42")
 
     assert result is False
     assert captured_status.get("status") == "failed"

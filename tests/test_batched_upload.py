@@ -1,12 +1,11 @@
 """Tests for batch upload operations."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from curator.asyncapi import UploadItem, UploadSliceAckItem, UploadSliceData
 from curator.core.rate_limiter import RateLimitInfo
-from curator.workers.celery import QUEUE_NORMAL
 
 
 @pytest.mark.asyncio
@@ -28,7 +27,6 @@ async def test_create_batch(mocker, handler_instance, mock_sender, mock_session)
 
 @pytest.mark.asyncio
 async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session):
-    # Mock batch with edit_group_id
     mock_batch = mocker.MagicMock()
     mock_batch.id = 123
     mock_batch.edit_group_id = "abc123def456"
@@ -44,12 +42,12 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
             "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
         patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.register_user_queue"),
     ):
-        # Mock both delay and apply_async
-        mock_process_upload.delay = mocker.MagicMock()
-        mock_process_upload.apply_async = mocker.MagicMock()
+        mock_process_upload.apply_async = mocker.MagicMock(
+            return_value=MagicMock(id="task-1")
+        )
 
-        # Mock rate limiter to return privileged user (no delay)
         mock_get_rate_limit.return_value = RateLimitInfo(
             uploads_per_period=999, period_seconds=1
         )
@@ -71,19 +69,14 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        # Check that process_upload.apply_async was called once
         assert mock_process_upload.apply_async.call_count == 1
 
-        # Check the call arguments (apply_async uses kwargs)
         call_kwargs = mock_process_upload.apply_async.call_args[1]
-        assert call_kwargs["args"][0] == 1  # First arg is upload_id
-        assert len(call_kwargs["args"]) == 2  # Called with 2 args
-        assert isinstance(
-            call_kwargs["args"][1], str
-        )  # Second arg is edit_group_id string
-        assert len(call_kwargs["args"][1]) == 12  # edit_group_id is 12 characters
-        assert call_kwargs["args"][1] == "abc123def456"  # Uses batch's edit_group_id
-        assert call_kwargs["queue"] == QUEUE_NORMAL
+        assert call_kwargs["args"][0] == 1
+        assert len(call_kwargs["args"]) == 3
+        assert call_kwargs["args"][1] == "abc123def456"
+        assert call_kwargs["args"][2] == "user123"
+        assert call_kwargs["queue"] == "uploads-user123"
 
         mock_sender.send_upload_slice_ack.assert_called_once_with(
             data=[UploadSliceAckItem(id="img1", status="queued")], sliceid=0
@@ -94,7 +87,6 @@ async def test_upload_slice(mocker, handler_instance, mock_sender, mock_session)
 async def test_upload_slice_multiple_items(
     mocker, handler_instance, mock_sender, mock_session
 ):
-    # Mock batch with edit_group_id
     mock_batch = mocker.MagicMock()
     mock_batch.id = 123
     mock_batch.edit_group_id = "xyz789uvw012"
@@ -110,12 +102,12 @@ async def test_upload_slice_multiple_items(
             "curator.core.task_enqueuer.get_rate_limit_for_batch"
         ) as mock_get_rate_limit,
         patch("curator.core.task_enqueuer.get_next_upload_delay") as mock_get_delay,
+        patch("curator.core.task_enqueuer.register_user_queue"),
     ):
-        # Mock both delay and apply_async
-        mock_process_upload.delay = mocker.MagicMock()
-        mock_process_upload.apply_async = mocker.MagicMock()
+        mock_process_upload.apply_async = mocker.MagicMock(
+            return_value=MagicMock(id="task-1")
+        )
 
-        # Mock rate limiter to return privileged user (no delay)
         mock_get_rate_limit.return_value = RateLimitInfo(
             uploads_per_period=999, period_seconds=1
         )
@@ -144,17 +136,14 @@ async def test_upload_slice_multiple_items(
         await handler_instance.upload_slice(data)
 
         mock_create_reqs.assert_called_once()
-        # Verify process_upload.apply_async was called twice
         assert mock_process_upload.apply_async.call_count == 2
-        # Verify both calls have queue parameter and use batch's edit_group_id
         for call in mock_process_upload.apply_async.call_args_list:
-            assert call[1]["queue"] == QUEUE_NORMAL
-            assert call[1]["args"][1] == "xyz789uvw012"  # Uses batch's edit_group_id
+            assert call[1]["queue"] == "uploads-user123"
+            assert call[1]["args"][1] == "xyz789uvw012"
+            assert call[1]["args"][2] == "user123"
 
-        # Verify send_upload_slice_ack was called with data and sliceid
         mock_sender.send_upload_slice_ack.assert_called_once()
         call_args = mock_sender.send_upload_slice_ack.call_args
-        # Check both positional and keyword arguments
         if len(call_args[0]) > 0:
             data_arg = call_args[0][0]
         else:
