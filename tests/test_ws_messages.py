@@ -76,7 +76,9 @@ def test_ws_fetch_images(mock_mapillary_handler):
     )
 
     # Mock fetch_collection
-    mock_handler_instance.fetch_collection = AsyncMock(return_value=({"img1": image}, "TODO"))
+    mock_handler_instance.fetch_collection = AsyncMock(
+        return_value=({"img1": image}, "TODO")
+    )
 
     # Mock fetch_existing_pages
     mock_handler_instance.fetch_existing_pages.return_value = {"img1": []}
