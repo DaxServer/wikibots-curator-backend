@@ -276,7 +276,9 @@ class FlickrHandler(Handler):
             batch_data = await fetch_photos_batch(batch_ids, photoset_id, user_id)
             all_images.update(batch_data)
 
-        return {k: from_flickr(v, photoset_id) for k, v in all_images.items()}, photoset_id
+        return {
+            k: from_flickr(v, photoset_id) for k, v in all_images.items()
+        }, photoset_id
 
     async def fetch_collection_ids(self, input: str) -> list[str]:
         """Fetch only photo IDs from album"""

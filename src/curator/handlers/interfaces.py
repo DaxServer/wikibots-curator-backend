@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 from fastapi import Request, WebSocket
 
@@ -12,7 +12,9 @@ class Handler(ABC):
     def name(self) -> str: ...
 
     @abstractmethod
-    async def fetch_collection(self, input: str) -> Tuple[dict[str, MediaImage], str]: ...
+    async def fetch_collection(
+        self, input: str
+    ) -> Tuple[dict[str, MediaImage], str]: ...
 
     @abstractmethod
     async def fetch_image_metadata(

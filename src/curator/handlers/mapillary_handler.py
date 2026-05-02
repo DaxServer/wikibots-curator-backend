@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Optional, Union, Tuple
+from typing import Any, Optional, Tuple, Union
 from urllib.parse import parse_qs
 
 import httpx
