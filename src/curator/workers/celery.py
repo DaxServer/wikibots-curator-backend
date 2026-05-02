@@ -49,8 +49,8 @@ def cleanup_user_queue_if_empty(userid: str) -> None:
         with get_session() as session:
             if count_active_uploads_for_user(session, userid) == 0:
                 queue_name = f"{QUEUE_USER_PREFIX}{userid}"
-                redis_client.srem(ACTIVE_USER_QUEUES_KEY, queue_name)
-                app.control.cancel_consumer(queue_name, reply=False)
+                if redis_client.srem(ACTIVE_USER_QUEUES_KEY, queue_name) == 1:
+                    app.control.cancel_consumer(queue_name, reply=False)
     except Exception:
         logger.exception(f"[celery] Failed to clean up queue for user {userid}")
 

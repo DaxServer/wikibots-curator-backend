@@ -80,6 +80,7 @@ def test_task_postrun_skips_cleanup_for_other_tasks(mocker):
 
 def test_cleanup_user_queue_removes_when_empty(mocker):
     mock_redis = mocker.patch("curator.workers.celery.redis_client")
+    mock_redis.srem.return_value = 1
     mock_app = mocker.patch("curator.workers.celery.app")
     mocker.patch(
         "curator.workers.celery.count_active_uploads_for_user",

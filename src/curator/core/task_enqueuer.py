@@ -39,7 +39,7 @@ async def enqueue_uploads(
     )
 
     user_queue = f"{QUEUE_USER_PREFIX}{userid}"
-    register_user_queue(userid)
+    await asyncio.to_thread(register_user_queue, userid)
 
     enqueued_task_ids: list[str] = []
     upload_id_to_task_id: dict[int, str] = {}
@@ -47,7 +47,8 @@ async def enqueue_uploads(
     for upload_id in upload_ids:
         delay = await asyncio.to_thread(get_next_upload_delay, userid, rate_limit)
 
-        task_result = process_upload.apply_async(
+        task_result = await asyncio.to_thread(
+            process_upload.apply_async,
             args=[upload_id, edit_group_id, userid],
             countdown=delay,
             queue=user_queue,
