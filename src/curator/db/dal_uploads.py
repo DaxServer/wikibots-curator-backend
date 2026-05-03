@@ -57,8 +57,8 @@ def _to_batch_upload_item(u: UploadRequest) -> BatchUploadItem:
         result=u.result,
         error=u.error,
         success=u.success,
-        created_at=u.created_at.isoformat() if u.created_at else None,
-        updated_at=u.updated_at.isoformat() if u.updated_at else None,
+        created_at=u.created_at.isoformat() + "Z" if u.created_at else None,
+        updated_at=u.updated_at.isoformat() + "Z" if u.updated_at else None,
         image_id=u.key,
     )
 
@@ -606,7 +606,7 @@ def get_failed_uploads_grouped(
         row[0]: {
             "batch": {
                 "id": row[0],
-                "createdAt": row[1].isoformat(),
+                "createdAt": row[1].isoformat() + "Z",
                 "editGroupId": row[2],
                 "handler": row[5],
                 "failedCount": row[6],
@@ -635,7 +635,7 @@ def get_failed_uploads_grouped(
                 "handler": upload.handler,
                 "status": upload.status,
                 "error": upload.error.model_dump() if upload.error else None,
-                "createdAt": upload.created_at.isoformat(),
+                "createdAt": upload.created_at.isoformat() + "Z",
                 "errorType": categorize_error(upload.error),
             }
         )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Union
 
 from pydantic import BaseModel, TypeAdapter
@@ -14,6 +14,12 @@ from curator.asyncapi import (
     Label,
     TitleBlacklistedError,
 )
+
+
+def _utcnow() -> datetime:
+    """Return current UTC time as a naive datetime."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 StructuredError = Union[
     DuplicateError,
@@ -87,9 +93,9 @@ class User(SQLModel, table=True):
 
     userid: str = Field(primary_key=True, max_length=255)
     username: str = Field(index=True, max_length=255)
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(
-        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+        default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow}
     )
 
     batches: list["Batch"] = Relationship(back_populates="user")
@@ -115,9 +121,9 @@ class Preset(SQLModel, table=True):
     categories: Optional[str] = Field(default=None, max_length=500)
     exclude_from_date_category: bool = Field(default=False)
     is_default: bool = Field(default=False, index=True)
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(
-        default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now}
+        default_factory=_utcnow, sa_column_kwargs={"onupdate": _utcnow}
     )
 
     user: Optional[User] = Relationship(back_populates="presets")
@@ -130,11 +136,11 @@ class Batch(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     userid: str = Field(foreign_key="users.userid", index=True, max_length=255)
     edit_group_id: str | None = Field(default=None, max_length=12)
-    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    created_at: datetime = Field(default_factory=_utcnow, index=True)
     updated_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=_utcnow,
         index=True,
-        sa_column_kwargs={"onupdate": datetime.now},
+        sa_column_kwargs={"onupdate": _utcnow},
     )
 
     user: Optional[User] = Relationship(back_populates="batches")
@@ -167,11 +173,11 @@ class UploadRequest(SQLModel, table=True):
     )
     success: Optional[str] = Field(default=None, sa_column=Column(Text))
     celery_task_id: Optional[str] = Field(default=None, max_length=255)
-    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    created_at: datetime = Field(default_factory=_utcnow, index=True)
     updated_at: datetime = Field(
-        default_factory=datetime.now,
+        default_factory=_utcnow,
         index=True,
-        sa_column_kwargs={"onupdate": datetime.now},
+        sa_column_kwargs={"onupdate": _utcnow},
     )
 
     user: Optional[User] = Relationship(

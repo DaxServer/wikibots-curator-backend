@@ -48,16 +48,12 @@ def test_get_upload_request_by_id_not_found(mocker, mock_session):
 def test_get_batch(mocker, mock_session):
     """Test that get_batch works with integer ID"""
     # Create a mock Batch with proper attributes
-    mock_datetime = mocker.MagicMock()
-    mock_datetime.isoformat.return_value = "2023-01-01T00:00:00"
-    mock_datetime.isoformat.return_value = "2023-01-01T00:00:00"
-
     mock_batch = mocker.MagicMock()
     mock_batch.id = 789
     mock_batch.userid = "user123"
     mock_batch.name = "Test Batch"
-    mock_batch.created_at.astimezone.return_value = mock_datetime
-    mock_batch.updated_at.astimezone.return_value = mock_datetime
+    mock_batch.created_at.isoformat.return_value = "2023-01-01T00:00:00"
+    mock_batch.updated_at.isoformat.return_value = "2023-01-01T00:00:00"
     mock_batch.edit_group_id = None
 
     # Create mock user
