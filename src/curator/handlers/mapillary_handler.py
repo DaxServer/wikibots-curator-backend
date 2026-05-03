@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, Tuple, Union
 from urllib.parse import parse_qs
 
@@ -83,12 +83,12 @@ def from_mapillary(image: dict[str, Any]) -> MediaImage:
         is_pano=bool(image.get("is_pano")),
     )
 
-    dt = datetime.fromtimestamp(captured_at / 1000.0)
+    dt = datetime.fromtimestamp(captured_at // 1000.0)
     date = dt.date().isoformat()
     return MediaImage(
         id=str(image.get("id")),
         title=f"Photo from Mapillary {date} ({str(image.get('id'))}).jpg",
-        dates=Dates(taken=dt.isoformat()),
+        dates=Dates(taken=dt.astimezone(timezone.utc).isoformat()),
         creator=creator,
         location=loc,
         urls=urls,

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import String, case
@@ -32,8 +32,8 @@ def _to_batch_item(batch_obj: Batch, username: str | None) -> BatchItem:
     """Convert a Batch row to a BatchItem with empty stats."""
     return BatchItem(
         id=batch_obj.id,
-        created_at=batch_obj.created_at.isoformat(),
-        updated_at=batch_obj.updated_at.isoformat(),
+        created_at=batch_obj.created_at.astimezone(timezone.utc).isoformat(),
+        updated_at=batch_obj.updated_at.astimezone(timezone.utc).isoformat(),
         edit_group_id=batch_obj.edit_group_id,
         username=username or "Unknown",
         userid=batch_obj.userid,
