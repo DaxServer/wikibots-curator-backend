@@ -65,7 +65,6 @@ from curator.db.dal_uploads import (
 from curator.db.dal_users import ensure_user
 from curator.db.engine import get_session
 from curator.db.models import Batch, Preset, UploadItem, UploadStatus
-from curator.handlers.flickr_handler import FlickrHandler
 from curator.handlers.interfaces import Handler as BaseHandler
 from curator.handlers.mapillary_handler import MapillaryHandler
 from curator.mediawiki.client import MediaWikiClient
@@ -80,10 +79,8 @@ logger = logging.getLogger(__name__)
 
 def get_handler_for_handler_type(
     handler: ImageHandler,
-) -> FlickrHandler | MapillaryHandler:
+) -> MapillaryHandler:
     """Return the appropriate handler based on ImageHandler enum"""
-    if handler == ImageHandler.FLICKR:
-        return FlickrHandler()
     return MapillaryHandler()
 
 

@@ -37,7 +37,6 @@ TOKEN_ENCRYPTION_KEY = os.environ.get(
 SESSION_SECRET_KEY = os.environ.get("SESSION_SECRET_KEY", secrets.token_hex(32))
 WCQS_OAUTH_TOKEN = os.getenv("WCQS_OAUTH_TOKEN", "WCQS_OAUTH_TOKEN")
 MAPILLARY_API_TOKEN = os.getenv("MAPILLARY_API_TOKEN", "MAPILLARY_API_TOKEN")
-FLICKR_API_KEY = os.getenv("FLICKR_API_KEY", "FLICKR_API_KEY")
 
 _REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 _REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
