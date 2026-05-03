@@ -72,8 +72,6 @@ def make_quantity_snak(prop: str, amount: float, unit_id: str) -> QuantityValueS
         datavalue=QuantityDataValue(
             value=DataValueQuantity(
                 amount=f"+{amount}",
-                upper_bound=None,
-                lower_bound=None,
                 unit=f"http://www.wikidata.org/entity/{unit_id}",
             )
         ),
