@@ -46,12 +46,6 @@ def mock_mapillary_handler():
         yield mock
 
 
-@pytest.fixture
-def mock_flickr_handler():
-    with patch("curator.core.handler.FlickrHandler") as mock:
-        yield mock
-
-
 def test_ws_fetch_images(mock_mapillary_handler):
     mock_handler_instance = mock_mapillary_handler.return_value
 
@@ -114,23 +108,6 @@ def test_ws_fetch_images_not_found(mock_mapillary_handler):
         data = websocket.receive_json()
         assert data["type"] == "ERROR"
         assert data["data"] == "Collection not found"
-
-
-def test_ws_fetch_images_flickr(mock_flickr_handler):
-    """Test that FETCH_IMAGES with handler=flickr uses FlickrHandler, not MapillaryHandler."""
-    mock_handler_instance = mock_flickr_handler.return_value
-    mock_handler_instance.fetch_collection = AsyncMock(return_value=({}, "TODO"))
-
-    with client.websocket_connect(WS_CHANNEL_ADDRESS) as websocket:
-        websocket.send_json(
-            {"type": "FETCH_IMAGES", "data": "some_collection", "handler": "flickr"}
-        )
-
-        data = websocket.receive_json()
-        assert data["type"] == "ERROR"
-        assert data["data"] == "Collection not found"
-
-    mock_flickr_handler.assert_called_once()
 
 
 def test_ws_fetch_presets():

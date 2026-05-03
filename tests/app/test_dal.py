@@ -149,7 +149,7 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
     mock_failed_upload2.userid = "user1"
     mock_failed_upload2.status = "failed"
     mock_failed_upload2.key = "img_key_2"
-    mock_failed_upload2.handler = "flickr"
+    mock_failed_upload2.handler = "mapillary"
     mock_failed_upload2.collection = "album456"
     mock_failed_upload2.filename = "Test_file_2.jpg"
     mock_failed_upload2.wikitext = "== {{int:filedesc}} =="
@@ -225,7 +225,7 @@ def test_reset_failed_uploads_to_new_batch_copies_uploads(mocker, mock_session):
 
     upload2 = created_uploads[1]
     assert upload2.key == "img_key_2"
-    assert upload2.handler == "flickr"
+    assert upload2.handler == "mapillary"
     assert upload2.collection == "album456"
     assert upload2.filename == "Test_file_2.jpg"
     assert upload2.copyright_override is False
@@ -257,7 +257,7 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
     mock_upload2.userid = "other_user"
     mock_upload2.status = "failed"
     mock_upload2.key = "img_key_2"
-    mock_upload2.handler = "flickr"
+    mock_upload2.handler = "mapillary"
     mock_upload2.collection = "album456"
     mock_upload2.filename = "Test_file_2.jpg"
     mock_upload2.wikitext = "== more wikitext =="
@@ -334,7 +334,7 @@ def test_retry_selected_uploads_to_new_batch_copies_uploads(mocker, mock_session
 
     upload2 = created_uploads[1]
     assert upload2.key == "img_key_2"
-    assert upload2.handler == "flickr"
+    assert upload2.handler == "mapillary"
     assert upload2.filename == "Test_file_2.jpg"
     assert upload2.copyright_override is False
 

@@ -6,4 +6,3 @@ from enum import Enum
 
 class ImageHandler(Enum):
     MAPILLARY = "mapillary"
-    FLICKR = "flickr"
