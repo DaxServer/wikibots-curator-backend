@@ -1,4 +1,4 @@
-name: Ruff Check
+name: Ty Check
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  ruff-check:
+  ty-check:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,5 +25,5 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --with dev
 
-      - name: Run Ruff check
-        run: poetry run ruff check --exclude src/curator/asyncapi src
+      - name: Run Ty check
+        run: poetry run ty check
