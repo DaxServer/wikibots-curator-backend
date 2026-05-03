@@ -561,8 +561,8 @@ class Handler:
                     exclude_from_date_category=p.exclude_from_date_category,
                     handler=p.handler,
                     is_default=p.is_default,
-                    created_at=p.created_at.isoformat(),
-                    updated_at=p.updated_at.isoformat(),
+                    created_at=p.created_at.isoformat() + "Z",
+                    updated_at=p.updated_at.isoformat() + "Z",
                 )
                 for p in presets
             ]
