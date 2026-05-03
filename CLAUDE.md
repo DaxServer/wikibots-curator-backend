@@ -91,6 +91,7 @@ Redis = Celery **broker** + **result backend**. Redis restart destroys in-flight
 ### SDC Key Mapping Pattern
 - Auto-generated AsyncAPI models use kebab-case aliases (e.g., `entity-type`, `numeric-id`)
 - DAL's `_fix_sdc_keys()` recursively maps snake_case to kebab-case for DB storage
+- **Pydantic aliased fields + ty**: `ty` resolves constructor params by alias, not Python field name — even with `populate_by_name=True`. Omit optional aliased fields instead of passing `field=None`; use alias when explicitly passing.
 
 ### Commons Replica Database
 

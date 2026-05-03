@@ -145,8 +145,6 @@ def _create_quantity_snak(
         datavalue=QuantityDataValue(
             value=DataValueQuantity(
                 amount=f"+{amount}",
-                upper_bound=None,
-                lower_bound=None,
                 unit=f"http://www.wikidata.org/entity/{unit_item_id}",
             )
         ),
